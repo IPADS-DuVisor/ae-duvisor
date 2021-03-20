@@ -34,4 +34,4 @@ logs, and code as it's tough to read otherwise.)
 
 (If any comes to your mind)
 
-/label ~bug
+/label ~Issue-bug
