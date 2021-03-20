@@ -1,0 +1,10 @@
+# two stages to be added qemu, kernel
+stages:
+    - ulh_test
+
+ulh_test:
+    stage: ulh_test
+    script:
+        - ./scripts/expect_wrapper.sh ./scripts/ulh_test.exp
+    only:
+        - merge_requests

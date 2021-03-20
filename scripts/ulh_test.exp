@@ -1,0 +1,70 @@
+#!/usr/bin/expect -f
+
+proc do_console_login { login pass } {
+    set login_helper 4
+
+    expect {
+        "Enter choice:" { 
+            send "1\n" 
+            exp_continue
+        }
+        "login:" {
+            set login_helper [expr {$login_helper - 1}]
+            if {$login_helper == 0} {
+                send "$login\n"
+            } else {
+                send "\n"
+            }
+            exp_continue
+        }
+        "Password:" { 
+            send "$pass\n" 
+            exp_continue
+        }
+        "ubuntu@ubuntu:~\\\$" {
+            puts "log in successfully!!\n"
+        }
+        timeout {
+            exit -1
+        }
+    }
+}
+set timeout 180
+
+exec ./scripts/copy_ulh_to_vm.sh
+
+spawn bash -c "./scripts/boot.sh"
+
+do_console_login "ubuntu" "ipads123"
+
+send "cd laputa && sudo cargo test && echo 'ALL' 'TEST' 'PASSED'\n"
+expect {
+    "test failed" {
+        exit -1
+    }
+    "ALL TEST PASSED" {
+
+    }
+    timeout {
+        exit -1
+    }
+}
+
+expect "ubuntu@ubuntu:~/laputa\\\$"
+
+send "sudo cargo run\n"
+expect {
+    "Hello from laputa" {
+        
+    }
+    timeout {
+        -1
+    }
+}
+
+send "\001x\n"
+expect {
+    eof
+}
+
+puts "Test OK"
