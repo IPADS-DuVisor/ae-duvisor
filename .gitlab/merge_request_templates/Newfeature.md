@@ -6,7 +6,7 @@ If your Merge Request is ready to review, please set the assignee
 and remove the WIP tag.
 -->
 
-/label ~"MR-enhancement"
+/label ~"MR-newfeature"
 
 ## Rationale
 
