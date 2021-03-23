@@ -1,22 +1,5 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn unit_test_example() {
-        assert_eq!(2 + 2, 4);
-    }
-
-    #[test]
-    fn test_simple_add() {
-        use crate::simple_add;
-        assert_eq!(5, simple_add(2, 3));
-    }
-}
-
-pub fn simple_add(value1: i32, value2 :i32) -> i32 {
-    value1 + value2
-}
-
 use std::fs;
+use std::path::Path;
 
 #[macro_use]
 extern crate clap;
@@ -54,7 +37,7 @@ impl VMConfig {
                 Err(_e) => return Err("Failed to read vm_config file"),
             };
 
-            if let Err(e) = parse_vm_config_file(&vm_config_contents,
+            if let Err(e) = VMConfig::parse_vm_config_file(&vm_config_contents,
                                                          &vm_config) {
                 return Err(e);
             }
@@ -101,29 +84,183 @@ impl VMConfig {
 
         Ok(vm_config)
     }
-}
 
-/*
- * Parsing vm configs from the config file
- * All existing arguments in vm_config struct will be overwritten.
- */
-pub fn parse_vm_config_file(contents: &String,
-                            vm_config: &VMConfig) -> Result<(), &'static str>{
-    Ok(())
-}
-
-/*
- * Check whether arguments in vm_config is legal or not.
- */
-fn verify_args(vm_config: &VMConfig) -> bool {
-
-    true
-}
-
-pub fn run(config: &VMConfig) -> Result<(), &'static str> {
-    if verify_args(&config) {
-        return Err("Encounter illegal arguments");
+    /*
+     * Parsing vm configs from the config file
+     * All existing arguments in vm_config struct will be overwritten.
+     */
+    fn parse_vm_config_file(contents: &String,
+                                vm_config: &VMConfig) -> Result<(), &'static str>{
+        Ok(())
     }
 
-    Ok(())
+    /*
+     * Check whether arguments in vm_config are legal or not.
+     */
+    pub fn verify_args(vm_config: &VMConfig) -> bool {
+        if vm_config.vcpu_count == 0 || vm_config.vcpu_count > 8 {
+            return false;
+        }
+
+        if vm_config.mem_size == 0 || vm_config.mem_size > 4096 {
+            return false;
+        }
+
+        if vm_config.machine_type != "laputa_virt" {
+            return false;
+        }
+
+        if !Path::new(&vm_config.kernel_img_path).is_file() {
+            return false;
+        }
+
+        if vm_config.initrd_path.len() != 0 {
+            if !Path::new(&vm_config.initrd_path).is_file() {
+                return false;
+            }
+        }
+
+        if vm_config.dtb_path.len() != 0 {
+            if !Path::new(&vm_config.dtb_path).is_file() {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+pub fn run(config: &VMConfig) {
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_verify_args_normal() {
+        let vm_config = VMConfig {
+            vcpu_count: 2,
+            mem_size: 20,
+            machine_type: String::from("laputa_virt"),
+            kernel_img_path: String::from("unitestfiles/unitest_kernel"),
+            initrd_path: String::from(""),
+            dtb_path: String::from(""),
+        };
+
+        assert_eq!(VMConfig::verify_args(&vm_config), true);
+    }
+
+    #[test]
+    fn test_verify_args_vcpu_count_large_value() {
+        let vm_config = VMConfig {
+            vcpu_count: 1024,
+            mem_size: 20,
+            machine_type: String::from("laputa_virt"),
+            kernel_img_path: String::from("unitestfiles/unitest_kernel"),
+            initrd_path: String::from(""),
+            dtb_path: String::from(""),
+        };
+
+        assert_eq!(VMConfig::verify_args(&vm_config), false);
+    }
+
+    #[test]
+    fn test_verify_args_vcpu_count_zero() {
+        let vm_config = VMConfig {
+            vcpu_count: 0,
+            mem_size: 20,
+            machine_type: String::from("laputa_virt"),
+            kernel_img_path: String::from("unitestfiles/unitest_kernel"),
+            initrd_path: String::from(""),
+            dtb_path: String::from(""),
+        };
+
+        assert_eq!(VMConfig::verify_args(&vm_config), false);
+    }
+
+    #[test]
+    fn test_verify_args_mem_large_value() {
+        let vm_config = VMConfig {
+            vcpu_count: 4,
+            mem_size: 5000,
+            machine_type: String::from("laputa_virt"),
+            kernel_img_path: String::from("unitestfiles/unitest_kernel"),
+            initrd_path: String::from(""),
+            dtb_path: String::from(""),
+        };
+
+        assert_eq!(VMConfig::verify_args(&vm_config), false);
+    }
+
+    #[test]
+    fn test_verify_args_mem_zero() {
+        let vm_config = VMConfig {
+            vcpu_count: 4,
+            mem_size: 0,
+            machine_type: String::from("laputa_virt"),
+            kernel_img_path: String::from("unitestfiles/unitest_kernel"),
+            initrd_path: String::from(""),
+            dtb_path: String::from(""),
+        };
+
+        assert_eq!(VMConfig::verify_args(&vm_config), false);
+    }
+
+    #[test]
+    fn test_verify_args_type_invalid() {
+        let vm_config = VMConfig {
+            vcpu_count: 4,
+            mem_size: 1024,
+            machine_type: String::from("laputa_virt2"),
+            kernel_img_path: String::from("unitestfiles/unitest_kernel"),
+            initrd_path: String::from(""),
+            dtb_path: String::from(""),
+        };
+
+        assert_eq!(VMConfig::verify_args(&vm_config), false);
+    }
+
+    #[test]
+    fn test_verify_args_kernel_img_not_exist() {
+        let vm_config = VMConfig {
+            vcpu_count: 4,
+            mem_size: 1024,
+            machine_type: String::from("laputa_virt"),
+            kernel_img_path: String::from("err_unitest_kernel"),
+            initrd_path: String::from(""),
+            dtb_path: String::from(""),
+        };
+
+        assert_eq!(VMConfig::verify_args(&vm_config), false);
+    }
+
+    #[test]
+    fn test_verify_args_initrd_invalid() {
+        let vm_config = VMConfig {
+            vcpu_count: 4,
+            mem_size: 1024,
+            machine_type: String::from("laputa_virt"),
+            kernel_img_path: String::from("unitestfiles/unitest_kernel"),
+            initrd_path: String::from("err_initrd"),
+            dtb_path: String::from(""),
+        };
+
+        assert_eq!(VMConfig::verify_args(&vm_config), false);
+    }
+
+    #[test]
+    fn test_verify_args_dtb_invalid() {
+        let vm_config = VMConfig {
+            vcpu_count: 4,
+            mem_size: 1024,
+            machine_type: String::from("laputa_virt"),
+            kernel_img_path: String::from("unitestfiles/unitest_kernel"),
+            initrd_path: String::from(""),
+            dtb_path: String::from("err_dtb"),
+        };
+
+        assert_eq!(VMConfig::verify_args(&vm_config), false);
+    }
 }
