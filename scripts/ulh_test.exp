@@ -31,6 +31,9 @@ proc do_console_login { login pass } {
 }
 set timeout 180
 
+# make sure previous operation release ubuntu image lock
+sleep 5
+
 spawn bash -c "./scripts/boot.sh"
 
 do_console_login "ubuntu" "ipads123"
