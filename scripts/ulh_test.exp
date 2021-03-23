@@ -31,13 +31,11 @@ proc do_console_login { login pass } {
 }
 set timeout 180
 
-exec ./scripts/copy_ulh_to_vm.sh
-
 spawn bash -c "./scripts/boot.sh"
 
 do_console_login "ubuntu" "ipads123"
 
-send "cd laputa && sudo cargo test && echo 'ALL' 'TEST' 'PASSED'\n"
+send "cd laputa && ./run_tests.sh\n"
 expect {
     "test failed" {
         exit -1
@@ -50,9 +48,10 @@ expect {
     }
 }
 
+# update to test more functions
 expect "ubuntu@ubuntu:~/laputa\\\$"
 
-send "sudo cargo run\n"
+send "./laputa\n"
 expect {
     "Hello from laputa" {
         
