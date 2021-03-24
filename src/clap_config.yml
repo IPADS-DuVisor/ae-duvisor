@@ -11,24 +11,37 @@ args:
         long: machine
         value_name: MACHINE
         help: Sets the machine type of this virtual machine
+        possible_values: [ laputa_virt, test_type]
+        conflicts_with:
+            - vm_config
     - smp:
         long: smp
         value_name: SMP
         help: Sets the number of virtual CPUs
+        conflicts_with:
+            - vm_config
     - memory:
         long: memory
         value_name: MEMORY
         help: Sets the memory size of this virtual machine (in MegaBytes)
+        conflicts_with:
+            - vm_config
     - kernel:
         long: kernel
         value_name: KERNEL_IMAGE_PATH
         help: Sets the path of a kernel image file
+        conflicts_with:
+            - vm_config
     - dtb:
         long: dtb
         value_name: DTB
         help: Sets the path of a dtb file
+        conflicts_with:
+            - vm_config
     - initrd:
         long: initrd
         value_name: INITRD
         help: Sets the path of an initrd file
+        conflicts_with:
+            - vm_config
 

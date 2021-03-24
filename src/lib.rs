@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use colored::*;
 
 #[macro_use]
 extern crate clap;
@@ -50,20 +51,20 @@ impl VMConfig {
             // Get vcpu count
             vm_config.vcpu_count = value_t!(matches.value_of("smp"), u32).unwrap_or(0);
             if vm_config.vcpu_count == 0 {
-                return Err("Error: please provide vcpu count by using --smp or config files.");
+                return Err("please set vcpu count by using --smp or config files.");
             }
 
             // Get memory size
             vm_config.mem_size = value_t!(matches.value_of("memory"), u32).unwrap_or(0);
             if vm_config.mem_size == 0 {
-                return Err("Error: please provide memory size by using --memory or config files.");
+                return Err("please set memory size by using --memory or config files.");
             }
 
             // Get kernel_image_path 
             if matches.is_present("kernel") {
                 vm_config.kernel_img_path = matches.value_of("kernel").unwrap().to_string();
             } else {
-                return Err("Error: please provide kernel image by using --kernel or config files.");
+                return Err("please set kernel image by using --kernel or config files.");
             }
 
             // Get dtb_path 
@@ -110,18 +111,25 @@ impl VMConfig {
             return false;
         }
 
+        println!("sdadsadsd");
         if !Path::new(&vm_config.kernel_img_path).is_file() {
+            eprintln!("{}, failed to open kernel file {}",
+                      "error:".bright_red(), vm_config.kernel_img_path);
             return false;
         }
 
         if vm_config.initrd_path.len() != 0 {
             if !Path::new(&vm_config.initrd_path).is_file() {
+                eprintln!("{}, failed to open initrd file {}",
+                          "error:".bright_red(), vm_config.initrd_path);
                 return false;
             }
         }
 
         if vm_config.dtb_path.len() != 0 {
             if !Path::new(&vm_config.dtb_path).is_file() {
+                eprintln!("{}, failed to open dtb file {}",
+                          "error:".bright_red(), vm_config.dtb_path);
                 return false;
             }
         }
@@ -131,8 +139,8 @@ impl VMConfig {
 }
 
 pub fn run(config: &VMConfig) {
+    println!("running...");
 }
-
 
 #[cfg(test)]
 mod tests {
