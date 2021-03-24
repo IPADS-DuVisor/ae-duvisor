@@ -41,6 +41,7 @@ spawn bash -c "./scripts/boot.sh"
 
 do_console_login "ubuntu" "ipads123"
 
+# Run unit tests and integration tests
 send "cd laputa && ./run_tests.sh\n"
 expect {
     "test failed" {

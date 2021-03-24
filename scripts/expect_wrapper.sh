@@ -17,4 +17,3 @@ else
         cat ./exec_log | tr "\r" "\n"
         exit -1
 fi
-

@@ -1,11 +1,16 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn unit_test_example() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+use std::process;
+use colored::*;
+use laputa::init::cmdline;
 
 fn main() {
-    println!("Hello from laputa!");
+    let vm_config = cmdline::VMConfig::new().unwrap_or_else(|err| {
+        eprintln!("{}: {}", "error".bright_red(), err);
+        process::exit(1);
+    });
+
+    if !cmdline::VMConfig::verify_args(&vm_config) {
+        process::exit(1);
+    } 
+
+    laputa::run(&vm_config); 
 }
