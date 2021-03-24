@@ -5,7 +5,7 @@ stages:
 ulh_test:
     stage: laputa_test
     script:
-        - ./scripts/copy_ulh_to_vm.sh
+        - ./scripts/copy_laputa_to_vm.sh
         - ./scripts/expect_wrapper.sh ./scripts/laputa_test.exp
     only:
         - merge_requests
