@@ -1,6 +1,6 @@
 #!/bin/bash
 ret=0
-for file in ./tests/*; do
+for file in ./tests_bin/*; do
     echo $file
     ./$file
     if [ $? -ne 0 ];

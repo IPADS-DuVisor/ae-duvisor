@@ -8,7 +8,7 @@ sudo rm -f ./exec_log
 
 # Execute expect
 echo $1
-$1 > exec_log
+script -q -c "./$1" exec_log
 
 # Check Return value
 if [ $? -eq 0 ]; then
