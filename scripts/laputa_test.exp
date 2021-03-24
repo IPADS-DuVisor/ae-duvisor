@@ -29,6 +29,9 @@ proc do_console_login { login pass } {
         }
     }
 }
+
+source [file join [file dirname $argv0] laputa_test_main.tcl]
+
 set timeout 180
 
 # make sure previous operation release ubuntu image lock
@@ -51,18 +54,7 @@ expect {
     }
 }
 
-# update to test more functions
-expect "ubuntu@ubuntu:~/laputa\\\$"
-
-send "./laputa\n"
-expect {
-    "Hello from laputa" {
-        
-    }
-    timeout {
-        -1
-    }
-}
+main_test
 
 send "\001x\n"
 expect {

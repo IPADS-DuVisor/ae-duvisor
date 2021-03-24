@@ -1,11 +1,11 @@
 # two stages to be added qemu, kernel
 stages:
-    - ulh_test
+    - laputa_test
 
 ulh_test:
-    stage: ulh_test
+    stage: laputa_test
     script:
         - ./scripts/copy_ulh_to_vm.sh
-        - ./scripts/expect_wrapper.sh ./scripts/ulh_test.exp
+        - ./scripts/expect_wrapper.sh ./scripts/laputa_test.exp
     only:
         - merge_requests
