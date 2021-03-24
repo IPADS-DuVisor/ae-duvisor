@@ -55,42 +55,7 @@ expect {
     }
 }
 
-<<<<<<< HEAD:scripts/ulh_test.exp
-# Test the binary
-expect "ubuntu@ubuntu:~/laputa\\\$"
-
-send "./laputa --smp 4\n"
-expect {
-    "Error: please provide memory size by using --memory or config files." {
-        
-    }
-    timeout {
-        -1
-    }
-}
-
-send "./laputa --memory 128\n"
-expect {
-    "Error: please provide vcpu count by using --smp or config files." {
-        
-    }
-    timeout {
-        -1
-    }
-}
-
-send "./laputa --smp 4 --memory 128\n"
-expect {
-    "Error: please provide kernel image by using --kernel or config files." {
-        
-    }
-    timeout {
-        -1
-    }
-}
-=======
 main_test
->>>>>>> 4ab60c76ea656b08cca8dadcff95157567d87fc4:scripts/laputa_test.exp
 
 send "\001x\n"
 expect {
