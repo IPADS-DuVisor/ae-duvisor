@@ -6,9 +6,11 @@ for file in ./tests/*; do
     if [ $? -ne 0 ];
     then
 	    ret=-1
+        break
     fi
     echo $ret
 done
+
 if [ "$ret" -ne 0 ]; 
 then 
     echo "test failed"; 
