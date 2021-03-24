@@ -3,4 +3,4 @@ qemu-system-riscv64 \
 -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.elf \
 -kernel /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf \
 -device virtio-net-device,netdev=eth0 -netdev user,id=eth0 \
--drive file=~/ubuntu-20.04.2-preinstalled-server-riscv64.img,format=raw,if=virtio 
+-drive file=~/ubuntu-20.04.2-preinstalled-server-riscv64.qcow2,format=qcow2,if=virtio 
