@@ -76,11 +76,6 @@ impl VMConfig {
             }
         }
 
-        println!("machine_type = {}, smp = {}, mem_size = {}, kernel_img_path = {}, dtb_path = {}, initrd_path = {}",
-                 vm_config.machine_type,
-                 vm_config.vcpu_count, vm_config.mem_size,
-                 vm_config.kernel_img_path, vm_config.dtb_path, vm_config.initrd_path);
-
         Ok(vm_config)
     }
 
