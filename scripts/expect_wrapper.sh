@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Remove log
 sudo rm -f ./exec_log
@@ -8,10 +8,11 @@ sudo rm -f ./exec_log
 
 # Execute expect
 echo $1
-script -q -c "./$1" exec_log
+$1 | tee exec_log | tr "\r" "\n"
 
+if [ ${PIPESTATUS[0]} -eq 0 ]; then echo 456; else echo 789; fi
 # Check Return value
-if [ $? -eq 0 ]; then
+if [ ${PIPESTATUS[0]} -eq 0 ]; then
         cat ./exec_log | tr "\r" "\n"
 else
         cat ./exec_log | tr "\r" "\n"
