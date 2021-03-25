@@ -4,28 +4,28 @@ proc main_test { } {
 
     send "./laputa --smp 4\n"
     expect {
-            "Error: please provide memory size by using --memory or config files." {
+            "please set memory size by using --memory or config files." {
         }
         timeout {
-            -1
+            exit -1
         }
     }
 
     send "./laputa --memory 128\n"
     expect {
-            "Error: please provide vcpu count by using --smp or config files." {
+            "please set vcpu count by using --smp or config files." {
         }
         timeout {
-            -1
+            exit -1
         }
     }
 
     send "./laputa --smp 4 --memory 128\n"
     expect {
-            "Error: please provide kernel image by using --kernel or config files." {
+            "please set kernel image by using --kernel or config files." {
         }
         timeout {
-            -1
+            exit -1
         }
     }
 }

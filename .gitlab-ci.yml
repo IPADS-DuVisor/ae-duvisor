@@ -2,10 +2,12 @@
 stages:
     - laputa_test
 
-ulh_test:
+laputa_test:
     stage: laputa_test
     script:
         - ./scripts/copy_laputa_to_vm.sh
         - ./scripts/expect_wrapper.sh ./scripts/laputa_test.exp
     only:
         - merge_requests
+        - web
+        - schedules
