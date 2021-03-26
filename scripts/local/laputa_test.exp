@@ -1,0 +1,23 @@
+#!/usr/bin/expect -f
+source [file join [file dirname $argv0] ../laputa_test_main.tcl]
+
+set timeout 180
+
+spawn bash -c "ssh -p 2333 ubuntu@localhost"
+
+send "cd laputa && ./run_tests.sh\n"
+expect {
+    "test failed" {
+        exit -1
+    }
+    "ALL TEST PASSED" {
+
+    }
+    timeout {
+        exit -1
+    }
+}
+
+main_test
+
+puts "Test OK"
