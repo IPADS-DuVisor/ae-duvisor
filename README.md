@@ -7,21 +7,13 @@ All the passwords is ***ipads123***
 ```
 
 ## Build qemu and linux kernel
-For the first time， you should run the scripts with "configure", which will configure qemu. After that, when you change qemu code, you should run the scripts without "configure".
-
-For the first time:
-```
-./scripts/local/docker_build_qemu.sh configure
-./scripts/local/docker_build_linux.sh configure
-```
-
-Not the first time:
 ```
 ./scripts/local/docker_build_qemu.sh
 ./scripts/local/docker_build_linux.sh
 ```
 
 ***TODO: Right now， it just builds linux and does nothing else. Later on, it should copy the built linux kernel image into ubuntu.***
+
 ## Boot
 Username: ubuntu
 

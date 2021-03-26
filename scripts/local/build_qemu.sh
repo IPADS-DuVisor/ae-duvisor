@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ "x$1" != "x" ] && [ $1 == "configure" ]; then
+if [ ! -d "./build" ]; then
     ./configure --target-list=riscv64-softmmu
 fi
 
