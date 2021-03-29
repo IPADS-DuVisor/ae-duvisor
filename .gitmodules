@@ -1,0 +1,6 @@
+[submodule "qemu-laputa"]
+	path = qemu-laputa
+	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/qemu-laputa.git
+[submodule "linux-laputa"]
+	path = linux-laputa
+	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/linux-laputa.git
