@@ -13,3 +13,11 @@ and remove the WIP tag.
 <!--
 Please describe what is done in this Merge Request.
 -->
+
+## Related Jira Task URL
+
+<!--
+Please give the URL of the Jira Task that is related to this MR.
+-->
+
+Not related to a Jira Task.
