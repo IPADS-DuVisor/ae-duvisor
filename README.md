@@ -8,11 +8,20 @@ All the passwords is ***ipads123***
 
 ## Build qemu and linux kernel
 ```
-./scripts/local/docker_build_qemu.sh
-./scripts/local/docker_build_linux.sh
+./qemu-laputa/scripts-laputa/local/docker_build_qemu.sh
+./linux-laputa/scripts-laputa/local/docker_build_linux.sh
 ```
 
 ***TODO: Right now， it just builds linux and does nothing else. Later on, it should copy the built linux kernel image into ubuntu.***
+
+## Test qemu and linux kernel
+```
+./qemu-laputa/scripts-laputa/local/docker_test_qemu.sh
+./linux-laputa/scripts-laputa/local/docker_test_linux.sh
+```
+
+***TODO: Right now， docker_test_linux.sh does nothing.***
+
 
 ## Boot
 Username: ubuntu
@@ -31,5 +40,5 @@ All the following commands depends on the vm boot.
 
 ## Test laputa
 ```
-./scripts/local/docker_test.sh
+./scripts/local/docker_test_laputa.sh
 ```
