@@ -10,7 +10,7 @@ proc do_console_login { login pass } {
         }
         "login:" {
             set login_helper [expr {$login_helper - 1}]
-            if {$login_helper == 0} {
+            if {$login_helper <= 0} {
                 send "$login\n"
             } else {
                 send "\n"
