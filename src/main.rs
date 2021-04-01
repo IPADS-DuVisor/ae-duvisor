@@ -10,7 +10,7 @@ fn main() {
 
     if !cmdline::VMConfig::verify_args(&vm_config) {
         process::exit(1);
-    } 
+    }
 
-    laputa::run(&vm_config); 
+    laputa::run(&vm_config);
 }
