@@ -1,4 +1,6 @@
 use crate::vcpu::virtualcpu;
+use crate::mm::gparegion;
+use crate::mm::allocator;
 use std::thread;
 use std::sync::{Arc, Mutex};
 
@@ -50,6 +52,18 @@ impl VirtualMachine {
         let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
         let mut handle: thread::JoinHandle<()>;
         let mut vcpu_mutex;
+
+        // test for debug
+        gparegion::import_print();
+        allocator::import_print();
+        let addr = unsafe { libc::malloc(4096) };
+        println!("{:?}", addr);
+        let mut gsmmu = gparegion::GSMMU::new();
+        gsmmu.test_gsmmu();
+        let ptr = gsmmu.page_table.root_table_create();
+        println!("{:?}", ptr);
+        let offset = gsmmu.page_table.free_offset;
+        println!("{:?}", offset);
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
