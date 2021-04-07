@@ -6,7 +6,7 @@ mod gsmmu_constants {
     pub const PAGE_SIZE: u64 = 1u64 << 12;
     pub const PAGE_SHIFT: u64 = 12;
     pub const PAGE_ORDER: u64 = 9;
-    pub const PGD_X_SHIFT: u64 = 2;
+    //pub const PGD_X_SHIFT: u64 = 2;
 
     // permission flag
     pub const GS_PAGE_ATTR_R: u64 = 1;
@@ -19,9 +19,9 @@ mod gsmmu_constants {
     pub const PTE_WRITE: u64 = 1u64 << 2;
     pub const PTE_EXECUTE: u64 = 1u64 << 3;
     pub const PTE_USER: u64 = 1u64 << 4;
-    pub const PTE_GLOBAL: u64 = 1u64 << 5;
-    pub const PTE_ACCESS: u64 = 1u64 << 6;
-    pub const PTE_DIRTY: u64 = 1u64 << 6;
+    //pub const PTE_GLOBAL: u64 = 1u64 << 5;
+    //pub const PTE_ACCESS: u64 = 1u64 << 6;
+    //pub const PTE_DIRTY: u64 = 1u64 << 6;
 
     pub const PTE_PPN_SHIFT: u64 = 10;
 }
@@ -77,7 +77,7 @@ impl PageTableRegion {
         // clear the new page table
         let num_byte = length / u64_size as u64;
         let mut ptr = ret_ptr;
-        for i in 0..num_byte {
+        for _ in 0..num_byte {
             unsafe {
                 *ptr = 0;
                 ptr = ptr.add(1);
@@ -116,6 +116,13 @@ impl GSMMU {
         }
     }
 
+    // For debug
+    pub fn gsmmu_test(&mut self)  {
+        self.map_page(0x1000, 0x2000, 0x5);
+        self.gpa_region_add(0x3000, 0x4000);
+        self.hpa_region_add(0x10000);
+    }
+
     pub fn set_pte_flags(mut pte: u64, level: u64, flag: u64) -> u64 {
         // for ULH in HU
         pte = pte | PTE_USER;
@@ -148,13 +155,13 @@ impl GSMMU {
 
     pub fn gpa_to_offset(&mut self, gpa: u64) -> u64 {
         let mut page_table_va = self.page_table.region.hpm_ptr as u64;
-        let mut page_table_hpa = self.page_table.region.va_to_hpa(page_table_va);
+        let mut page_table_hpa;// = self.page_table.region.va_to_hpa(page_table_va);
         let mut index: u64;
 
         for level in 0..3 {
-            index = (gpa >> (39 - 9 * level)) & 0x1ff;
+            index = (gpa >> (39 - PAGE_ORDER * level)) & 0x1ff;
             if level == 0 {
-                index = (gpa >> (39 - 9 * level)) & 0x7ff;
+                index = (gpa >> (39 - PAGE_ORDER * level)) & 0x7ff;
             }
             let pte_addr_va = page_table_va + index * 8;
             let mut pte = unsafe { *(pte_addr_va as *mut u64) };
@@ -196,7 +203,17 @@ impl GSMMU {
         0
     }
 
-    pub fn set_pte() -> u32 {
+    pub fn gpa_region_add(&mut self, base_address: u64, length: u64) -> u32 {
+        let gpa_region = GpaRegion::new(base_address, length);
+        self.gpa_region.push(gpa_region);
+
+        0
+    }
+
+    pub fn hpa_region_add(&mut self, length: u64) -> u32 {
+        let hpa_region = self.allocator.hpm_alloc(length);
+        self.hpa_region.push(hpa_region);
+
         0
     }
 }
@@ -208,7 +225,7 @@ mod tests {
     // Check new() of GSMMU
     #[test]
     fn test_gsmmu_new() { 
-        let mut gsmmu = GSMMU::new();
+        let gsmmu = GSMMU::new();
 
         // Check the root table has been created
         let free_offset = gsmmu.page_table.free_offset;
@@ -235,8 +252,8 @@ mod tests {
         assert_eq!(free_offset, 16384 + 4096);
 
         // Check the page table has been cleared
-        let mut root_ptr = gsmmu.page_table.region.hpm_ptr;
-        let mut ptr: *mut u64;
+        let root_ptr = gsmmu.page_table.region.hpm_ptr;
+        let ptr: *mut u64;
         unsafe {
             ptr = root_ptr.add(512+10);
         }
@@ -253,8 +270,8 @@ mod tests {
         gsmmu.map_page(0x1000, 0x2000, 0x5);
 
         // Check the pte
-        let mut root_ptr = gsmmu.page_table.region.hpm_ptr;
-        let mut ptr: *mut u64;
+        let root_ptr = gsmmu.page_table.region.hpm_ptr;
+        let ptr: *mut u64;
         unsafe {
             ptr = root_ptr.add(512*6+1);
         }
