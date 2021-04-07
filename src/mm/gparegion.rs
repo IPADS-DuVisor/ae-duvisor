@@ -175,6 +175,89 @@ impl GSMMU {
         pte
     }
 
+    pub fn set_pte_flags_new(mut pte: u64, level: u64, flag: u64) -> u64 {
+        // for ULH in HU
+        pte = pte | PTE_USER;
+        
+        match level {
+            3 => {
+                pte = pte | PTE_VALID;
+
+                if (flag & GS_PAGE_ATTR_R) != 0 {
+                    pte = pte | PTE_READ;
+                }
+
+                if (flag & GS_PAGE_ATTR_W) != 0 {
+                    pte = pte | PTE_WRITE;
+                }
+
+                if (flag & GS_PAGE_ATTR_X) != 0 {
+                    pte = pte | PTE_EXECUTE;
+                }
+            },
+            _ => {
+                pte = pte | PTE_VALID;
+            }
+        }
+
+        pte
+    }
+
+    pub fn gpa_to_offset(&mut self, gpa: u64) -> u64 {
+        let mut page_table_va = self.page_table.region.hpm_ptr as u64;
+        let mut page_table_hpa = self.page_table.region.va_to_hpa(page_table_va);
+        println!("hpm_ptr {:?}", page_table_va);
+        let mut index: u64;
+
+        for level in 0..3 {
+            println!("level {}", level);
+            index = (gpa >> (39 - 9 * level)) & 0x1ff;
+            if level == 0 {
+                index = (gpa >> (39 - 9 * level)) & 0x7ff;
+            }
+            let pte_addr_va = page_table_va + index * 8;
+            let mut pte = unsafe { *(pte_addr_va as *mut u64) };
+
+            if pte & PTE_VALID == 0 {
+                page_table_va = self.page_table.page_table_create() as u64;
+                println!("page_table_va {:?}", page_table_va);
+                page_table_hpa = self.page_table.region.va_to_hpa(page_table_va);
+                println!("page_table_hpa {:?}", page_table_hpa);
+                pte = page_table_hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
+                pte = GSMMU::set_pte_flags_new(pte, level, 0);
+                unsafe {
+                    *(pte_addr_va as *mut u64) = pte;         
+                }
+                println!("pte {:?}", pte);
+            } else {
+                page_table_hpa = (pte >> PTE_PPN_SHIFT) << PAGE_SHIFT;
+                page_table_va = self.page_table.region.hpa_to_va(page_table_hpa);
+            }
+        }
+
+        index = (gpa >> 12) & 0x1ff;
+        page_table_va + index * 8 - (self.page_table.region.hpm_ptr as u64)
+    }
+
+    pub fn map_page_new(&mut self, gpa: u64, hpa: u64, flag: u64) -> u32 {
+        let offset = self.gpa_to_offset(gpa);
+        let page_table_va = self.page_table.region.hpm_ptr as u64;
+        let pte_addr = page_table_va + offset;
+        println!("offset {}", offset);
+
+        assert_eq!(hpa & 0xfff, 0);
+
+        let mut pte = hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
+        pte = GSMMU::set_pte_flags_new(pte, 3, flag);
+
+        let pte_addr_ptr = pte_addr as *mut u64;
+        unsafe {
+            *pte_addr_ptr = pte;
+        }
+
+        0
+    }
+
     // gsmmu.map_page(gsmmu.page_table.region.hpm_ptr, 1, gpa, hpa, flag)
     // SV48x4
     // current_ptp VA
@@ -389,7 +472,7 @@ mod tests {
     #[test]
     fn test_map_page_index() {
         let mut gsmmu = GSMMU::new();
-        let mut root_ptr = gsmmu.page_table.region.hpm_ptr;
+        let root_ptr = gsmmu.page_table.region.hpm_ptr;
         let mut ptr: *mut u64;
         let mut pte: u64;
 
@@ -397,28 +480,84 @@ mod tests {
         gsmmu.map_page(gsmmu.page_table.region.hpm_ptr, 1, 0x1000, 0x2000, 0x7); 
 
         // Non-zero [0, 512*4, 512*5, 512*6+1]
-        let pte_index:[u64; 4] = [0, 512*4, 512*5, 512*6+1];
+        //let pte_index:[u64; 4] = [0, 512*4, 512*5, 512*6+1];
+        let pte_index = vec![0, 512*4, 512*5, 512*6+1];
 
-        for i in 0..512*7 {
+        // 4 PTEs should be set
+        for i in &pte_index {
             unsafe {
-                ptr = root_ptr.add(i);
+                ptr = root_ptr.add(*i);
                 pte = *ptr;
             }
 
-            let mut flag: u64 = 0;
+            assert_ne!(pte, 0);
+        }
 
-            for j in 0..4 {
-                let k = i as u64;
-                if k == pte_index[j] {
-                    flag += 1;
-                }
+        // All the other PTEs should be zero
+        for i in (0..512*7).filter(|x: &usize| !pte_index.contains(x)) {
+            unsafe {
+                ptr = root_ptr.add(i as usize);
+                pte = *ptr;
             }
 
-            if flag == 0 {
-                assert_eq!(pte, 0);
-            } else {
-                assert_ne!(pte, 0);
+            assert_eq!(pte, 0);
+        }
+    }
+
+    // new test
+    #[test]
+    fn test_map_page_pte_new() {
+        let mut gsmmu = GSMMU::new();
+
+        // Create a page table
+        gsmmu.map_page_new(0x1000, 0x2000, 0x5);
+
+        // Check the pte
+        let mut root_ptr = gsmmu.page_table.region.hpm_ptr;
+        let mut ptr: *mut u64;
+        unsafe {
+            ptr = root_ptr.add(512*6+1);
+        }
+        println!("test_map_page ptr {:?}", ptr);
+        let pte: u64 = unsafe { *ptr };
+
+        // PTE on L4 should be 0b1000 0001 1011
+        // ppn = 0b10 with PTE_USER/EXECUTE/READ/VALID
+        assert_eq!(pte, 2075);
+    }
+
+    #[test]
+    fn test_map_page_index_new() {
+        let mut gsmmu = GSMMU::new();
+        let root_ptr = gsmmu.page_table.region.hpm_ptr;
+        let mut ptr: *mut u64;
+        let mut pte: u64;
+
+        // Change 4 PTEs
+        gsmmu.map_page_new(0x1000, 0x2000, 0x7); 
+
+        // Non-zero [0, 512*4, 512*5, 512*6+1]
+        //let pte_index:[u64; 4] = [0, 512*4, 512*5, 512*6+1];
+        let pte_index = vec![0, 512*4, 512*5, 512*6+1];
+
+        // 4 PTEs should be set
+        for i in &pte_index {
+            unsafe {
+                ptr = root_ptr.add(*i);
+                pte = *ptr;
             }
+
+            assert_ne!(pte, 0);
+        }
+
+        // All the other PTEs should be zero
+        for i in (0..512*7).filter(|x: &usize| !pte_index.contains(x)) {
+            unsafe {
+                ptr = root_ptr.add(i as usize);
+                pte = *ptr;
+            }
+
+            assert_eq!(pte, 0);
         }
     }
 }
