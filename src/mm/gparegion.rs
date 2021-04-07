@@ -7,6 +7,23 @@ mod gsmmu_constants {
     pub const PAGE_SHIFT: u64 = 12;
     pub const PAGE_ORDER: u64 = 9;
     pub const PGD_X_SHIFT: u64 = 2;
+
+    // permission flag
+    pub const GS_PAGE_ATTR_R: u64 = 1;
+    pub const GS_PAGE_ATTR_W: u64 = 2;
+    pub const GS_PAGE_ATTR_X: u64 = 4;
+
+    // pte bit
+    pub const PTE_VALID: u64 = 1u64 << 0;
+    pub const PTE_READ: u64 = 1u64 << 1;
+    pub const PTE_WRITE: u64 = 1u64 << 2;
+    pub const PTE_EXECUTE: u64 = 1u64 << 3;
+    pub const PTE_USER: u64 = 1u64 << 4;
+    pub const PTE_GLOBAL: u64 = 1u64 << 5;
+    pub const PTE_ACCESS: u64 = 1u64 << 6;
+    pub const PTE_DIRTY: u64 = 1u64 << 6;
+
+    pub const PTE_PPN_SHIFT: u64 = 10;
 }
 pub use gsmmu_constants::*;
 
@@ -130,8 +147,155 @@ impl GSMMU {
         println!("{:?}", &self.page_table.region.hpm_ptr);
     }
 
+    pub fn set_pte_flags(mut pte: u64, level: u64, flag: u64) -> u64 {
+        // for ULH in HU
+        pte = pte | PTE_USER;
+        
+        match level {
+            4 => {
+                pte = pte | PTE_VALID;
+
+                if (flag & GS_PAGE_ATTR_R) != 0 {
+                    pte = pte | PTE_READ;
+                }
+
+                if (flag & GS_PAGE_ATTR_W) != 0 {
+                    pte = pte | PTE_WRITE;
+                }
+
+                if (flag & GS_PAGE_ATTR_X) != 0 {
+                    pte = pte | PTE_EXECUTE;
+                }
+            },
+            _ => {
+                pte = pte | PTE_VALID;
+            }
+        }
+
+        pte
+    }
+
+    // gsmmu.map_page(gsmmu.page_table.region.hpm_ptr, 1, gpa, hpa, flag)
     // SV48x4
-    pub fn map_page(&self, level: u32, gpa: u64, hpa: u64, flag: u32) -> u32 {
+    // current_ptp VA
+    pub fn map_page(&mut self, current_ptp: *mut u64, level: u64, gpa: u64, hpa: u64, flag: u64) -> u32 {
+        let mut shift = 0;
+        let mut index = 0;
+        let mut next_level_ptp: *mut u64;
+        let mut pte: u64;
+
+        shift = (4 - level) * PAGE_ORDER + PAGE_SHIFT;
+
+        println!("map_page current_ptp {:?}", current_ptp);
+
+        match level {
+            1 => {
+                let index_mask = 1u64 << (PAGE_ORDER + PGD_X_SHIFT) - 1;
+                index = (gpa >> shift) & index_mask;
+                unsafe { 
+                    pte = *(current_ptp.add(index as usize)); 
+                }
+
+                if pte & PTE_VALID == 0 { // L1 pte is not valid
+                    next_level_ptp = self.page_table.page_table_create();
+                    let next_level_ptp_hpa = self.page_table.region.va_to_hpa(next_level_ptp as u64);
+                    pte = (next_level_ptp_hpa >> PAGE_SHIFT) << PTE_PPN_SHIFT;
+                    println!("map_page level 1 next_level_ptp {:?}", next_level_ptp);
+                    println!("map_page level 1 next_level_ptp_hpa {:?}", next_level_ptp_hpa);
+                    println!("map_page level 1 pte {:?}", pte);
+                } else { // L1 pte is valid
+                    let ppn = pte >> PTE_PPN_SHIFT & ((1u64 << 44) - 1);
+                    next_level_ptp = (ppn << PAGE_SHIFT) as *mut u64;
+                    next_level_ptp = (self.page_table.region.hpa_to_va(next_level_ptp as u64)) as *mut u64;
+                }
+
+                pte = GSMMU::set_pte_flags(pte, 1, flag);
+                unsafe { 
+                    *current_ptp.add(index as usize) = pte; 
+                    println!("pte {:?}", *(current_ptp.add(index as usize)));
+                };
+                self.map_page(next_level_ptp, 2, gpa, hpa, flag);
+            },
+            2 => {
+                let index_mask = 1u64 << PAGE_ORDER - 1;
+                index = (gpa >> shift) & index_mask;
+                unsafe { 
+                    pte = *(current_ptp.add(index as usize)); 
+                }
+
+                if pte & PTE_VALID == 0 { // L2 pte is not valid
+                    next_level_ptp = self.page_table.page_table_create();
+                    let next_level_ptp_hpa = self.page_table.region.va_to_hpa(next_level_ptp as u64);
+                    pte = (next_level_ptp_hpa >> PAGE_SHIFT) << PTE_PPN_SHIFT;
+                    println!("map_page level 2 next_level_ptp {:?}", next_level_ptp);
+                    println!("map_page level 2 next_level_ptp_hpa {:?}", next_level_ptp_hpa);
+                    println!("map_page level 2 pte {:?}", pte);
+                } else { // L2 pte is valid
+                    let ppn = pte >> PTE_PPN_SHIFT & ((1u64 << 44) - 1);
+                    next_level_ptp = (ppn << PAGE_SHIFT) as *mut u64;
+                    next_level_ptp = (self.page_table.region.hpa_to_va(next_level_ptp as u64)) as *mut u64;
+                }
+
+                pte = GSMMU::set_pte_flags(pte, 2, flag);
+                unsafe { 
+                    *current_ptp.add(index as usize) = pte; 
+                    println!("pte {:?}", *(current_ptp.add(index as usize)));
+                };
+                self.map_page(next_level_ptp, 3, gpa, hpa, flag);
+            },
+            3 => {
+                let index_mask = 1u64 << PAGE_ORDER - 1;
+                index = (gpa >> shift) & index_mask;
+                unsafe { 
+                    pte = *(current_ptp.add(index as usize)); 
+                }
+
+                if pte & PTE_VALID == 0 { // L3 pte is not valid
+                    next_level_ptp = self.page_table.page_table_create();
+                    let next_level_ptp_hpa = self.page_table.region.va_to_hpa(next_level_ptp as u64);
+                    pte = (next_level_ptp_hpa >> PAGE_SHIFT) << PTE_PPN_SHIFT;
+                    println!("map_page level 3 next_level_ptp {:?}", next_level_ptp);
+                    println!("map_page level 3 next_level_ptp_hpa {:?}", next_level_ptp_hpa);
+                    println!("map_page level 3 pte {:?}", pte);
+                } else { // L3 pte is valid
+                    let ppn = pte >> PTE_PPN_SHIFT & ((1u64 << 44) - 1);
+                    next_level_ptp = (ppn << PAGE_SHIFT) as *mut u64;
+                    next_level_ptp = (self.page_table.region.hpa_to_va(next_level_ptp as u64)) as *mut u64;
+                }
+
+                pte = GSMMU::set_pte_flags(pte, 3, flag);
+                unsafe { 
+                    *current_ptp.add(index as usize) = pte; 
+                    println!("pte {:?}", *(current_ptp.add(index as usize)));
+                };
+                self.map_page(next_level_ptp, 4, gpa, hpa, flag);
+
+            },
+            4 => {
+                let index_mask = 1u64 << PAGE_ORDER - 1;
+                index = (gpa >> shift) & index_mask;
+                unsafe { 
+                    pte = *(current_ptp.add(index as usize)); 
+                }
+
+                if pte & PTE_VALID == 0 { // L4 pte is not valid
+                    next_level_ptp = self.page_table.page_table_create();
+                    let next_level_ptp_hpa = self.page_table.region.va_to_hpa(next_level_ptp as u64);
+                    pte = (next_level_ptp_hpa >> PAGE_SHIFT) << PTE_PPN_SHIFT;
+                    println!("map_page level 4 next_level_ptp {:?}", next_level_ptp);
+                    println!("map_page level 4 next_level_ptp_hpa {:?}", next_level_ptp_hpa);
+                    println!("map_page level 4 pte {:?}", pte);
+                }
+
+                pte = GSMMU::set_pte_flags(pte, 4, flag);
+                unsafe { 
+                    *current_ptp.add(index as usize) = pte; 
+                    println!("pte {:?}", *(current_ptp.add(index as usize)));
+                };
+            },
+            _ => panic!(),
+        }
+
         0
     }
 

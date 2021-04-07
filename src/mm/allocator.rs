@@ -18,6 +18,20 @@ impl HpmRegion {
             length,
         }
     }
+
+    pub fn va_to_hpa(&self, va: u64) -> u64 {
+        let va_base = self.hpm_ptr as u64;
+        let hpa_base = self.base_address;
+        let offset = va - va_base;
+        offset + hpa_base
+    }
+
+    pub fn hpa_to_va(&self, hpa: u64) -> u64 {
+        let va_base = self.hpm_ptr as u64;
+        let hpa_base = self.base_address;
+        let offset = hpa - hpa_base;
+        offset + va_base
+    }
 }
 
 pub struct Allocator {
