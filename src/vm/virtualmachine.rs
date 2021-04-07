@@ -59,11 +59,13 @@ impl VirtualMachine {
         let addr = unsafe { libc::malloc(4096) };
         println!("{:?}", addr);
         let mut gsmmu = gparegion::GSMMU::new();
+        println!("gsmmu free_offset {:?}", gsmmu.page_table.free_offset);
         gsmmu.test_gsmmu();
         let ptr = gsmmu.page_table.root_table_create();
         println!("{:?}", ptr);
         let offset = gsmmu.page_table.free_offset;
         println!("{:?}", offset);
+        gsmmu.map_page(gsmmu.page_table.region.hpm_ptr, 1, 0x1000, 0x2000, 0x7);
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
