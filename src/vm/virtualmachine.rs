@@ -53,14 +53,6 @@ impl VirtualMachine {
         let mut handle: thread::JoinHandle<()>;
         let mut vcpu_mutex;
 
-        // test for debug
-        gparegion::import_print();
-        allocator::import_print();
-        let addr = unsafe { libc::malloc(4096) };
-        println!("{:?}", addr);
-        let mut gsmmu = gparegion::GSMMU::new();
-        gsmmu.map_page_new(0x1000, 0x2000, 0x7);
-
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
 

@@ -1,7 +1,3 @@
-pub fn import_print() {
-    println!("allocator.rs import");
-}
-
 #[derive(Clone)]
 pub struct HpmRegion {
     pub hpm_ptr: *mut u64, // VA
