@@ -28,8 +28,8 @@ mod gsmmu_constants {
 pub use gsmmu_constants::*;
 
 pub struct GpaRegion {
-    base_address: u64,
-    length: u64,
+    pub base_address: u64,
+    pub length: u64,
 }
 
 impl GpaRegion {
@@ -238,6 +238,39 @@ mod tests {
         }
         let pte: u64 = unsafe { *root_ptr };
         assert_eq!(pte, 0);
+    }
+
+    // Check gpa_region add
+    #[test]
+    fn test_gpa_region_add() { 
+        let mut gsmmu = GSMMU::new();
+        let mut base_address: u64 = 0;
+        let mut length: u64 = 0;
+
+        gsmmu.gpa_region_add(0x1000, 0x2000);
+
+        for i in gsmmu.gpa_region {
+            base_address = i.base_address;
+            length = i.length;
+        }
+
+        assert_eq!(base_address, 0x1000);
+        assert_eq!(length, 0x2000);
+    }
+
+    // Check hpa_region add
+    #[test]
+    fn test_hpa_region_add() { 
+        let mut gsmmu = GSMMU::new();
+        let mut length: u64 = 0;
+
+        gsmmu.hpa_region_add(0x1000);
+
+        for i in gsmmu.hpa_region {
+            length = i.length;
+        }
+
+        assert_eq!(length, 0x1000);
     }
 
     #[test]

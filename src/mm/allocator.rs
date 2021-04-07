@@ -2,7 +2,7 @@
 pub struct HpmRegion {
     pub hpm_ptr: *mut u64, // VA
     base_address: u64, // HPA
-    length: u64,
+    pub length: u64,
 }
 
 impl HpmRegion {
