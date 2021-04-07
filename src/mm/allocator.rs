@@ -19,6 +19,7 @@ impl HpmRegion {
         let va_base = self.hpm_ptr as u64;
         let hpa_base = self.base_address;
         let offset = va - va_base;
+        
         offset + hpa_base
     }
 
@@ -26,6 +27,7 @@ impl HpmRegion {
         let va_base = self.hpm_ptr as u64;
         let hpa_base = self.base_address;
         let offset = hpa - hpa_base;
+
         offset + va_base
     }
 }
@@ -45,10 +47,15 @@ impl Allocator {
     pub fn hpm_alloc(&mut self, length: u64) -> HpmRegion {
         let ptr = unsafe { libc::malloc(length as usize) };
         let hpm_ptr = ptr as *mut u64;
+
+        // Just for now
         let base_address = 0x10000;
+
         let hpm_region = HpmRegion::new(hpm_ptr, base_address, length);
         let hpm_region_return = hpm_region.clone();
+
         &self.hpm_region_list.push(hpm_region);
+        
         hpm_region_return
     }
 }

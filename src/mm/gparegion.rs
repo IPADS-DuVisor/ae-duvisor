@@ -151,11 +151,9 @@ impl GSMMU {
         pte
     }
 
-    //TODO: query_page
-
     pub fn gpa_to_offset(&mut self, gpa: u64) -> u64 {
         let mut page_table_va = self.page_table.region.hpm_ptr as u64;
-        let mut page_table_hpa;// = self.page_table.region.va_to_hpa(page_table_va);
+        let mut page_table_hpa;
         let mut index: u64;
 
         for level in 0..3 {
@@ -216,6 +214,8 @@ impl GSMMU {
 
         0
     }
+
+    // TODO: query_page
 }
 
 #[cfg(test)]
@@ -327,7 +327,6 @@ mod tests {
         gsmmu.map_page(0x1000, 0x2000, 0x7); 
 
         // Non-zero [0, 512*4, 512*5, 512*6+1]
-        //let pte_index:[u64; 4] = [0, 512*4, 512*5, 512*6+1];
         let pte_index = vec![0, 512*4, 512*5, 512*6+1];
 
         // 4 PTEs should be set
