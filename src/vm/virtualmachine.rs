@@ -1,5 +1,5 @@
 use crate::vcpu::virtualcpu;
-use crate::mm::gparegion;
+use crate::mm::gstagemmu;
 use std::thread;
 use std::sync::{Arc, Mutex};
 
@@ -20,7 +20,7 @@ pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
-    pub gsmmu: gparegion::GSMMU,
+    pub gsmmu: gstagemmu::GStageMmu,
 }
 
 impl VirtualMachine {
@@ -29,7 +29,7 @@ impl VirtualMachine {
         let vm_state = VmSharedState::new();
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
-        let gsmmu = gparegion::GSMMU::new();
+        let gsmmu = gstagemmu::GStageMmu::new();
 
         // Create vm struct instance
         let mut vm = VirtualMachine {
