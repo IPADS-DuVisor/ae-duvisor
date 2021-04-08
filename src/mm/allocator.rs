@@ -59,3 +59,38 @@ impl Allocator {
         hpm_region_return
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hpm_region_new() {
+        let hpa: u64 = 0x3000;
+        let va: u64 = 0x5000;
+        let length: u64 = 0x1000;
+        let hpm_ptr = va as *mut u64;
+        let hpm_region = HpmRegion::new(hpm_ptr, hpa, length);
+
+        assert_eq!(hpm_region.hpm_ptr as u64, va);
+        assert_eq!(hpm_region.base_address, hpa);
+        assert_eq!(hpm_region.length, length);
+    }
+
+    // Check new() of GStageMmu
+    #[test]
+    fn test_allocator_alloc() { 
+        let length = 0x2000;
+        let mut allocator = Allocator::new();
+
+        allocator.hpm_alloc(length);
+
+        let mut hpm_length: u64 = 0;
+
+        for i in allocator.hpm_region_list {
+            hpm_length = i.length;
+        }
+
+        assert_eq!(hpm_length, length);
+    }
+}
