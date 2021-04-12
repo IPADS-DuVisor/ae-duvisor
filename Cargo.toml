@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 clap = {version = "2.33.3", features = ["yaml"]}
 colored = "2"
+libc = ">=0.2.39"
