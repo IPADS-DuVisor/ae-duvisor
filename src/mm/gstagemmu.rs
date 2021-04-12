@@ -79,6 +79,7 @@ impl PageTableRegion {
     }
 }
 
+#[allow(unused)]
 pub struct GStageMmu {
     pub page_table: PageTableRegion,
     gpa_regions: Vec<gparegion::GpaRegion>, // gpa region list
@@ -103,8 +104,9 @@ impl GStageMmu {
 
     // For debug
     pub fn gsmmu_test(&mut self)  {
+
         self.map_page(0x1000, 0x2000, 0x5);
-        self.gpa_region_add(0x3000, 0x1000);
+        self.gpa_region_add(0x3000, 0x4000, 0x1000);
     }
 
     pub fn set_pte_flags(mut pte: u64, level: u64, flag: u64) -> u64 {        
@@ -204,14 +206,9 @@ impl GStageMmu {
         Some(0)
     }
 
-    pub fn gpa_region_add(&mut self, gpa: u64, length: u64) -> u32 {
-        let mut gpa_region = gparegion::GpaRegion::new(gpa, 0, length);
-        let hpa_region = self.allocator.hpm_alloc(length);
-        gpa_region.hpa = hpa_region.base_address;
-
+    pub fn gpa_region_add(&mut self, gpa: u64, hpa: u64, length: u64) {
+        let gpa_region = gparegion::GpaRegion::new(gpa, hpa, length);
         self.gpa_regions.push(gpa_region);
-
-        0
     }
 
     // TODO: query_page
@@ -244,16 +241,19 @@ mod tests {
     fn test_gpa_region_add() { 
         let mut gsmmu = GStageMmu::new();
         let mut gpa: u64 = 0;
+        let mut hpa: u64 = 0;
         let mut length: u64 = 0;
 
-        gsmmu.gpa_region_add(0x1000, 0x2000);
+        gsmmu.gpa_region_add(0x1000, 0x4000, 0x2000);
 
         for i in gsmmu.gpa_regions {
             gpa = i.gpa;
+            hpa = i.hpa;
             length = i.length;
         }
 
         assert_eq!(gpa, 0x1000);
+        assert_eq!(hpa, 0x4000);
         assert_eq!(length, 0x2000);
     }
 
