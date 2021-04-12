@@ -5,8 +5,8 @@ pub struct GpaRegion {
 }
 
 impl GpaRegion {
-    pub fn new(gpa: u64, hpa: u64, length: u64) -> GpaRegion {
-        GpaRegion {
+    pub fn new(gpa: u64, hpa: u64, length: u64) -> Self {
+        Self {
             gpa,
             hpa,
             length,

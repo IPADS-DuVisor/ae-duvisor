@@ -6,8 +6,8 @@ pub struct HpmRegion {
 }
 
 impl HpmRegion {
-    pub fn new(hpm_vptr: *mut u64, base_address: u64, length: u64) -> HpmRegion {
-        HpmRegion {
+    pub fn new(hpm_vptr: *mut u64, base_address: u64, length: u64) -> Self {
+        Self {
             hpm_vptr,
             base_address,
             length,
@@ -54,8 +54,8 @@ pub struct HpmAllocator {
 }
 
 impl HpmAllocator {
-    pub fn new() -> HpmAllocator {
-        HpmAllocator {
+    pub fn new() -> Self {
+        Self {
             hpm_region_list: Vec::new(),
         }
     }

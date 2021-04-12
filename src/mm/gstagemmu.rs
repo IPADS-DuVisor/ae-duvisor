@@ -7,22 +7,16 @@ mod gsmmu_constants {
     pub const PAGE_SIZE: u64 = 1u64 << 12;
     pub const PAGE_SHIFT: u64 = 12;
     pub const PAGE_ORDER: u64 = 9;
-    //pub const PGD_X_SHIFT: u64 = 2;
-
-    // permission flag
-    pub const GS_PAGE_ATTR_R: u64 = 1;
-    pub const GS_PAGE_ATTR_W: u64 = 2;
-    pub const GS_PAGE_ATTR_X: u64 = 4;
 
     // pte bit
     pub const PTE_VALID: u64 = 1u64 << 0;
     pub const PTE_READ: u64 = 1u64 << 1;
     pub const PTE_WRITE: u64 = 1u64 << 2;
     pub const PTE_EXECUTE: u64 = 1u64 << 3;
-    //pub const PTE_USER: u64 = 1u64 << 4;
-    //pub const PTE_GLOBAL: u64 = 1u64 << 5;
-    //pub const PTE_ACCESS: u64 = 1u64 << 6;
-    //pub const PTE_DIRTY: u64 = 1u64 << 6;
+    pub const PTE_USER: u64 = 1u64 << 4;
+    pub const PTE_GLOBAL: u64 = 1u64 << 5;
+    pub const PTE_ACCESS: u64 = 1u64 << 6;
+    pub const PTE_DIRTY: u64 = 1u64 << 6;
 
     pub const PTE_PPN_SHIFT: u64 = 10;
 }
@@ -37,8 +31,8 @@ pub struct Pte {
 }
 
 impl Pte {
-    pub fn new(offset: u64, value: u64, level: u32) -> Pte {
-        Pte {
+    pub fn new(offset: u64, value: u64, level: u32) -> Self {
+        Self {
             offset,
             value,
             level,
@@ -52,9 +46,9 @@ pub struct PageTableRegion {
 }
 
 impl PageTableRegion {
-    pub fn new(allocator: &mut hpmallocator::HpmAllocator) -> PageTableRegion {
+    pub fn new(allocator: &mut hpmallocator::HpmAllocator) -> Self {
         let region = allocator.hpm_alloc(PAGE_TABLE_REGION_SIZE);
-        PageTableRegion {
+        Self {
             region,
             free_offset: 0,
         }
@@ -105,7 +99,7 @@ pub struct GStageMmu {
 }
 
 impl GStageMmu {
-    pub fn new() -> GStageMmu {
+    pub fn new() -> Self {
         let gpa_regions: Vec<gparegion::GpaRegion> = Vec::new();
         let mut allocator = hpmallocator::HpmAllocator::new();
         let mut page_table = PageTableRegion::new(&mut allocator);
@@ -113,7 +107,7 @@ impl GStageMmu {
         // create root table
         page_table.page_table_create(0);
 
-        GStageMmu {
+        Self {
             page_table,
             gpa_regions,
             allocator,
@@ -122,29 +116,49 @@ impl GStageMmu {
 
     // For debug
     pub fn gsmmu_test(&mut self)  {
-        self.map_page(0x1000, 0x2000, 0x5);
+        self.map_page(0x1000, 0x2000, PTE_READ | PTE_EXECUTE);
         self.unmap_page(0x1000);
-        self.map_range(0x1000, 0x2000, 0x2000, 0x7);
+        self.map_range(0x1000, 0x2000, 0x2000, 
+            PTE_READ | PTE_WRITE | PTE_EXECUTE);
         self.unmap_range(0x1000, 0x2000);
         self.map_query(0x1000);
         self.gpa_region_add(0x3000, 0x4000, 0x1000);
+        self.map_protect(0x1000, PTE_READ | PTE_EXECUTE);
     }
 
-    pub fn set_pte_flags(mut pte: u64, level: u64, flag: u64) -> u64 {        
+    pub fn set_pte_flag(mut pte: u64, level: u64, flag: u64) -> u64 {
+        pte = pte & 0xFFFFFFFFFFFFFC00;
+       
         match level {
             3 => {
                 pte = pte | PTE_VALID;
 
-                if (flag & GS_PAGE_ATTR_R) != 0 {
+                if (flag & PTE_READ) != 0 {
                     pte = pte | PTE_READ;
                 }
 
-                if (flag & GS_PAGE_ATTR_W) != 0 {
+                if (flag & PTE_WRITE) != 0 {
                     pte = pte | PTE_WRITE;
                 }
 
-                if (flag & GS_PAGE_ATTR_X) != 0 {
+                if (flag & PTE_EXECUTE) != 0 {
                     pte = pte | PTE_EXECUTE;
+                }
+                
+                if (flag & PTE_USER) != 0 {
+                    pte = pte | PTE_USER;
+                }
+
+                if (flag & PTE_GLOBAL) != 0 {
+                    pte = pte | PTE_GLOBAL;
+                }
+
+                if (flag & PTE_ACCESS) != 0 {
+                    pte = pte | PTE_ACCESS;
+                }
+
+                if (flag & PTE_DIRTY) != 0 {
+                    pte = pte | PTE_DIRTY;
                 }
             },
             _ => {
@@ -180,7 +194,7 @@ impl GStageMmu {
                 }
                 page_table_hpa = page_table_hpa_wrap.unwrap();
                 pte = (page_table_hpa >> PAGE_SHIFT) << PTE_PPN_SHIFT;
-                pte = GStageMmu::set_pte_flags(pte, level, 0);
+                pte = GStageMmu::set_pte_flag(pte, level, 0);
                 unsafe {
                     *(pte_addr_va as *mut u64) = pte;         
                 }
@@ -244,6 +258,34 @@ impl GStageMmu {
         return Some(Pte::new(pte_offset, pte_value, pte_level));
     }
 
+    pub fn map_protect(&mut self, gpa: u64, flag: u64) -> Option<u32> {
+        let pte: Pte;
+        let mut pte_offset: u64 = 0;
+        let mut pte_value: u64 = 0;
+        let mut pte_level: u32 = 0;
+
+        let query = self.map_query(gpa);
+        if query.is_some() {
+            pte = query.unwrap();
+            pte_offset = pte.offset;
+            pte_value = pte.value;
+            pte_level = pte.level;
+        }
+
+        if pte_level != 3 {
+            return None; // No mapping, and nothing changed
+        }
+
+        let page_table_va = self.page_table.region.hpm_vptr as u64;
+        let pte_addr = (page_table_va + pte_offset) as *mut u64;
+        pte_value = GStageMmu::set_pte_flag(pte_value, pte_level as u64, flag);
+        unsafe {
+            *pte_addr = pte_value;
+        }
+
+        Some(0)
+    }
+
     // SV48x4
     pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> Option<u32> {
         let offset_wrap = self.gpa_to_ptregion_offset(gpa);
@@ -263,7 +305,7 @@ impl GStageMmu {
         }
 
         let mut pte = hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
-        pte = GStageMmu::set_pte_flags(pte, 3, flag);
+        pte = GStageMmu::set_pte_flag(pte, 3, flag);
 
         let pte_addr_ptr = pte_addr as *mut u64;
         unsafe {
@@ -420,7 +462,7 @@ mod tests {
         let mut gsmmu = GStageMmu::new();
 
         // Create a page table
-        gsmmu.map_page(0x1000, 0x2000, 0x5);
+        gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_EXECUTE);
 
         // Check the pte
         let root_ptr = gsmmu.page_table.region.hpm_vptr;
@@ -446,7 +488,7 @@ mod tests {
         let hpa = 0x2000;
 
         // Change 4 PTEs
-        gsmmu.map_page(gpa, hpa, 0x7); 
+        gsmmu.map_page(gpa, hpa, PTE_READ | PTE_WRITE | PTE_EXECUTE); 
 
         // Non-zero [0, 512*4, 512*5, 512*6+1]
         let pte_index = vec![0, 512*4, 512*5, 512*6+1];
@@ -494,7 +536,7 @@ mod tests {
         let mut gsmmu = GStageMmu::new();
 
         // Create a page table
-        gsmmu.map_range(0x1000, 0x2000, 0x2000, 0x5);
+        gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
 
         // Check the pte
         let root_ptr = gsmmu.page_table.region.hpm_vptr;
@@ -527,7 +569,7 @@ mod tests {
         let mut ptr: *mut u64;
         let mut pte: u64;
 
-        gsmmu.map_range(0x1000, 0x2000, 0x2000, 0x5);
+        gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
 
         // Non-zero [0, 512*4, 512*5, 512*6+1, 512*6+2]
         let pte_index = vec![0, 512*4, 512*5, 512*6+1, 512*6+2];
@@ -558,7 +600,7 @@ mod tests {
         let mut gsmmu = GStageMmu::new();
 
         // Create a page table
-        gsmmu.map_range(0x1000, 0x2000, 0x2000, 0x5);
+        gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
 
         // Check the pte
         let root_ptr = gsmmu.page_table.region.hpm_vptr;
@@ -587,7 +629,7 @@ mod tests {
         let mut gsmmu = GStageMmu::new();
 
         // Create a page table
-        gsmmu.map_range(0x1000, 0x2000, 0x2000, 0x5);
+        gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
 
         // Check the pte
         let root_ptr = gsmmu.page_table.region.hpm_vptr;
@@ -651,7 +693,7 @@ mod tests {
         assert_eq!(pte_level, 0);
 
         // Some(Pte) 
-        gsmmu.map_page(0x1000, 0x2000, 5);
+        gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_EXECUTE);
         query = gsmmu.map_query(0x1000);
 
         if query.is_some() {
@@ -674,7 +716,7 @@ mod tests {
         let invalid_hpa = 0x2100;
 
         // Create a page table
-        let result = gsmmu.map_page(valid_gpa, invalid_hpa, 0x5);
+        let result = gsmmu.map_page(valid_gpa, invalid_hpa, PTE_READ | PTE_EXECUTE);
         if result.is_some() {
             panic!("HPA: {:x} should be invalid", invalid_hpa);
         }
@@ -688,9 +730,35 @@ mod tests {
         let invalid_gpa = 0x1100;
 
         // Create a page table
-        let result = gsmmu.map_page(invalid_gpa, valid_hpa, 0x5);
+        let result = gsmmu.map_page(invalid_gpa, valid_hpa, PTE_READ | PTE_EXECUTE);
         if result.is_some() {
             panic!("GPA: {:x} should be invalid", invalid_gpa);
         }
     }
+
+    #[test]
+    fn test_map_protect() {
+        let mut gsmmu = GStageMmu::new();
+        let root_ptr = gsmmu.page_table.region.hpm_vptr;
+        let ptr: *mut u64;
+        let mut pte: u64;
+
+        // pte = 2063
+        gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_WRITE | PTE_EXECUTE); 
+
+        unsafe {
+            ptr = root_ptr.add(512*6+1);
+        }
+        pte = unsafe { *ptr };
+
+        assert_eq!(pte, 2063);
+
+        // pte = 2059
+        gsmmu.map_protect(0x1000, PTE_READ | PTE_EXECUTE);
+
+        pte = unsafe { *ptr };
+
+        assert_eq!(pte, 2059);
+    }
+
 }
