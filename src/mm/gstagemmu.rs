@@ -104,8 +104,10 @@ impl GStageMmu {
 
     // For debug
     pub fn gsmmu_test(&mut self)  {
-
         self.map_page(0x1000, 0x2000, 0x5);
+        self.unmap_page(0x1000);
+        self.map_range(0x1000, 0x2000, 0x2000, 0x7);
+        self.unmap_range(0x1000, 0x2000);
         self.gpa_region_add(0x3000, 0x4000, 0x1000);
     }
 
@@ -201,6 +203,77 @@ impl GStageMmu {
         let pte_addr_ptr = pte_addr as *mut u64;
         unsafe {
             *pte_addr_ptr = pte;
+        }
+
+        Some(0)
+    }
+
+    pub fn map_range(&mut self, gpa: u64, hpa: u64, length: u64, flag: u64) -> Option<u32> {
+        if (hpa & 0xfff) != 0 {
+            return None;
+        }
+
+        if (gpa & 0xfff) != 0 {
+            return None;
+        }
+        
+        if (length & 0xfff) != 0 {
+            return None;
+        }
+
+        let mut offset: u64 = 0;
+
+        loop {
+            self.map_page(gpa + offset, hpa + offset, flag);
+            offset += PAGE_SIZE;
+            if offset >= length {
+                break;
+            }
+        }
+
+        Some(0)
+    }
+
+    // Unmap only L3 PTEs for now. 
+    // TODO: Unmap L0/L1/L2 page table pages if there are no valid PTEs in them
+    pub fn unmap_page(&mut self, gpa: u64) -> Option<u32> {
+        if (gpa & 0xfff) != 0 {
+            return None;
+        }
+
+        let offset_wrap = self.gpa_to_ptregion_offset(gpa);
+        if offset_wrap.is_none() {
+            return None;
+        }
+        let offset = offset_wrap.unwrap();
+        let page_table_va = self.page_table.region.hpm_ptr as u64;
+        let pte_addr = page_table_va + offset;
+
+        let pte_addr_ptr = pte_addr as *mut u64;
+        unsafe {
+            *pte_addr_ptr = 0;
+        }
+
+        Some(0)
+    }
+
+    pub fn unmap_range(&mut self, gpa: u64, length: u64) -> Option<u32> {
+        if (gpa & 0xfff) != 0 {
+            return None;
+        }
+        
+        if (length & 0xfff) != 0 {
+            return None;
+        }
+
+        let mut offset: u64 = 0;
+
+        loop {
+            self.unmap_page(gpa + offset);
+            offset += PAGE_SIZE;
+            if offset >= length {
+                break;
+            }
         }
 
         Some(0)
@@ -350,6 +423,146 @@ mod tests {
 
             assert_eq!(pte, 0);
         }
+    }
+
+    // Check the value of the L4 PTE created by map_range
+    #[test]
+    fn test_map_range_pte() {
+        let mut gsmmu = GStageMmu::new();
+
+        // Create a page table
+        gsmmu.map_range(0x1000, 0x2000, 0x2000, 0x5);
+
+        // Check the pte
+        let root_ptr = gsmmu.page_table.region.hpm_ptr;
+        let mut ptr: *mut u64;
+        let mut pte: u64;
+        unsafe {
+            ptr = root_ptr.add(512*6+1);
+        }
+        pte = unsafe { *ptr };
+
+        // PTE on L4 should be 0b1000 0000 1011
+        // ppn = 0b10 with PTE_EXECUTE/READ/VALID
+        assert_eq!(pte, 2059);
+
+        unsafe {
+            ptr = root_ptr.add(512*6+2);
+        }
+        pte = unsafe { *ptr };
+
+        // PTE on L4 should be 0b1100 0000 1011
+        // ppn = 0b10 with PTE_EXECUTE/READ/VALID
+        assert_eq!(pte, 3083);
+    }
+
+    // Check the location(index) of the new PTEs created by map_range
+    #[test]
+    fn test_map_range_index() {
+        let mut gsmmu = GStageMmu::new();
+        let root_ptr = gsmmu.page_table.region.hpm_ptr;
+        let mut ptr: *mut u64;
+        let mut pte: u64;
+
+        gsmmu.map_range(0x1000, 0x2000, 0x2000, 0x5);
+
+        // Non-zero [0, 512*4, 512*5, 512*6+1, 512*6+2]
+        let pte_index = vec![0, 512*4, 512*5, 512*6+1, 512*6+2];
+
+        // 4 PTEs should be set
+        for i in &pte_index {
+            unsafe {
+                ptr = root_ptr.add(*i);
+                pte = *ptr;
+            }
+
+            assert_ne!(pte, 0);
+        }
+
+        // All the other PTEs should be zero
+        for i in (0..512*7).filter(|x: &usize| !pte_index.contains(x)) {
+            unsafe {
+                ptr = root_ptr.add(i as usize);
+                pte = *ptr;
+            }
+
+            assert_eq!(pte, 0);
+        }
+    }
+
+    #[test]
+    fn test_unmap_page() {
+        let mut gsmmu = GStageMmu::new();
+
+        // Create a page table
+        gsmmu.map_range(0x1000, 0x2000, 0x2000, 0x5);
+
+        // Check the pte
+        let root_ptr = gsmmu.page_table.region.hpm_ptr;
+        let ptr: *mut u64;
+        unsafe {
+            ptr = root_ptr.add(512*6+1);
+        }
+        let mut pte: u64 = unsafe { *ptr };
+
+        // PTE on L4 should be 0b1000 0000 1011
+        // ppn = 0b10 with PTE_EXECUTE/READ/VALID
+        assert_eq!(pte, 2059);
+
+        // Unmap the page
+        gsmmu.unmap_page(0x1000);
+
+        // Get the pte again after unmap
+        pte = unsafe { *ptr };
+
+        // Should be cleared
+        assert_eq!(pte, 0);
+    }
+
+    #[test]
+    fn test_unmap_range() {
+        let mut gsmmu = GStageMmu::new();
+
+        // Create a page table
+        gsmmu.map_range(0x1000, 0x2000, 0x2000, 0x5);
+
+        // Check the pte
+        let root_ptr = gsmmu.page_table.region.hpm_ptr;
+        let mut ptr: *mut u64;
+        let mut pte: u64;
+        unsafe {
+            ptr = root_ptr.add(512*6+1);
+        }
+        pte = unsafe { *ptr };
+
+        // PTE on L4 should be 0b1000 0000 1011
+        // ppn = 0b10 with PTE_EXECUTE/READ/VALID
+        assert_eq!(pte, 2059);
+
+        unsafe {
+            ptr = root_ptr.add(512*6+2);
+        }
+        pte = unsafe { *ptr };
+
+        // PTE on L4 should be 0b1100 0000 1011
+        // ppn = 0b10 with PTE_EXECUTE/READ/VALID
+        assert_eq!(pte, 3083);
+
+        // Unmap the range
+        gsmmu.unmap_range(0x1000, 0x2000);
+
+        // Check the 2 PTEs again after unmap_range
+        unsafe {
+            ptr = root_ptr.add(512*6+1);
+        }
+        pte = unsafe { *ptr };
+        assert_eq!(pte, 0);
+
+        unsafe {
+            ptr = root_ptr.add(512*6+2);
+        }
+        pte = unsafe { *ptr };
+        assert_eq!(pte, 0);
     }
 
     // Check map_page by invalid hpa
