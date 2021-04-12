@@ -42,14 +42,15 @@ impl PageTableRegion {
         }
     }
 
-    pub fn page_table_create(&mut self) -> *mut u64 {
-        let ptr = self.page_table_alloc(PAGE_SIZE);
-        ptr
-    }
+    pub fn page_table_create(&mut self, level: u64) -> *mut u64 {
+        let mut size: u64 = PAGE_SIZE;
 
-    // root page table takes 4 pages in SV39x4 & SV48x4
-    pub fn root_table_create(&mut self) -> *mut u64 {
-        let ptr = self.page_table_alloc(PAGE_SIZE * 4);
+        // root page table takes 4 pages in SV39x4 & SV48x4
+        if level == 0 {
+            size = PAGE_SIZE * 4;
+        }
+
+        let ptr = self.page_table_alloc(size);
         ptr
     }
 
@@ -92,7 +93,7 @@ impl GStageMmu {
         let mut page_table = PageTableRegion::new(&mut allocator);
 
         // create root table
-        page_table.root_table_create();
+        page_table.page_table_create(0);
 
         GStageMmu {
             page_table,
@@ -151,7 +152,7 @@ impl GStageMmu {
             let mut pte = unsafe { *(pte_addr_va as *mut u64) };
 
             if pte & PTE_VALID == 0 {
-                page_table_va = self.page_table.page_table_create() as u64;
+                page_table_va = self.page_table.page_table_create(level + 1) as u64;
                 page_table_hpa = self.page_table.region.va_to_hpa(page_table_va);
                 pte = page_table_hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
                 pte = GStageMmu::set_pte_flags(pte, level, 0);
@@ -264,7 +265,7 @@ mod tests {
         let mut gsmmu = GStageMmu::new();
 
         // Create a page table
-        gsmmu.page_table.page_table_create();
+        gsmmu.page_table.page_table_create(1);
 
         // Check the page table has been created
         let free_offset = gsmmu.page_table.free_offset;
