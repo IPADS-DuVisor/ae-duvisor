@@ -7,7 +7,6 @@ pub struct HpmRegion {
 
 impl HpmRegion {
     pub fn new(hpm_ptr: *mut u64, base_address: u64, length: u64) -> HpmRegion {
-        //let hpm_ptr = unsafe { libc::malloc(length) };
         HpmRegion {
             hpm_ptr,
             base_address,
