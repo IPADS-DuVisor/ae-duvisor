@@ -6,8 +6,8 @@ pub struct GpRegs {
 }
 
 impl GpRegs {
-    pub fn new() -> GpRegs {
-        GpRegs {
+    pub fn new() -> Self {
+        Self {
             x_reg: [0; 32],
         }
     }
@@ -27,8 +27,8 @@ pub struct SysRegs { //scounteren?
 }
 
 impl SysRegs {
-    pub fn new() -> SysRegs {
-        SysRegs {
+    pub fn new() -> Self {
+        Self {
             vsstatus: 0,
             vsip: 0,
             vsie: 0,
@@ -74,8 +74,8 @@ pub struct HypRegs {
 }
 
 impl HypRegs {
-    pub fn new() -> HypRegs {
-        HypRegs {
+    pub fn new() -> Self {
+        Self {
             hustatus: 0,
             huedeleg: 0,
             huideleg: 0,
@@ -106,11 +106,11 @@ pub struct HostCtx {
 }
 
 impl HostCtx {
-    pub fn new() -> HostCtx {
+    pub fn new() -> Self {
         let gp_regs = GpRegs::new();
         let hyp_regs = HypRegs::new();
 
-        HostCtx {
+        Self {
             gp_regs,
             hyp_regs
         }
@@ -124,12 +124,12 @@ pub struct GuestCtx {
 }
 
 impl GuestCtx {
-    pub fn new() -> GuestCtx {
+    pub fn new() -> Self {
         let gp_regs = GpRegs::new();
         let sys_regs = SysRegs::new();
         let hyp_regs = HypRegs::new();
 
-        GuestCtx {
+        Self {
             gp_regs,
             sys_regs,
             hyp_regs
@@ -144,11 +144,11 @@ pub struct VcpuCtx {
 }
 
 impl VcpuCtx {
-    pub fn new() -> VcpuCtx {
+    pub fn new() -> Self {
         let host_ctx = HostCtx::new();
         let guest_ctx = GuestCtx::new();
 
-        VcpuCtx {
+        Self {
             host_ctx,
             guest_ctx
         }
@@ -163,10 +163,10 @@ pub struct VirtualCpu {
 }
 
 impl VirtualCpu {
-    pub fn new(vcpu_id: u32, vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> VirtualCpu {
+    pub fn new(vcpu_id: u32, vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
         let vcpu_ctx = VcpuCtx::new();
 
-        VirtualCpu {
+        Self {
             vcpu_id,
             vm: vm_mutex_ptr,
             vcpu_ctx,

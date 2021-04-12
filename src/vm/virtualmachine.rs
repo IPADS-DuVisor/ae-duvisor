@@ -9,8 +9,8 @@ pub struct VmSharedState {
 }
 
 impl VmSharedState {
-    pub fn new() -> VmSharedState {
-        VmSharedState {
+    pub fn new() -> Self {
+        Self {
             vm_id: 0,
         }
     }
@@ -24,7 +24,7 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-    pub fn new(vcpu_num: u32) -> VirtualMachine {
+    pub fn new(vcpu_num: u32) -> Self {
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
         let vm_state = VmSharedState::new();
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
@@ -32,7 +32,7 @@ impl VirtualMachine {
         let gsmmu = gstagemmu::GStageMmu::new();
 
         // Create vm struct instance
-        let mut vm = VirtualMachine {
+        let mut vm = Self {
             vcpus,
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
