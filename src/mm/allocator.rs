@@ -17,7 +17,11 @@ impl HpmRegion {
     pub fn va_to_hpa(&self, va: u64) -> u64 {
         let va_base = self.hpm_ptr as u64;
         let hpa_base = self.base_address;
-        let offset = va - va_base;
+        let offset: u64 = va - va_base;
+
+        if offset >= self.length {
+            panic!("HpmRegion::va_to_hpa : va {:x} out of bound", va);
+        }
         
         offset + hpa_base
     }
@@ -26,6 +30,10 @@ impl HpmRegion {
         let va_base = self.hpm_ptr as u64;
         let hpa_base = self.base_address;
         let offset = hpa - hpa_base;
+
+        if offset >= self.length {
+            panic!("HpmRegion::hpa_to_va : hpa {:x} out of bound", hpa);
+        }
 
         offset + va_base
     }
