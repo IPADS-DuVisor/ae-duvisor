@@ -312,21 +312,39 @@ mod tests {
         let root_ptr = gsmmu.page_table.region.hpm_ptr;
         let mut ptr: *mut u64;
         let mut pte: u64;
+        let gpa = 0x1000;
+        let hpa = 0x2000;
 
         // Change 4 PTEs
-        gsmmu.map_page(0x1000, 0x2000, 0x7); 
+        gsmmu.map_page(gpa, hpa, 0x7); 
 
         // Non-zero [0, 512*4, 512*5, 512*6+1]
         let pte_index = vec![0, 512*4, 512*5, 512*6+1];
 
+        // non-zero answer
+        let base_address = gsmmu.page_table.region.base_address;
+        let l0_pte = ((base_address + 0x4000) >> 2) | PTE_USER | PTE_VALID;
+        let l1_pte = ((base_address + 0x5000) >> 2) | PTE_USER | PTE_VALID;
+        let l2_pte = ((base_address + 0x6000) >> 2) | PTE_USER | PTE_VALID;
+        let l3_pte = (hpa >> 2) 
+            | PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
+
+        // Start from 0x10000 and the root table takes 0x4000
+        // HPA = 0x10000 + 0x4000 -> l0_pte: 0b0101 00|00 0001 0001 = 20497
+        // HPA = 0x14000 + 0x1000 -> l1_pte: 0b0101 01|00 0001 0001 = 21521
+        // HPA = 0x15000 + 0x1000 -> l2_pte: 0b0101 10|00 0001 0001 = 22545
+        // HPA = 0x2000 -> l3_pte: 0b0000 10|00 0001 1111 = 2079
+        let pte_index_ans = 
+            vec![(0, l0_pte), (512*4, l1_pte), (512*5, l2_pte), (512*6+1, l3_pte)];
+
         // 4 PTEs should be set
-        for i in &pte_index {
+        for (i, j) in &pte_index_ans {
             unsafe {
                 ptr = root_ptr.add(*i);
                 pte = *ptr;
             }
 
-            assert_ne!(pte, 0);
+            assert_eq!(pte, *j as u64);
         }
 
         // All the other PTEs should be zero

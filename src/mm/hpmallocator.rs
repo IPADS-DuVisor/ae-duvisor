@@ -1,7 +1,7 @@
 #[derive(Clone)]
 pub struct HpmRegion {
     pub hpm_ptr: *mut u64, // VA
-    base_address: u64, // HPA
+    pub base_address: u64, // HPA
     pub length: u64,
 }
 
