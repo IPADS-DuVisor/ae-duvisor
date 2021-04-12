@@ -19,7 +19,7 @@ mod gsmmu_constants {
     pub const PTE_READ: u64 = 1u64 << 1;
     pub const PTE_WRITE: u64 = 1u64 << 2;
     pub const PTE_EXECUTE: u64 = 1u64 << 3;
-    pub const PTE_USER: u64 = 1u64 << 4;
+    //pub const PTE_USER: u64 = 1u64 << 4;
     //pub const PTE_GLOBAL: u64 = 1u64 << 5;
     //pub const PTE_ACCESS: u64 = 1u64 << 6;
     //pub const PTE_DIRTY: u64 = 1u64 << 6;
@@ -111,10 +111,7 @@ impl GStageMmu {
         self.hpa_region_add(0x10000);
     }
 
-    pub fn set_pte_flags(mut pte: u64, level: u64, flag: u64) -> u64 {
-        // for ULH in HU
-        pte = pte | PTE_USER;
-        
+    pub fn set_pte_flags(mut pte: u64, level: u64, flag: u64) -> u64 {        
         match level {
             3 => {
                 pte = pte | PTE_VALID;
@@ -320,9 +317,9 @@ mod tests {
         }
         let pte: u64 = unsafe { *ptr };
 
-        // PTE on L4 should be 0b1000 0001 1011
-        // ppn = 0b10 with PTE_USER/EXECUTE/READ/VALID
-        assert_eq!(pte, 2075);
+        // PTE on L4 should be 0b1000 0000 1011
+        // ppn = 0b10 with PTE_EXECUTE/READ/VALID
+        assert_eq!(pte, 2059);
     }
 
     // Check the location(index) of the new PTEs
@@ -343,17 +340,17 @@ mod tests {
 
         // non-zero answer
         let base_address = gsmmu.page_table.region.base_address;
-        let l0_pte = ((base_address + 0x4000) >> 2) | PTE_USER | PTE_VALID;
-        let l1_pte = ((base_address + 0x5000) >> 2) | PTE_USER | PTE_VALID;
-        let l2_pte = ((base_address + 0x6000) >> 2) | PTE_USER | PTE_VALID;
+        let l0_pte = ((base_address + 0x4000) >> 2) | PTE_VALID;
+        let l1_pte = ((base_address + 0x5000) >> 2) | PTE_VALID;
+        let l2_pte = ((base_address + 0x6000) >> 2) | PTE_VALID;
         let l3_pte = (hpa >> 2) 
-            | PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
+            | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
 
         // Start from 0x10000 and the root table takes 0x4000
-        // HPA = 0x10000 + 0x4000 -> l0_pte: 0b0101 00|00 0001 0001 = 20497
-        // HPA = 0x14000 + 0x1000 -> l1_pte: 0b0101 01|00 0001 0001 = 21521
-        // HPA = 0x15000 + 0x1000 -> l2_pte: 0b0101 10|00 0001 0001 = 22545
-        // HPA = 0x2000 -> l3_pte: 0b0000 10|00 0001 1111 = 2079
+        // HPA = 0x10000 + 0x4000 -> l0_pte: 0b0101 00|00 0000 0001 = 20481
+        // HPA = 0x14000 + 0x1000 -> l1_pte: 0b0101 01|00 0000 0001 = 21505
+        // HPA = 0x15000 + 0x1000 -> l2_pte: 0b0101 10|00 0000 0001 = 22529
+        // HPA = 0x2000 -> l3_pte: 0b0000 10|00 0000 1111 = 2063
         let pte_index_ans = 
             vec![(0, l0_pte), (512*4, l1_pte), (512*5, l2_pte), (512*6+1, l3_pte)];
 
