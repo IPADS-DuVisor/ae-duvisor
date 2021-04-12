@@ -120,16 +120,18 @@ mod tests {
     // Check hpa_to_va when hpa is out of bound
     #[test]
     fn test_hpa_to_va_oob_invalid() {
-        // Valid HPA: [0x10000, 0x12000)
+        // Valid HPA: [base_addr, base_addr + 0x2000)
         let length = 0x2000;
         let mut allocator = HpmAllocator::new();
 
         allocator.hpm_alloc(length);
 
         let mut result;
-        let invalid_hpa = 0x20000;
+        let mut invalid_hpa;
 
         for i in allocator.hpm_region_list {
+            invalid_hpa = i.base_address;
+            invalid_hpa += i.length * 2;
             result = i.hpa_to_va(invalid_hpa);
             if result.is_some() {
                 panic!("HPA {:x} should be out of bound", invalid_hpa);
@@ -140,16 +142,18 @@ mod tests {
     // Check hpa_to_va when hpa is equal to the upper boundary
     #[test]
     fn test_hpa_to_va_oob_invalid_eq() {
-        // Valid HPA: [0x10000, 0x12000)
+        // Valid HPA: [base_addr, base_addr + 0x2000)
         let length = 0x2000;
         let mut allocator = HpmAllocator::new();
 
         allocator.hpm_alloc(length);
 
         let mut result;
-        let invalid_hpa = 0x12000;
+        let mut invalid_hpa;
 
         for i in allocator.hpm_region_list {
+            invalid_hpa = i.base_address;
+            invalid_hpa += i.length;
             result = i.hpa_to_va(invalid_hpa);
             if result.is_some() {
                 panic!("HPA {:x} should be out of bound", invalid_hpa);
@@ -160,16 +164,18 @@ mod tests {
     // Check hpa_to_va when hpa is valid
     #[test]
     fn test_hpa_to_va_oob_valid() {
-        // Valid HPA: [0x10000, 0x12000)
+        // Valid HPA: [base_addr, base_addr + 0x2000)
         let length = 0x2000;
         let mut allocator = HpmAllocator::new();
 
         allocator.hpm_alloc(length);
 
         let mut result;
-        let valid_hpa = 0x11000;
+        let mut valid_hpa;
 
         for i in allocator.hpm_region_list {
+            valid_hpa = i.base_address;
+            valid_hpa += i.length / 2; 
             result = i.hpa_to_va(valid_hpa);
             if result.is_none() {
                 panic!("HPA {:x} should be valid", valid_hpa);
@@ -180,16 +186,17 @@ mod tests {
     // Check hpa_to_va when hpa is equal to the lower bound
     #[test]
     fn test_hpa_to_va_oob_valid_eq() {
-        // Valid HPA: [0x10000, 0x12000)
+        // Valid HPA: [base_addr, base_addr + 0x2000)
         let length = 0x2000;
         let mut allocator = HpmAllocator::new();
 
         allocator.hpm_alloc(length);
 
         let mut result;
-        let valid_hpa = 0x10000;
+        let mut valid_hpa;
 
         for i in allocator.hpm_region_list {
+            valid_hpa = i.base_address;
             result = i.hpa_to_va(valid_hpa);
             if result.is_none() {
                 panic!("HPA {:x} should be valid", valid_hpa);

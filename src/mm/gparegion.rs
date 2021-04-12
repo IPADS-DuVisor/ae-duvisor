@@ -1,12 +1,14 @@
 pub struct GpaRegion {
-    pub base_address: u64,
+    pub gpa: u64,
+    pub hpa: u64,
     pub length: u64,
 }
 
 impl GpaRegion {
-    pub fn new(base_address: u64, length: u64) -> GpaRegion {
+    pub fn new(gpa: u64, hpa: u64, length: u64) -> GpaRegion {
         GpaRegion {
-            base_address,
+            gpa,
+            hpa,
             length,
         }
     }
@@ -19,11 +21,13 @@ mod tests {
     // Check new() of GStageMmu
     #[test]
     fn test_gpa_region_new() { 
-        let base_address = 0x4000;
+        let gpa = 0x4000;
+        let hpa = 0x5000;
         let length = 0x1000;
-        let gpa_region = GpaRegion::new(base_address, length);
+        let gpa_region = GpaRegion::new(gpa, hpa, length);
 
-        assert_eq!(gpa_region.base_address, base_address);
+        assert_eq!(gpa_region.gpa, gpa);
+        assert_eq!(gpa_region.hpa, hpa);
         assert_eq!(gpa_region.length, length);
     }
 }

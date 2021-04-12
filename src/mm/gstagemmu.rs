@@ -82,14 +82,12 @@ impl PageTableRegion {
 pub struct GStageMmu {
     pub page_table: PageTableRegion,
     gpa_regions: Vec<gparegion::GpaRegion>, // gpa region list
-    hpa_regions: Vec<hpmallocator::HpmRegion>, // hpa region list
     allocator: hpmallocator::HpmAllocator,
 }
 
 impl GStageMmu {
     pub fn new() -> GStageMmu {
         let gpa_regions: Vec<gparegion::GpaRegion> = Vec::new();
-        let hpa_regions: Vec<hpmallocator::HpmRegion> = Vec::new();
         let mut allocator = hpmallocator::HpmAllocator::new();
         let mut page_table = PageTableRegion::new(&mut allocator);
 
@@ -99,7 +97,6 @@ impl GStageMmu {
         GStageMmu {
             page_table,
             gpa_regions,
-            hpa_regions,
             allocator,
         }
     }
@@ -107,8 +104,7 @@ impl GStageMmu {
     // For debug
     pub fn gsmmu_test(&mut self)  {
         self.map_page(0x1000, 0x2000, 0x5);
-        self.gpa_region_add(0x3000, 0x4000);
-        self.hpa_region_add(0x10000);
+        self.gpa_region_add(0x3000, 0x1000);
     }
 
     pub fn set_pte_flags(mut pte: u64, level: u64, flag: u64) -> u64 {        
@@ -160,7 +156,7 @@ impl GStageMmu {
                     return None;
                 }
                 page_table_hpa = page_table_hpa_wrap.unwrap();
-                pte = page_table_hpa >> PAGE_SHIFT << PTE_PPN_SHIFT;
+                pte = (page_table_hpa >> PAGE_SHIFT) << PTE_PPN_SHIFT;
                 pte = GStageMmu::set_pte_flags(pte, level, 0);
                 unsafe {
                     *(pte_addr_va as *mut u64) = pte;         
@@ -208,16 +204,12 @@ impl GStageMmu {
         Some(0)
     }
 
-    pub fn gpa_region_add(&mut self, base_address: u64, length: u64) -> u32 {
-        let gpa_region = gparegion::GpaRegion::new(base_address, length);
-        self.gpa_regions.push(gpa_region);
-
-        0
-    }
-
-    pub fn hpa_region_add(&mut self, length: u64) -> u32 {
+    pub fn gpa_region_add(&mut self, gpa: u64, length: u64) -> u32 {
+        let mut gpa_region = gparegion::GpaRegion::new(gpa, 0, length);
         let hpa_region = self.allocator.hpm_alloc(length);
-        self.hpa_regions.push(hpa_region);
+        gpa_region.hpa = hpa_region.base_address;
+
+        self.gpa_regions.push(gpa_region);
 
         0
     }
@@ -251,33 +243,18 @@ mod tests {
     #[test]
     fn test_gpa_region_add() { 
         let mut gsmmu = GStageMmu::new();
-        let mut base_address: u64 = 0;
+        let mut gpa: u64 = 0;
         let mut length: u64 = 0;
 
         gsmmu.gpa_region_add(0x1000, 0x2000);
 
         for i in gsmmu.gpa_regions {
-            base_address = i.base_address;
+            gpa = i.gpa;
             length = i.length;
         }
 
-        assert_eq!(base_address, 0x1000);
+        assert_eq!(gpa, 0x1000);
         assert_eq!(length, 0x2000);
-    }
-
-    // Check hpa_region add
-    #[test]
-    fn test_hpa_region_add() { 
-        let mut gsmmu = GStageMmu::new();
-        let mut length: u64 = 0;
-
-        gsmmu.hpa_region_add(0x1000);
-
-        for i in gsmmu.hpa_regions {
-            length = i.length;
-        }
-
-        assert_eq!(length, 0x1000);
     }
 
     #[test]
