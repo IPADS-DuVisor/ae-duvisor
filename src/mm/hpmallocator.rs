@@ -1,21 +1,21 @@
 #[derive(Clone)]
 pub struct HpmRegion {
-    pub hpm_ptr: *mut u64, // VA
+    pub hpm_vptr: *mut u64, // VA
     pub base_address: u64, // HPA
     pub length: u64,
 }
 
 impl HpmRegion {
-    pub fn new(hpm_ptr: *mut u64, base_address: u64, length: u64) -> HpmRegion {
+    pub fn new(hpm_vptr: *mut u64, base_address: u64, length: u64) -> HpmRegion {
         HpmRegion {
-            hpm_ptr,
+            hpm_vptr,
             base_address,
             length,
         }
     }
 
     pub fn va_to_hpa(&self, va: u64) -> Option<u64> {
-        let va_base = self.hpm_ptr as u64;
+        let va_base = self.hpm_vptr as u64;
         let hpa_base = self.base_address;
 
         if va < va_base {
@@ -32,7 +32,7 @@ impl HpmRegion {
     }
 
     pub fn hpa_to_va(&self, hpa: u64) -> Option<u64> {
-        let va_base = self.hpm_ptr as u64;
+        let va_base = self.hpm_vptr as u64;
         let hpa_base = self.base_address;
 
         if hpa < hpa_base {
@@ -63,7 +63,7 @@ impl HpmAllocator {
     // Use malloc for now
     pub fn hpm_alloc(&mut self, length: u64) -> HpmRegion {
         let ptr = unsafe { libc::malloc(length as usize) };
-        let hpm_ptr = ptr as *mut u64;
+        let hpm_vptr = ptr as *mut u64;
 
         // --- Just for now ---
         let mut base_address = 0x10000;
@@ -74,7 +74,7 @@ impl HpmAllocator {
         }
         // --- End ---
 
-        let hpm_region = HpmRegion::new(hpm_ptr, base_address, length);
+        let hpm_region = HpmRegion::new(hpm_vptr, base_address, length);
         let hpm_region_return = hpm_region.clone();
 
         &self.hpm_region_list.push(hpm_region);
@@ -92,10 +92,10 @@ mod tests {
         let hpa: u64 = 0x3000;
         let va: u64 = 0x5000;
         let length: u64 = 0x1000;
-        let hpm_ptr = va as *mut u64;
-        let hpm_region = HpmRegion::new(hpm_ptr, hpa, length);
+        let hpm_vptr = va as *mut u64;
+        let hpm_region = HpmRegion::new(hpm_vptr, hpa, length);
 
-        assert_eq!(hpm_region.hpm_ptr as u64, va);
+        assert_eq!(hpm_region.hpm_vptr as u64, va);
         assert_eq!(hpm_region.base_address, hpa);
         assert_eq!(hpm_region.length, length);
     }
@@ -216,7 +216,7 @@ mod tests {
         let mut invalid_va;
 
         for i in allocator.hpm_region_list {
-            invalid_va = i.hpm_ptr as u64 + length + 0x1000;
+            invalid_va = i.hpm_vptr as u64 + length + 0x1000;
             result = i.va_to_hpa(invalid_va);
             if result.is_some() {
                 panic!("VA {:x} should be out of bound", invalid_va);
@@ -236,7 +236,7 @@ mod tests {
         let mut invalid_va;
 
         for i in allocator.hpm_region_list {
-            invalid_va = i.hpm_ptr as u64 + length;
+            invalid_va = i.hpm_vptr as u64 + length;
             result = i.va_to_hpa(invalid_va);
             if result.is_some() {
                 panic!("VA {:x} should be out of bound", invalid_va);
@@ -256,7 +256,7 @@ mod tests {
         let mut valid_va;
 
         for i in allocator.hpm_region_list {
-            valid_va = i.hpm_ptr as u64 + length - 0x1000;
+            valid_va = i.hpm_vptr as u64 + length - 0x1000;
             result = i.va_to_hpa(valid_va);
             if result.is_none() {
                 panic!("VA {:x} should be valid", valid_va);
@@ -276,7 +276,7 @@ mod tests {
         let mut valid_va;
 
         for i in allocator.hpm_region_list {
-            valid_va = i.hpm_ptr as u64;
+            valid_va = i.hpm_vptr as u64;
             result = i.va_to_hpa(valid_va);
             if result.is_none() {
                 panic!("VA {:x} should be valid", valid_va);
