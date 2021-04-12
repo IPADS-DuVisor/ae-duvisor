@@ -143,11 +143,13 @@ impl GStageMmu {
         let mut page_table_va = self.page_table.region.hpm_ptr as u64;
         let mut page_table_hpa;
         let mut index: u64;
+        let mut shift: u64;
 
         for level in 0..3 {
-            index = (gpa >> (39 - PAGE_ORDER * level)) & 0x1ff;
+            shift = 39 - PAGE_ORDER * level;
+            index = (gpa >> shift) & 0x1ff;
             if level == 0 {
-                index = (gpa >> (39 - PAGE_ORDER * level)) & 0x7ff;
+                index = (gpa >> shift) & 0x7ff;
             }
             let pte_addr_va = page_table_va + index * 8;
             let mut pte = unsafe { *(pte_addr_va as *mut u64) };
