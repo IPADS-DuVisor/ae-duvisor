@@ -1,4 +1,4 @@
-use crate::mm::allocator;
+use crate::mm::hpmallocator;
 use crate::mm::gparegion;
 use core::mem;
 
@@ -29,12 +29,12 @@ mod gsmmu_constants {
 pub use gsmmu_constants::*;
 
 pub struct PageTableRegion {
-    pub region: allocator::HpmRegion,
+    pub region: hpmallocator::HpmRegion,
     pub free_offset: u64,
 }
 
 impl PageTableRegion {
-    pub fn new(allocator: &mut allocator::Allocator) -> PageTableRegion {
+    pub fn new(allocator: &mut hpmallocator::HpmAllocator) -> PageTableRegion {
         let region = allocator.hpm_alloc(PAGE_TABLE_REGION_SIZE);
         PageTableRegion {
             region,
@@ -82,15 +82,15 @@ impl PageTableRegion {
 pub struct GStageMmu {
     pub page_table: PageTableRegion,
     gpa_region: Vec<gparegion::GpaRegion>, // gpa region list
-    hpa_region: Vec<allocator::HpmRegion>, // hpa region list
-    allocator: allocator::Allocator,
+    hpa_region: Vec<hpmallocator::HpmRegion>, // hpa region list
+    allocator: hpmallocator::HpmAllocator,
 }
 
 impl GStageMmu {
     pub fn new() -> GStageMmu {
         let gpa_region: Vec<gparegion::GpaRegion> = Vec::new();
-        let hpa_region: Vec<allocator::HpmRegion> = Vec::new();
-        let mut allocator = allocator::Allocator::new();
+        let hpa_region: Vec<hpmallocator::HpmRegion> = Vec::new();
+        let mut allocator = hpmallocator::HpmAllocator::new();
         let mut page_table = PageTableRegion::new(&mut allocator);
 
         // create root table

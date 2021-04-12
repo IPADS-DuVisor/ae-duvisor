@@ -49,13 +49,13 @@ impl HpmRegion {
     }
 }
 
-pub struct Allocator {
+pub struct HpmAllocator {
     hpm_region_list: Vec<HpmRegion>,
 }
 
-impl Allocator {
-    pub fn new() -> Allocator {
-        Allocator {
+impl HpmAllocator {
+    pub fn new() -> HpmAllocator {
+        HpmAllocator {
             hpm_region_list: Vec::new(),
         }
     }
@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn test_allocator_alloc() { 
         let length = 0x2000;
-        let mut allocator = Allocator::new();
+        let mut allocator = HpmAllocator::new();
 
         allocator.hpm_alloc(length);
 

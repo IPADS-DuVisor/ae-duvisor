@@ -1,3 +1,3 @@
 pub mod gparegion;
-pub mod allocator;
+pub mod hpmallocator;
 pub mod gstagemmu;
