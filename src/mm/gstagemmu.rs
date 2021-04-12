@@ -139,7 +139,7 @@ impl GStageMmu {
         pte
     }
 
-    pub fn gpa_to_offset(&mut self, gpa: u64) -> u64 {
+    pub fn gpa_to_ptregion_offset(&mut self, gpa: u64) -> u64 {
         let mut page_table_va = self.page_table.region.hpm_ptr as u64;
         let mut page_table_hpa;
         let mut index: u64;
@@ -174,7 +174,7 @@ impl GStageMmu {
 
     // SV48x4
     pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> u32 {
-        let offset = self.gpa_to_offset(gpa);
+        let offset = self.gpa_to_ptregion_offset(gpa);
         let page_table_va = self.page_table.region.hpm_ptr as u64;
         let pte_addr = page_table_va + offset;
 
