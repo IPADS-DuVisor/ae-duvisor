@@ -81,15 +81,15 @@ impl PageTableRegion {
 
 pub struct GStageMmu {
     pub page_table: PageTableRegion,
-    gpa_region: Vec<gparegion::GpaRegion>, // gpa region list
-    hpa_region: Vec<hpmallocator::HpmRegion>, // hpa region list
+    gpa_regions: Vec<gparegion::GpaRegion>, // gpa region list
+    hpa_regions: Vec<hpmallocator::HpmRegion>, // hpa region list
     allocator: hpmallocator::HpmAllocator,
 }
 
 impl GStageMmu {
     pub fn new() -> GStageMmu {
-        let gpa_region: Vec<gparegion::GpaRegion> = Vec::new();
-        let hpa_region: Vec<hpmallocator::HpmRegion> = Vec::new();
+        let gpa_regions: Vec<gparegion::GpaRegion> = Vec::new();
+        let hpa_regions: Vec<hpmallocator::HpmRegion> = Vec::new();
         let mut allocator = hpmallocator::HpmAllocator::new();
         let mut page_table = PageTableRegion::new(&mut allocator);
 
@@ -98,8 +98,8 @@ impl GStageMmu {
 
         GStageMmu {
             page_table,
-            gpa_region,
-            hpa_region,
+            gpa_regions,
+            hpa_regions,
             allocator,
         }
     }
@@ -193,14 +193,14 @@ impl GStageMmu {
 
     pub fn gpa_region_add(&mut self, base_address: u64, length: u64) -> u32 {
         let gpa_region = gparegion::GpaRegion::new(base_address, length);
-        self.gpa_region.push(gpa_region);
+        self.gpa_regions.push(gpa_region);
 
         0
     }
 
     pub fn hpa_region_add(&mut self, length: u64) -> u32 {
         let hpa_region = self.allocator.hpm_alloc(length);
-        self.hpa_region.push(hpa_region);
+        self.hpa_regions.push(hpa_region);
 
         0
     }
@@ -239,7 +239,7 @@ mod tests {
 
         gsmmu.gpa_region_add(0x1000, 0x2000);
 
-        for i in gsmmu.gpa_region {
+        for i in gsmmu.gpa_regions {
             base_address = i.base_address;
             length = i.length;
         }
@@ -256,7 +256,7 @@ mod tests {
 
         gsmmu.hpa_region_add(0x1000);
 
-        for i in gsmmu.hpa_region {
+        for i in gsmmu.hpa_regions {
             length = i.length;
         }
 
