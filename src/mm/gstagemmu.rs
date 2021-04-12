@@ -192,7 +192,13 @@ impl GStageMmu {
         let page_table_va = self.page_table.region.hpm_ptr as u64;
         let pte_addr = page_table_va + offset;
 
-        assert_eq!(hpa & 0xfff, 0);
+        if (hpa & 0xfff) != 0 {
+            return None;
+        }
+
+        if (gpa & 0xfff) != 0 {
+            return None;
+        }
 
         let mut pte = hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
         pte = GStageMmu::set_pte_flags(pte, 3, flag);
@@ -369,6 +375,34 @@ mod tests {
             }
 
             assert_eq!(pte, 0);
+        }
+    }
+
+    // Check map_page by invalid hpa
+    #[test]
+    fn test_map_page_invalid_hpa() {
+        let mut gsmmu = GStageMmu::new();
+        let valid_gpa = 0x1000;
+        let invalid_hpa = 0x2100;
+
+        // Create a page table
+        let result = gsmmu.map_page(valid_gpa, invalid_hpa, 0x5);
+        if result.is_some() {
+            panic!("HPA: {:x} should be invalid", invalid_hpa);
+        }
+    }
+
+    // Check map_page by invalid gpa
+    #[test]
+    fn test_map_page_invalid_gpa() {
+        let mut gsmmu = GStageMmu::new();
+        let valid_hpa = 0x2000;
+        let invalid_gpa = 0x1100;
+
+        // Create a page table
+        let result = gsmmu.map_page(invalid_gpa, valid_hpa, 0x5);
+        if result.is_some() {
+            panic!("GPA: {:x} should be invalid", invalid_gpa);
         }
     }
 }
