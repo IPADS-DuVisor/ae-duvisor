@@ -139,9 +139,11 @@ impl GStageMmu {
         pte
     }
 
-    pub fn gpa_to_ptregion_offset(&mut self, gpa: u64) -> u64 {
+    pub fn gpa_to_ptregion_offset(&mut self, gpa: u64) -> Option<u64> {
         let mut page_table_va = self.page_table.region.hpm_ptr as u64;
+        let mut page_table_va_wrap;
         let mut page_table_hpa;
+        let mut page_table_hpa_wrap;
         let mut index: u64;
         let mut shift: u64;
 
@@ -156,7 +158,11 @@ impl GStageMmu {
 
             if pte & PTE_VALID == 0 {
                 page_table_va = self.page_table.page_table_create(level + 1) as u64;
-                page_table_hpa = self.page_table.region.va_to_hpa(page_table_va);
+                page_table_hpa_wrap = self.page_table.region.va_to_hpa(page_table_va);
+                if page_table_hpa_wrap.is_none() {
+                    return None;
+                }
+                page_table_hpa = page_table_hpa_wrap.unwrap();
                 pte = page_table_hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
                 pte = GStageMmu::set_pte_flags(pte, level, 0);
                 unsafe {
@@ -164,17 +170,25 @@ impl GStageMmu {
                 }
             } else {
                 page_table_hpa = (pte >> PTE_PPN_SHIFT) << PAGE_SHIFT;
-                page_table_va = self.page_table.region.hpa_to_va(page_table_hpa);
+                page_table_va_wrap = self.page_table.region.hpa_to_va(page_table_hpa);
+                if page_table_va_wrap.is_none() {
+                    return None;
+                }
+                page_table_va = page_table_va_wrap.unwrap();
             }
         }
 
-        index = (gpa >> 12) & 0x1ff;
-        page_table_va + index * 8 - (self.page_table.region.hpm_ptr as u64)
+        index = ((gpa >> 12) & 0x1ff) * 8;
+        Some(page_table_va + index - (self.page_table.region.hpm_ptr as u64))
     }
 
     // SV48x4
-    pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> u32 {
-        let offset = self.gpa_to_ptregion_offset(gpa);
+    pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> Option<u32> {
+        let offset_wrap = self.gpa_to_ptregion_offset(gpa);
+        if offset_wrap.is_none() {
+            return None;
+        }
+        let offset = offset_wrap.unwrap();
         let page_table_va = self.page_table.region.hpm_ptr as u64;
         let pte_addr = page_table_va + offset;
 
@@ -188,7 +202,7 @@ impl GStageMmu {
             *pte_addr_ptr = pte;
         }
 
-        0
+        Some(0)
     }
 
     pub fn gpa_region_add(&mut self, base_address: u64, length: u64) -> u32 {

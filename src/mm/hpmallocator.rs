@@ -14,38 +14,38 @@ impl HpmRegion {
         }
     }
 
-    pub fn va_to_hpa(&self, va: u64) -> u64 {
+    pub fn va_to_hpa(&self, va: u64) -> Option<u64> {
         let va_base = self.hpm_ptr as u64;
         let hpa_base = self.base_address;
 
         if va < va_base {
-            panic!("HpmRegion::va_to_hpa : va {:x} out of bound", va);
+            return None;
         }
 
         let offset: u64 = va - va_base;
 
         if offset >= self.length {
-            panic!("HpmRegion::va_to_hpa : va {:x} out of bound", va);
+            return None;
         }
         
-        offset + hpa_base
+        Some(offset + hpa_base)
     }
 
-    pub fn hpa_to_va(&self, hpa: u64) -> u64 {
+    pub fn hpa_to_va(&self, hpa: u64) -> Option<u64> {
         let va_base = self.hpm_ptr as u64;
         let hpa_base = self.base_address;
 
-        if hpa <= hpa_base {
-            panic!("HpmRegion::hpa_to_va : hpa {:x} out of bound", hpa);
+        if hpa < hpa_base {
+            return None;
         }
 
         let offset = hpa - hpa_base;
 
         if offset >= self.length {
-            panic!("HpmRegion::hpa_to_va : hpa {:x} out of bound", hpa);
+            return None;
         }
 
-        offset + va_base
+        Some(offset + va_base)
     }
 }
 
@@ -115,5 +115,165 @@ mod tests {
         }
 
         assert_eq!(hpm_length, length);
+    }
+
+    // Check hpa_to_va when hpa is out of bound
+    #[test]
+    fn test_hpa_to_va_oob_invalid() {
+        // Valid HPA: [0x10000, 0x12000)
+        let length = 0x2000;
+        let mut allocator = HpmAllocator::new();
+
+        allocator.hpm_alloc(length);
+
+        let mut result;
+        let invalid_hpa = 0x20000;
+
+        for i in allocator.hpm_region_list {
+            result = i.hpa_to_va(invalid_hpa);
+            if result.is_some() {
+                panic!("HPA {:x} should be out of bound", invalid_hpa);
+            }
+        }
+    }
+
+    // Check hpa_to_va when hpa is equal to the upper boundary
+    #[test]
+    fn test_hpa_to_va_oob_invalid_eq() {
+        // Valid HPA: [0x10000, 0x12000)
+        let length = 0x2000;
+        let mut allocator = HpmAllocator::new();
+
+        allocator.hpm_alloc(length);
+
+        let mut result;
+        let invalid_hpa = 0x12000;
+
+        for i in allocator.hpm_region_list {
+            result = i.hpa_to_va(invalid_hpa);
+            if result.is_some() {
+                panic!("HPA {:x} should be out of bound", invalid_hpa);
+            }
+        }
+    }
+
+    // Check hpa_to_va when hpa is valid
+    #[test]
+    fn test_hpa_to_va_oob_valid() {
+        // Valid HPA: [0x10000, 0x12000)
+        let length = 0x2000;
+        let mut allocator = HpmAllocator::new();
+
+        allocator.hpm_alloc(length);
+
+        let mut result;
+        let valid_hpa = 0x11000;
+
+        for i in allocator.hpm_region_list {
+            result = i.hpa_to_va(valid_hpa);
+            if result.is_none() {
+                panic!("HPA {:x} should be valid", valid_hpa);
+            }
+        }
+    }
+
+    // Check hpa_to_va when hpa is equal to the lower bound
+    #[test]
+    fn test_hpa_to_va_oob_valid_eq() {
+        // Valid HPA: [0x10000, 0x12000)
+        let length = 0x2000;
+        let mut allocator = HpmAllocator::new();
+
+        allocator.hpm_alloc(length);
+
+        let mut result;
+        let valid_hpa = 0x10000;
+
+        for i in allocator.hpm_region_list {
+            result = i.hpa_to_va(valid_hpa);
+            if result.is_none() {
+                panic!("HPA {:x} should be valid", valid_hpa);
+            }
+        }
+    }
+
+    // Check va_to_hpa when va is out of bound
+    #[test]
+    fn test_va_to_hpa_oob_invalid() {
+        let length = 0x2000;
+        let mut allocator = HpmAllocator::new();
+
+        allocator.hpm_alloc(length);
+
+        let mut result;
+        let mut invalid_va;
+
+        for i in allocator.hpm_region_list {
+            invalid_va = i.hpm_ptr as u64 + length + 0x1000;
+            result = i.va_to_hpa(invalid_va);
+            if result.is_some() {
+                panic!("VA {:x} should be out of bound", invalid_va);
+            }
+        }
+    }
+
+    // Check va_to_hpa when va is equal to the upper bound
+    #[test]
+    fn test_va_to_hpa_oob_invalid_eq() {
+        let length = 0x2000;
+        let mut allocator = HpmAllocator::new();
+
+        allocator.hpm_alloc(length);
+
+        let mut result;
+        let mut invalid_va;
+
+        for i in allocator.hpm_region_list {
+            invalid_va = i.hpm_ptr as u64 + length;
+            result = i.va_to_hpa(invalid_va);
+            if result.is_some() {
+                panic!("VA {:x} should be out of bound", invalid_va);
+            }
+        }
+    }
+
+    // Check va_to_hpa when va is valid
+    #[test]
+    fn test_va_to_hpa_oob_valid() {
+        let length = 0x2000;
+        let mut allocator = HpmAllocator::new();
+
+        allocator.hpm_alloc(length);
+
+        let mut result;
+        let mut valid_va;
+
+        for i in allocator.hpm_region_list {
+            valid_va = i.hpm_ptr as u64 + length - 0x1000;
+            result = i.va_to_hpa(valid_va);
+            if result.is_none() {
+                panic!("VA {:x} should be valid", valid_va);
+            }
+        }
+    }
+
+    // Check va_to_hpa when va is equal to the lower bound
+    #[test]
+    fn test_va_to_hpa_oob_valid_eq() {
+        let length = 0x2000;
+        let mut allocator = HpmAllocator::new();
+
+        allocator.hpm_alloc(length);
+
+        let mut result;
+        let mut valid_va;
+
+        for i in allocator.hpm_region_list {
+            valid_va = i.hpm_ptr as u64;
+            result = i.va_to_hpa(valid_va);
+            if result.is_none() {
+                panic!("VA {:x} should be valid", valid_va);
+            }
+        }
     }
 }
