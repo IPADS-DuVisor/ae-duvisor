@@ -163,7 +163,7 @@ impl GStageMmu {
                     return None;
                 }
                 page_table_hpa = page_table_hpa_wrap.unwrap();
-                pte = page_table_hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
+                pte = page_table_hpa >> PAGE_SHIFT << PTE_PPN_SHIFT;
                 pte = GStageMmu::set_pte_flags(pte, level, 0);
                 unsafe {
                     *(pte_addr_va as *mut u64) = pte;         
