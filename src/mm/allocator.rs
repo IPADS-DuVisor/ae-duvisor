@@ -55,8 +55,14 @@ impl Allocator {
         let ptr = unsafe { libc::malloc(length as usize) };
         let hpm_ptr = ptr as *mut u64;
 
-        // Just for now
-        let base_address = 0x10000;
+        // --- Just for now ---
+        let mut base_address = 0x10000;
+
+        for i in &self.hpm_region_list {
+            // each hpm_region is separated by 0x1000
+            base_address = base_address + i.length + 0x1000;
+        }
+        // --- End ---
 
         let hpm_region = HpmRegion::new(hpm_ptr, base_address, length);
         let hpm_region_return = hpm_region.clone();
