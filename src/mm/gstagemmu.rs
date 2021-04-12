@@ -61,21 +61,16 @@ impl PageTableRegion {
 
         let total_length: u64 = self.free_offset + length;
         if total_length > self.region.length {
-            panic!("PageTableRegion::page_table_alloc : length {:x} out of bound", length);
+            panic!("PageTableRegion::page_table_alloc : length {} out of bound", length);
         }
 
         let offset = self.free_offset;
         let ret_ptr = unsafe { self.region.hpm_ptr.add(offset as usize/ u64_size) };
 
+
         // clear the new page table
-        let num_byte = length / u64_size as u64;
-        let mut ptr = ret_ptr;
-        for _ in 0..num_byte {
-            unsafe {
-                *ptr = 0;
-                ptr = ptr.add(1);
-            }
-        }
+        let ptr = ret_ptr as *mut libc::c_void;
+        unsafe{ libc::memset(ptr, 0, length as usize); }
 
         // offset update
         self.free_offset += length;
