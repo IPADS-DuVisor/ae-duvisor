@@ -58,6 +58,12 @@ impl PageTableRegion {
     pub fn page_table_alloc(&mut self, length: u64) -> *mut u64 {
         let u64_size: usize = mem::size_of::<u64>();
         assert_eq!(length % u64_size as u64, 0);
+
+        let total_length: u64 = self.free_offset + length;
+        if total_length > self.region.length {
+            panic!("PageTableRegion::page_table_alloc : length {:x} out of bound", length);
+        }
+
         let offset = self.free_offset;
         let ret_ptr = unsafe { self.region.hpm_ptr.add(offset as usize/ u64_size) };
 
