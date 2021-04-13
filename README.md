@@ -3,26 +3,21 @@
 ## Prepare
 All the passwords is ***ipads123***
 ```
+# There are some update, please remove prepare directory
+rm -r prepare
+
 ./scripts/local/prepare.sh
 ```
 
-## Build qemu and linux kernel
+## Build qemu
 ```
-./qemu-laputa/scripts-laputa/local/docker_build_qemu.sh
-./linux-laputa/scripts-laputa/local/docker_build_linux.sh
-```
-
-***TODO: Right now， it just builds linux and does nothing else. Later on, it should copy the built linux kernel image into ubuntu.***
-
-## Test qemu and linux kernel
-```
-./qemu-laputa/scripts-laputa/local/docker_test_qemu.sh
-./linux-laputa/scripts-laputa/local/docker_test_linux.sh
+./scripts/local/build_qemu.sh
 ```
 
-***TODO: Right now， docker_test_linux.sh does nothing.***
-
-
+## Build linux (Optional, run if you make changes to linux-laputa)
+```
+./scripts/local/build_linux.sh
+```
 ## Boot
 Username: ubuntu
 
@@ -32,6 +27,13 @@ Password: ipads123
 ``` 
 
 All the following commands depends on the vm boot. 
+
+## Install linux (Optional, run if you make changes to linux-laputa)
+``` 
+./scripts/local/docker_install_linux.sh
+```
+
+This will take long, wait until the vm reboot.
 
 ## Build laputa
 ```
