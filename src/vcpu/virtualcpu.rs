@@ -1,4 +1,6 @@
 use crate::vm::virtualmachine;
+use crate::irq::virq;
+use crate::irq::vtimer;
 use std::sync::{Arc, Mutex};
 
 pub struct GpRegs {
@@ -159,17 +161,23 @@ pub struct VirtualCpu {
     pub vcpu_id: u32,
     pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
     pub vcpu_ctx: VcpuCtx,
+    pub virq: virq::VirtualInterrupt,
+    pub vtimer: vtimer::VirtualTimer,
     // TODO: irq_pending with shared memory
 }
 
 impl VirtualCpu {
     pub fn new(vcpu_id: u32, vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
         let vcpu_ctx = VcpuCtx::new();
+        let virq = virq::VirtualInterrupt::new();
+        let vtimer = vtimer::VirtualTimer::new(0, 0);
 
         Self {
             vcpu_id,
             vm: vm_mutex_ptr,
             vcpu_ctx,
+            virq,
+            vtimer,
         }
     }
 

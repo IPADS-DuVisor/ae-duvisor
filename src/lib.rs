@@ -4,6 +4,7 @@ extern crate clap;
 mod vm;
 mod vcpu;
 mod mm;
+mod irq;
 use vm::VirtualMachine;
 
 pub mod init;
