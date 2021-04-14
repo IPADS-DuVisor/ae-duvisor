@@ -8,10 +8,13 @@ laputa_name_basename=`basename $laputa_name`
 cargo test --no-run --target=riscv64gc-unknown-linux-gnu
 laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/debug/deps/ -type f ! -name '*.*' `
 
+# Build test images
+./unitestfiles/test_images/build.sh ./unitestfiles/test_images/build ./unitestfiles/
+
 # delete laputa main binary name, so that we get laputa tests binary names
 laputa_test_names=${laputa_names/$laputa_name}
 
-rsync -av -e 'ssh -p 2333'  --exclude='.*' --exclude='target' --exclude='prepare' --exclude='linux-laputa' --exclude='qemu-laputa' --exclude='scripts' $PWD ubuntu@localhost:~/
+rsync -av -e 'ssh -p 2333'  --exclude='.*' --exclude='unitestfiles/test_images/' --exclude='target' --exclude='prepare' --exclude='linux-laputa' --exclude='qemu-laputa' --exclude='scripts' $PWD ubuntu@localhost:~/
 
 # used for local test
 ssh -p 2333 ubuntu@localhost "mkdir -p laputa/tests_bin "

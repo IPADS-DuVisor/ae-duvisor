@@ -4,3 +4,5 @@ Cargo.lock
 /prepare
 /.vscode
 /mnt
+/unitestfiles/test_images/build
+/unitestfiles/*.img

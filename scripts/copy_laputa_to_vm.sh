@@ -7,6 +7,9 @@ laputa_name=`find target/riscv64gc-unknown-linux-gnu/debug/deps/ -type f ! -name
 cargo test --no-run --target=riscv64gc-unknown-linux-gnu
 laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/debug/deps/ -type f ! -name '*.*' `
 
+# Build test images
+./unitestfiles/test_images/build.sh ./unitestfiles/test_images/build ./unitestfiles/
+
 # delete laputa main binary name, so that we get laputa tests binary names
 laputa_test_names=${laputa_names/$laputa_name}
 
