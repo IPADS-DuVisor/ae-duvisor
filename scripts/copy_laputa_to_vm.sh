@@ -14,7 +14,7 @@ sudo guestmount -a ~/ubuntu-20.04.2-preinstalled-server-riscv64.qcow2 -m /dev/sd
 
 sudo [ -e /mnt/home/ubuntu/laputa ] && sudo rm -r /mnt/home/ubuntu/laputa
 sudo mkdir -p /mnt/home/ubuntu/laputa/tests_bin/
-sudo cp -r -t /mnt/home/ubuntu/laputa/ .
+sudo cp -r -t /mnt/home/ubuntu/laputa/ ./unitestfiles
 sudo cp -t /mnt/home/ubuntu/laputa/tests_bin/ $laputa_test_names
 sudo cp $laputa_name  /mnt/home/ubuntu/laputa/laputa
 sudo cp ./scripts/run_tests.sh  /mnt/home/ubuntu/laputa/
