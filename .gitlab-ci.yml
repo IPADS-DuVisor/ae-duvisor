@@ -10,7 +10,6 @@ laputa_test:
         - ./scripts/expect_wrapper.sh ./scripts/laputa_test.exp
     only:
         - merge_requests
-        - web
         - schedules
 
 laputa_full_test:
