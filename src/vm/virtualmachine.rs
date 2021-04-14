@@ -1,4 +1,5 @@
 use crate::vcpu::virtualcpu;
+use crate::mm::gstagemmu;
 use std::thread;
 use std::sync::{Arc, Mutex};
 
@@ -8,8 +9,8 @@ pub struct VmSharedState {
 }
 
 impl VmSharedState {
-    pub fn new() -> VmSharedState {
-        VmSharedState {
+    pub fn new() -> Self {
+        Self {
             vm_id: 0,
         }
     }
@@ -19,20 +20,23 @@ pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
+    pub gsmmu: gstagemmu::GStageMmu,
 }
 
 impl VirtualMachine {
-    pub fn new(vcpu_num: u32) -> VirtualMachine {
+    pub fn new(vcpu_num: u32) -> Self {
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
         let vm_state = VmSharedState::new();
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
+        let gsmmu = gstagemmu::GStageMmu::new();
 
         // Create vm struct instance
-        let mut vm = VirtualMachine {
+        let mut vm = Self {
             vcpus,
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
+            gsmmu,
         };
 
         // Create vcpu struct instance
@@ -50,6 +54,9 @@ impl VirtualMachine {
         let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
         let mut handle: thread::JoinHandle<()>;
         let mut vcpu_mutex;
+
+        // For debug
+        self.gsmmu.gsmmu_test();
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();

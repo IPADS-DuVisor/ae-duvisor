@@ -1,4 +1,6 @@
 use crate::vm::virtualmachine;
+use crate::irq::virq;
+use crate::irq::vtimer;
 use std::sync::{Arc, Mutex};
 
 pub struct GpRegs {
@@ -6,8 +8,8 @@ pub struct GpRegs {
 }
 
 impl GpRegs {
-    pub fn new() -> GpRegs {
-        GpRegs {
+    pub fn new() -> Self {
+        Self {
             x_reg: [0; 32],
         }
     }
@@ -27,8 +29,8 @@ pub struct SysRegs { //scounteren?
 }
 
 impl SysRegs {
-    pub fn new() -> SysRegs {
-        SysRegs {
+    pub fn new() -> Self {
+        Self {
             vsstatus: 0,
             vsip: 0,
             vsie: 0,
@@ -74,8 +76,8 @@ pub struct HypRegs {
 }
 
 impl HypRegs {
-    pub fn new() -> HypRegs {
-        HypRegs {
+    pub fn new() -> Self {
+        Self {
             hustatus: 0,
             huedeleg: 0,
             huideleg: 0,
@@ -106,11 +108,11 @@ pub struct HostCtx {
 }
 
 impl HostCtx {
-    pub fn new() -> HostCtx {
+    pub fn new() -> Self {
         let gp_regs = GpRegs::new();
         let hyp_regs = HypRegs::new();
 
-        HostCtx {
+        Self {
             gp_regs,
             hyp_regs
         }
@@ -124,12 +126,12 @@ pub struct GuestCtx {
 }
 
 impl GuestCtx {
-    pub fn new() -> GuestCtx {
+    pub fn new() -> Self {
         let gp_regs = GpRegs::new();
         let sys_regs = SysRegs::new();
         let hyp_regs = HypRegs::new();
 
-        GuestCtx {
+        Self {
             gp_regs,
             sys_regs,
             hyp_regs
@@ -144,11 +146,11 @@ pub struct VcpuCtx {
 }
 
 impl VcpuCtx {
-    pub fn new() -> VcpuCtx {
+    pub fn new() -> Self {
         let host_ctx = HostCtx::new();
         let guest_ctx = GuestCtx::new();
 
-        VcpuCtx {
+        Self {
             host_ctx,
             guest_ctx
         }
@@ -159,17 +161,23 @@ pub struct VirtualCpu {
     pub vcpu_id: u32,
     pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
     pub vcpu_ctx: VcpuCtx,
+    pub virq: virq::VirtualInterrupt,
+    pub vtimer: vtimer::VirtualTimer,
     // TODO: irq_pending with shared memory
 }
 
 impl VirtualCpu {
-    pub fn new(vcpu_id: u32, vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> VirtualCpu {
+    pub fn new(vcpu_id: u32, vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
         let vcpu_ctx = VcpuCtx::new();
+        let virq = virq::VirtualInterrupt::new();
+        let vtimer = vtimer::VirtualTimer::new(0, 0);
 
-        VirtualCpu {
+        Self {
             vcpu_id,
             vm: vm_mutex_ptr,
             vcpu_ctx,
+            virq,
+            vtimer,
         }
     }
 
