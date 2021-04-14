@@ -43,6 +43,13 @@ do_console_login "ubuntu" "ipads123"
 
 
 expect {
+    ":/mnt/linux-laputa" {
+        send "\001x\n"
+        expect {
+            eof
+        }
+    }
+
     "ubuntu@ubuntu:" {
         send "sudo mount /dev/vdb /mnt &&
         cd /mnt/linux-laputa    &&
@@ -53,13 +60,6 @@ expect {
         sleep 5\n"
 
         exp_continue
-    }
-        
-    ":/mnt/linux-laputa" {
-        send "\001x\n"
-        expect {
-            eof
-        }
     }
 }
 
