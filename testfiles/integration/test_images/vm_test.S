@@ -12,27 +12,29 @@
 
 #include "asm.h"
 
-BEGIN_FUNC(vm_test_mem_7)
-	li		t0,	0
-	li		t1,	1024
-	li		t2,	0x3000
-	li		t4, 0
-
-continue:
-	ld		t3,	0(t2)
-	add		t4, t4, t3
-	li		t6, 0xff8
-	add		t2, t2, t6
-	ld		t3,	0(t2)
-	add	t4,	t4,	t3
-	addi	t0,	t0, 1
-	li		t5,	0x8
-	add		t2,	t2,	t5
-	bne		t0,	t1, continue
-
-	li		t0, 1
+BEGIN_FUNC(vm_test)
+	li	a0,	0
+	li  a0, 0
+	li  a0, 0
+	li	a1,	1
+	li	a2,	2
+	mv	t0, a0
+	mv	t1,	a1
+	mv	t2,	a2
+	li	t4, 0x2000
+	//csrr t5, misa
+	//csrr t5, 0x64a
+	//csrr t5, 0x600
+	//csrr t5, 0x200
+	//csrr t5, 0x200
+	//csrr t5, 0x200
+	ld	t2,	0(t4)
+	li	t4, 0x3000
+	ld	t3, 0(t4)
+	add	t0,	t0,	t1
+	mul t2, t2, t0
 	ecall
 
-.global vm_test_mem_7_end;
-vm_test_mem_7_end:
-END_FUNC(vm_test_mem_7)
+.global vm_test_end;
+vm_test_end:
+END_FUNC(vm_test)
