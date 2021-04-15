@@ -1,6 +1,7 @@
 # two stages to be added qemu, kernel
 stages:
     - laputa_test
+    - laputa_full_test
 
 laputa_test:
     stage: laputa_test
@@ -9,5 +10,16 @@ laputa_test:
         - ./scripts/expect_wrapper.sh ./scripts/laputa_test.exp
     only:
         - merge_requests
-        - web
         - schedules
+
+laputa_full_test:
+    stage: laputa_full_test
+    script:
+        - git submodule update --init --recursive
+        - ./scripts/build_qemu.sh
+        - ./scripts/build_linux.sh
+        - ./scripts/expect_wrapper.sh ./scripts/install_linux.exp
+        - ./scripts/copy_laputa_to_vm.sh
+        - ./scripts/expect_wrapper.sh ./scripts/laputa_test.exp
+    only:
+        - web

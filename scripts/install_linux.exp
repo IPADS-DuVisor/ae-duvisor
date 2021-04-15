@@ -1,5 +1,7 @@
 #!/usr/bin/expect -f
 
+set timeout 180
+
 proc do_console_login { login pass } {
     set login_helper 4
 
@@ -30,8 +32,6 @@ proc do_console_login { login pass } {
     }
 }
 
-source [file join [file dirname $argv0] laputa_test_main.tcl]
-
 set timeout 180
 
 # make sure previous operation release ubuntu image lock
@@ -41,25 +41,26 @@ spawn bash -c "./scripts/boot.sh"
 
 do_console_login "ubuntu" "ipads123"
 
-# Run unit tests and integration tests
-send "cd laputa && ./run_tests.sh\n"
-expect {
-    "test failed" {
-        exit -1
-    }
-    "ALL TEST PASSED" {
 
+expect {
+    ":/mnt/linux-laputa" {
+        send "\001x\n"
+        expect {
+            eof
+        }
     }
-    timeout {
-        exit -1
+
+    "ubuntu@ubuntu:" {
+        send "sudo mount /dev/vdb /mnt &&
+        cd /mnt/linux-laputa    &&
+        sudo make modules_install   &&
+        sudo make install   &&
+        sudo grub-mkconfig -o /boot/grub/grub.cfg &&
+        sudo rm /boot/*.old &&
+        sleep 5\n"
+
+        exp_continue
     }
 }
 
-main_test
-
-send "\001x\n"
-expect {
-    eof
-}
-
-puts "Test OK"
+puts "linux kernel installed!"
