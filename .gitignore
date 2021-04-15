@@ -4,6 +4,6 @@ Cargo.lock
 /prepare
 /.vscode
 /mnt
-/testfiles/test_images/build
+/testfiles/integration/test_images/build
 /testfiles/*/*.img
 /testfiles/*.img
