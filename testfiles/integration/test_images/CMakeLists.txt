@@ -17,6 +17,7 @@ include_directories(..)
 macro(add_vm_test_img IMG_NAME CODE_ENTRY)
 	add_executable(${IMG_NAME}.img ${ARGN})
 	target_link_options(${IMG_NAME}.img PUBLIC -e ${CODE_ENTRY})
+	target_compile_definitions(${IMG_NAME}.img PUBLIC __FILENAME__=${IMG_NAME})
 endmacro(add_vm_test_img)
 
 FILE(GLOB image_files "*.S")

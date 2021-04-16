@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate clap;
 
-mod vm;
+pub mod vm;
 mod vcpu;
 mod mm;
 mod irq;

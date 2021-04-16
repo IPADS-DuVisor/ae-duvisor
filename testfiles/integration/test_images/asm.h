@@ -20,3 +20,19 @@
 	_name:
 
 #define END_FUNC(_name) .size _name, .- _name
+
+#define __FILE_NAME_NAME_END(filename) filename ## _ ## end
+#define _FILE_NAME_END(filename)   __FILE_NAME_NAME_END(filename)
+#define FILE_NAME_END _FILE_NAME_END( __FILENAME__ )
+
+
+#define BEGIN_FUNC_FILE_NAME()        \
+	.global __FILENAME__;           \
+	.type __FILENAME__, % function; \
+	__FILENAME__:
+
+
+#define END_FUNC_FILE_NAME() 		\
+	.global FILE_NAME_END;			\
+	FILE_NAME_END:					\
+	.size __FILENAME__, .- __FILENAME__
