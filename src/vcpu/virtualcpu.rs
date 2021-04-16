@@ -5,6 +5,9 @@ use crate::vcpu::context;
 use std::sync::{Arc, Mutex};
 use context::*;
 
+global_asm!(include_str!("../asm_offset.S"));
+global_asm!(include_str!("../asm_csr.S"));
+
 pub struct VirtualCpu {
     pub vcpu_id: u32,
     pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
