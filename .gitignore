@@ -2,3 +2,7 @@
 **/*.rs.bk
 Cargo.lock
 /prepare
+/src/asm_csr.S
+/src/asm_offset.S
+/src/asm-offset.h
+/src/vcpu/asmoffset.rs
