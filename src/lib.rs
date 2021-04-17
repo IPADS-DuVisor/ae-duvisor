@@ -1,3 +1,4 @@
+#![feature(llvm_asm)]
 #![feature(global_asm)]
 #[macro_use]
 extern crate clap;
