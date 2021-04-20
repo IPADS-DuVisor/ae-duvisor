@@ -27,3 +27,14 @@ rm -r prepare
 ```
 ./scripts/local/docker_test_laputa.sh
 ```
+
+## Build testing app
+```
+./scripts/local/build_app.sh
+```
+
+## Test testing app
+```
+./scripts/local/test_app.exp
+```
+
