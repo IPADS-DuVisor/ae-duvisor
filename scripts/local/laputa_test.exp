@@ -1,17 +1,19 @@
 #!/usr/bin/expect -f
-source [file join [file dirname $argv0] ../laputa_test_main.tcl]
+source [file join [file dirname $argv0] ./laputa_test_main.tcl]
 
 set timeout 180
 
-spawn bash -c "ssh -p 2333 ubuntu@localhost"
+spawn bash -c "./scripts/local/boot.sh"
 
-send "cd laputa && ./run_tests.sh\n"
+
 expect {
-    "test failed" {
-        exit -1
+    "Please press Enter to activate this console" {
+        send "\n  ./chroot.sh\n"
+        exp_continue
     }
-    "ALL TEST PASSED" {
 
+    "root@(none)" {
+        send "cd laputa && ./run_tests.sh\n"
     }
     timeout {
         exit -1

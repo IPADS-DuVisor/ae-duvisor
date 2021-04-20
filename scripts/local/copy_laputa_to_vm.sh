@@ -13,11 +13,11 @@ laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/debug/deps/ -type f ! -n
 
 # delete laputa main binary name, so that we get laputa tests binary names
 laputa_test_names=${laputa_names/$laputa_name}
-
-rsync -av -e 'ssh -p 2333'  --exclude='.*' --exclude='testfiles/integration/test_images/' --exclude='target' --exclude='prepare' --exclude='linux-laputa' --exclude='qemu-laputa' --exclude='scripts' $PWD ubuntu@localhost:~/
-
-# used for local test
-ssh -p 2333 ubuntu@localhost "mkdir -p laputa/tests_bin "
-scp -P 2333 scripts/run_tests.sh $laputa_name ubuntu@localhost:~/laputa
-scp -P 2333 $laputa_test_names ubuntu@localhost:~/laputa/tests_bin/
-ssh -p 2333 ubuntu@localhost "cd laputa && mv $laputa_name_basename laputa"
+mkdir -p mnt
+sudo mount ./prepare/ubuntu-vdisk.img ./mnt
+sudo mkdir -p ./mnt/laputa/tests_bin
+sudo cp scripts/run_tests.sh $laputa_name ./mnt/laputa
+sudo cp $laputa_test_names ./mnt/laputa/tests_bin/
+sudo mv ./mnt/laputa/$laputa_name_basename ./mnt/laputa/laputa
+sudo cp -r testfiles ./mnt/laputa
+sudo umount ./mnt
