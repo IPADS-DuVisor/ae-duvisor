@@ -19,8 +19,6 @@ mod gsmmu_constants {
     pub const PTE_DIRTY: u64 = 1u64 << 6;
 
     pub const PTE_PPN_SHIFT: u64 = 10;
-
-    pub const PGTABLE_LEVELS: u64 = 4;
 }
 pub use gsmmu_constants::*;
 
@@ -377,10 +375,6 @@ impl GStageMmu {
 
         let mut offset: u64 = 0;
 
-        i64 total_unmapped_size = size;
-        while(total_unmapped_size > 0){
-
-        }
         loop {
             self.unmap_page(gpa + offset);
             offset += PAGE_SIZE;
