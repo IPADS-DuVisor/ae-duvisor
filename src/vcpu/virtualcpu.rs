@@ -7,7 +7,6 @@ use context::*;
 
 global_asm!(include_str!("../asm_offset.S"));
 global_asm!(include_str!("../asm_csr.S"));
-global_asm!(include_str!("../fence.S"));
 
 pub struct VirtualCpu {
     pub vcpu_id: u32,
@@ -38,7 +37,7 @@ impl VirtualCpu {
     fn test_change_guest_ctx(&mut self) -> u32 {
         // Change guest context
         self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] += 10;
-        self.vcpu_ctx.guest_ctx.sys_regs.vsscratch += 11;
+        self.vcpu_ctx.guest_ctx.sys_regs.huvsscratch += 11;
         self.vcpu_ctx.guest_ctx.hyp_regs.hutinst += 12;
 
         // Increse vm_id in vm_state
@@ -77,9 +76,9 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             SAVE_HOST_GP_X2 a0, x2
             SAVE_HOST_GP_X3 a0, x3
             SAVE_HOST_GP_X4 a0, x4
-            SAVE_HOST_GP_X5 a0, x5 // t0
-            SAVE_HOST_GP_X6 a0, x6 // t1
-            SAVE_HOST_GP_X7 a0, x7 // t2
+            //SAVE_HOST_GP_X5 a0, x5 // t0
+            //SAVE_HOST_GP_X6 a0, x6 // t1
+            //SAVE_HOST_GP_X7 a0, x7 // t2
             SAVE_HOST_GP_X8 a0, x8
             SAVE_HOST_GP_X9 a0, x9
             SAVE_HOST_GP_X10 a0, x10
@@ -100,10 +99,10 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             SAVE_HOST_GP_X25 a0, x25
             SAVE_HOST_GP_X26 a0, x26
             SAVE_HOST_GP_X27 a0, x27
-            SAVE_HOST_GP_X28 a0, x28 // t3
-            SAVE_HOST_GP_X29 a0, x29 // t4
-            SAVE_HOST_GP_X30 a0, x30 // t5
-            SAVE_HOST_GP_X31 a0, x31 // t6
+            //SAVE_HOST_GP_X28 a0, x28 // t3
+            //SAVE_HOST_GP_X29 a0, x29 // t4
+            //SAVE_HOST_GP_X30 a0, x30 // t5
+            //SAVE_HOST_GP_X31 a0, x31 // t6
 
             /* a0 = ctx */
 
@@ -120,82 +119,23 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
 
             /* save a0-vcpu-ctx in CSR_USCRATCH & save USCRATCH */ 
             CSRRW_CSR_USCRATCH t3, a0
-            //csrrw t3, 64, a0 //debug
             SAVE_HOST_HYP_USCRATCH a0, t3
-
-            // debug
-            CSRR_CSR_USCRATCH t3
-            SAVE_HOST_GP_X0 a0, t3
-
-            /* debug */
-            //mv t6, a0
-            //CSRR_CSR_USCRATCH t4
-            //CSRW_CSR_USCRATCH t6
-            //CSRR_CSR_USCRATCH t3
-            //csrr t3, 64
-            //SAVE_HOST_HYP_USCRATCH a0, t3
-
-            /* debug */
-            //CSRW_CSR_USCRATCH a0
-            //CSRR_CSR_USCRATCH t3
-            //SAVE_HOST_GP_X30 a0, t3
-
-            /* debug for USCRATCH */
-            //li t4, 0x100
-            //CSRW_CSR_USCRATCH a0
-            //csrrw t4, 64, a0
-            //CSRR_CSR_USCRATCH t3
-            //SAVE_HOST_GP_X0 a0, t3
-            //SAVE_GUEST_GP_X0 a0, t4
 
             /* set utvec to catch the trap & save UTVEC*/
             la	t4, __vm_exit
             CSRRW_CSR_UTVEC t4, t4
             SAVE_HOST_HYP_UTVEC a0, t4
-            //CSRR_CSR_UTVEC t3
-            //SAVE_HOST_GP_X6 a0, t3
 
             /* set UEPC */
             RESTORE_GUEST_HYP_UEPC a0, t0
             la t0, __vm_code // for debug
             CSRW_CSR_UEPC t0
-            //CSRR_CSR_UEPC t3
-            //SAVE_HOST_GP_X7 a0, t3
-
 
             /* set HUGATP */
             RESTORE_GUEST_HYP_HUGATP a0, t0
             CSRW_CSR_HUGATP t0
-            //CSRR_CSR_HUGATP t3
-            //SAVE_HOST_GP_X8 a0, t3
 
-            //CSRR_CSR_HUVSATP t3
-            //SAVE_HOST_GP_X9 a0, t3
-
-            //.insn r 0x73, 0x0, 0x71, x0, x0, x0
-            //.insn r 0x73, 0x0, 0x51, x0, x0, x0
-            //.word 0x000000510073
-            //.word 0x000000710073
-            //.word 0x730071000000
-            //.word 0x730051000000
-            //HUFENCE_VVMA x0, x0, x0
-            //HUFENCE_GVMA x0, x0, x0
             .word 0xE2000073
-            //.word 0xC2000073
-            //.word 0x73007100
-            //.word 0x73005100
-            //.word 0x00510073
-            //.word 0x00710073
-
-
-            /* debug for huret */
-            //CSRW_CSR_UEPC t4
-            //SAVE_HOST_HYP_USCRATCH a0, t0
-            //la t0, vm_code_ecall
-            //SAVE_HOST_GP_X31 a0, t0
-
-            /* debug */
-            //mv t5, a0
 
             // restore guest GP except A0 & X0
             RESTORE_GUEST_GP_X1 a0, x1
@@ -235,7 +175,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
 
             /* uret */
             uret
-            //.word 0x200073
 
             .align 2
             __vm_exit:
@@ -244,15 +183,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             /* save guest-a0 in sscratch & get host-a0 */
             CSRRW_CSR_USCRATCH a0, a0
             SAVE_HOST_GP_X0 a0, a0
-
-
-
-            /* debug */
-            //mv t4, a0
-            //mv a0, t5
-            //SAVE_GUEST_GP_X0 a0, t4
-            //CSRR_CSR_USCRATCH t4
-            //SAVE_HOST_GP_X31 a0, t4
 
             /* a0 = ctx */
 
@@ -357,25 +287,13 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             li	t0,	0
 	        li  a0, 0
 	        li  a0, 0
-	        //li	a1,	1
-	        //li	a2,	2
-	        //mv	t0, a0
-	        //mv	t1,	a1
-	        //mv	t2,	a2
-	        //li	t4, 0x2000
-	        //ld	t2,	0(t4)
-	        //li	t4, 0x3000
-	        //ld	t3, 0(t4)
-	        //add	t0,	t0,	t1
-	        //mul t2, t2, t0
-	        //ecall
 
             .align 2
             __guest_end:
 
             " :: "r"(ctx) :"memory", "x5", "x6", "x7", "x10", "x11", "x28", "x29", "x30", "x31": "volatile");
 
-            // Save the key reg
+            // Save the key reg for vm exit handler
             // UCAUSE / UTVAL
             llvm_asm!(".align 2
                 mv a0, $0
@@ -384,8 +302,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
                 csrr t3, 0x43
                 SAVE_HOST_GP_X2 a0, t3
             " :: "r"(ctx) :"memory", "x10", "x28": "volatile");
-            //"memory", "x5", "x6", "x7", "x10", "x28", "x29", "x30", "x31"
-            //"memory", "a0", "t0", "t1", "t2", "t3", "t4", "t5", "t6"
 }
 
 pub fn print_ctx() {}
@@ -402,7 +318,6 @@ mod tests {
         let mut vcpuctx = VcpuCtx::new();
         let mut fd;
         let file_path = CString::new("/dev/laputa_dev").unwrap();
-
 
         let mut tmp_buf_pfn: u64 = 0;
         unsafe { 
@@ -423,10 +338,6 @@ mod tests {
 
             let res3 = libc::ioctl(fd, 0x6b04);
             println!("ioctl {}", res3);
-
-
-
-
         }
 
         let ptr = &vcpuctx as *const VcpuCtx;
@@ -445,8 +356,6 @@ mod tests {
             //VirtualCpu::open_hu_extension(ioctl_fd);
 
             enter_guest_inline(ptr_u64);
-
-            
 
             println!("the data 0 {:x}", *(ptr_u64 as *mut u64));
             println!("the data 416 {:x}", *((ptr_u64 + 416) as *mut u64));
@@ -487,7 +396,7 @@ mod tests {
             let res4 = libc::ioctl(fd, 0x6b05);
             println!("ioctl {}", res4);
         }
-//
+
         // Always wrong to get output
         assert_eq!(1, 0);
     }
@@ -523,7 +432,7 @@ mod tests {
         let tmp = vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst;
         assert_eq!(tmp, 0);
         
-        let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.vsatp;
+        let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
         assert_eq!(tmp, 0);
     }
 
@@ -540,8 +449,8 @@ mod tests {
         let tmp = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
         assert_eq!(tmp, 17);
 
-        vcpu.vcpu_ctx.guest_ctx.sys_regs.vsatp = 17;
-        let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.vsatp;
+        vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp = 17;
+        let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
         assert_eq!(tmp, 17);
 
         vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst = 17;
@@ -591,7 +500,7 @@ mod tests {
         let mut hypreg;
         for i in &vm.vcpus {
             gpreg = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
-            sysreg = i.lock().unwrap().vcpu_ctx.guest_ctx.sys_regs.vsscratch;
+            sysreg = i.lock().unwrap().vcpu_ctx.guest_ctx.sys_regs.huvsscratch;
             hypreg = i.lock().unwrap().vcpu_ctx.guest_ctx.hyp_regs.hutinst;
             assert_eq!(gpreg, 10);
             assert_eq!(sysreg, 11);

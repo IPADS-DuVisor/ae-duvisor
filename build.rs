@@ -96,7 +96,6 @@ fn main() {
     offset_define_add!(offset_define_list, "HOST_HYP_USCRATCH", vcpu, vcpu.host_ctx.hyp_regs.uscratch);
     offset_define_add!(offset_define_list, "HOST_HYP_UTVAL", vcpu, vcpu.host_ctx.hyp_regs.utval);
     offset_define_add!(offset_define_list, "HOST_HYP_UCAUSE", vcpu, vcpu.host_ctx.hyp_regs.ucause);
-    offset_define_add!(offset_define_list, "HOST_HYP_SCOUNTEREN", vcpu, vcpu.host_ctx.hyp_regs.scounteren);
 
     // Guest GP
     offset_define_add!(offset_define_list, "GUEST_GP_X0", vcpu, vcpu.guest_ctx.gp_regs.x_reg[0]);
@@ -133,16 +132,15 @@ fn main() {
     offset_define_add!(offset_define_list, "GUEST_GP_X31", vcpu, vcpu.guest_ctx.gp_regs.x_reg[31]);
 
     //Guest SYS
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSSTATUS", vcpu, vcpu.guest_ctx.sys_regs.vsstatus);
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSIP", vcpu, vcpu.guest_ctx.sys_regs.vsip);
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSIE", vcpu, vcpu.guest_ctx.sys_regs.vsie);
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSTEC", vcpu, vcpu.guest_ctx.sys_regs.vstec);
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSSCRATCH", vcpu, vcpu.guest_ctx.sys_regs.vsscratch);
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSEPC", vcpu, vcpu.guest_ctx.sys_regs.vsepc);
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSCAUSE", vcpu, vcpu.guest_ctx.sys_regs.vscause);
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSTVAL", vcpu, vcpu.guest_ctx.sys_regs.vstval);
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSATP", vcpu, vcpu.guest_ctx.sys_regs.vsatp);
-    offset_define_add!(offset_define_list, "GUEST_SYS_VSCOUNTEREN", vcpu, vcpu.guest_ctx.sys_regs.vscounteren);
+    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSSTATUS", vcpu, vcpu.guest_ctx.sys_regs.huvsstatus);
+    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSIP", vcpu, vcpu.guest_ctx.sys_regs.huvsip);
+    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSIE", vcpu, vcpu.guest_ctx.sys_regs.huvsie);
+    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSTVEC", vcpu, vcpu.guest_ctx.sys_regs.huvstvec);
+    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSSCRATCH", vcpu, vcpu.guest_ctx.sys_regs.huvsscratch);
+    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSEPC", vcpu, vcpu.guest_ctx.sys_regs.huvsepc);
+    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSCAUSE", vcpu, vcpu.guest_ctx.sys_regs.huvscause);
+    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSTVAL", vcpu, vcpu.guest_ctx.sys_regs.huvstval);
+    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSATP", vcpu, vcpu.guest_ctx.sys_regs.huvsatp);
 
     // Guest HYP
     offset_define_add!(offset_define_list, "GUEST_HYP_HUSTATUS", vcpu, vcpu.guest_ctx.hyp_regs.hustatus);
@@ -164,7 +162,6 @@ fn main() {
     offset_define_add!(offset_define_list, "GUEST_HYP_USCRATCH", vcpu, vcpu.guest_ctx.hyp_regs.uscratch);
     offset_define_add!(offset_define_list, "GUEST_HYP_UTVAL", vcpu, vcpu.guest_ctx.hyp_regs.utval);
     offset_define_add!(offset_define_list, "GUEST_HYP_UCAUSE", vcpu, vcpu.guest_ctx.hyp_regs.ucause);
-    offset_define_add!(offset_define_list, "GUEST_HYP_SCOUNTEREN", vcpu, vcpu.guest_ctx.hyp_regs.scounteren);
 
     // Write C header file: src/asm-offset.h
     let mut header_file = std::fs::File::create("src/asm-offset.h").expect("create failed");
