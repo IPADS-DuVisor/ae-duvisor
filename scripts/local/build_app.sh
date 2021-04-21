@@ -1,3 +1,4 @@
+#!/bin/bash
 cd linux-laputa/tools/laputa-test
 make 
 cd -

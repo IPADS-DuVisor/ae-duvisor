@@ -30,11 +30,11 @@ rm -r prepare
 
 ## Build testing app
 ```
-./scripts/local/build_app.sh
+./scripts/local/docker_build_app.sh
 ```
 
 ## Test testing app
 ```
-./scripts/local/test_app.exp
+./scripts/local/docker_test_app.sh
 ```
 

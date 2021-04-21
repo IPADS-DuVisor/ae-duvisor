@@ -8,7 +8,11 @@ spawn bash -c "./scripts/local/boot.sh"
 
 expect {
     "Please press Enter to activate this console" {
-        send "\n mount /dev/vda /root && ./root/laputa/ioctl_test\n"
+        send "\n ./chroot.sh &&
+        mount -t proc proc /proc
+        mount -t sysfs sysfs /sys &&
+        mount -t devtmpfs devtmpfs /dev && 
+        ./laputa/ioctl_test\n"
         exp_continue
     }
 
