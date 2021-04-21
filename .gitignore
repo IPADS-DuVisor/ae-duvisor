@@ -6,3 +6,8 @@ Cargo.lock
 /src/asm_offset.S
 /src/asm-offset.h
 /src/vcpu/asmoffset.rs
+/.vscode
+/mnt
+/testfiles/integration/test_images/build
+/testfiles/*/*.img
+/testfiles/*.img
