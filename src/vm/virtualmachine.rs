@@ -70,7 +70,7 @@ impl VirtualMachine {
         self.gsmmu.gsmmu_test();
 
         // Open HU-extension via ioctl
-        //VirtualMachine::open_hu_extension(self.ioctl_fd);
+        // VirtualMachine::open_hu_extension(self.ioctl_fd);
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();

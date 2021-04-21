@@ -70,6 +70,12 @@ pub unsafe fn vm_code_ecall() {
             ecall":::: "volatile");
 }
 
+pub unsafe fn set_hugatp(hugatp: u64) {
+    llvm_asm!(".align 2
+            mv t0, $0
+            CSRW_CSR_HUGATP t0
+            " :: "r"(hugatp) :"memory", "x28": "volatile");
+
 #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 pub unsafe fn enter_guest_inline(ctx: u64) {
     llvm_asm!(".align 2
@@ -127,18 +133,19 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             CSRRW_CSR_USCRATCH t3, a0
             SAVE_HOST_HYP_USCRATCH a0, t3
 
-            /* set utvec to catch the trap & save UTVEC*/
+            /* set utvec to catch the trap & save UTVEC */
             la	t4, __vm_exit
             CSRRW_CSR_UTVEC t4, t4
             SAVE_HOST_HYP_UTVEC a0, t4
 
             /* set UEPC */
             RESTORE_GUEST_HYP_UEPC a0, t0
-            CSRW_CSR_UEPC t0
+            CSRRW_CSR_UEPC t0, t0
+            SAVE_GUEST_HYP_UEPC a0, t0
 
             /* set HUGATP */
-            RESTORE_GUEST_HYP_HUGATP a0, t0
-            CSRW_CSR_HUGATP t0
+            //RESTORE_GUEST_HYP_HUGATP a0, t0
+            //CSRW_CSR_HUGATP t0
 
             .word 0xE2000073
 
@@ -294,8 +301,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             " :: "r"(ctx) :"memory", "x10", "x28": "volatile");
 }
 
-pub fn print_ctx() {}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -304,7 +309,7 @@ mod tests {
     use crate::mm::gstagemmu;
 
     #[test]
-    fn test_uret() { 
+    fn test_first_uret() { 
         let mut vcpuctx = VcpuCtx::new();
         let mut fd;
         let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -340,7 +345,8 @@ mod tests {
         unsafe {
             let gsmmu = gstagemmu::GStageMmu::new();
             let pt_hpa = (tmp_buf_pfn | (1 << 63));
-            vcpuctx.guest_ctx.hyp_regs.hugatp = pt_hpa;
+            //vcpuctx.guest_ctx.hyp_regs.hugatp = pt_hpa;
+            set_hugatp(pt_hpa);
             println!("HUGATP : {:x}", pt_hpa);
             
             vcpuctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
