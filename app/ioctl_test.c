@@ -2,12 +2,12 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sched.h>
+// #include <sched.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
+// #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdint.h>
@@ -42,54 +42,42 @@ void close_driver(const char* driver_name, int fd_driver) {
 }
 
 int pass(void) {
-    unsigned long value;
-    int fd_ioctl = open_driver(IOCTL_DRIVER_NAME);
-    
-    if (ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &value) < 0) {
-        perror("Error ioctl IOCTL_LAPUTA_GET_API_VERSION");
-        return -1;
-    }
-    printf("Value is %lx\n", value);
-
-    unsigned long sm_info[2];
-    sm_info[0] = 0xdead000;
-    sm_info[1] = 0x1000;
-    if (ioctl(fd_ioctl, IOCTL_LAPUTA_REGISTER_SHARED_MEM, sm_info) < 0) {
-        perror("Error ioctl IOCTL_LAPUTA_REGISTER_SHARED_MEM");
-        return -1;
-    }
-
     unsigned long deleg_info[2];
-    deleg_info[0] = 1 << 7;
+    int fd_ioctl = open_driver(IOCTL_DRIVER_NAME);
+    deleg_info[0] = (1 << 20) | (1 << 21) | (1 << 23);
     deleg_info[1] = 1 << 2;
     if (ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info) < 0) {
         perror("Error ioctl IOCTL_LAPUTA_REQUEST_DELEG");
         return -1;
     }
 
-    unsigned long hustatus;
-    unsigned long before, after = 0x123;
-    int times = 100;
-    printf("Repeat reading hustatus for %d times on 4 cores\n", times);
-    for (int i = 0; i < times; i++) {
-        cpu_set_t my_set;
-        CPU_ZERO(&my_set);
-        CPU_SET((size_t)(i % 4), &my_set);
-        sched_setaffinity(0, sizeof(cpu_set_t), &my_set);
-        asm volatile("csrr %0, 0x800" : "=r" (hustatus) :: "memory");
+    printf("uret test for ULH\n");
+    printf("uret test for ULH\n");
+    printf("uret test for ULH\n");
+    printf("uret test for ULH\n");
+    printf("uret test for ULH %lx\n", pass);
 
-        asm volatile("csrrw %0, 0x40, %1" : "=r" (before) : "r" (after) : "memory");
-        after = 0x456;
-        asm volatile("csrrw %0, 0x40, %1" : "=r" (before) : "r" (after) : "memory");
-        after = 0x789;
-        asm volatile("csrrw %0, 0x40, %1" : "=r" (before) : "r" (after) : "memory");
-        asm volatile("csrr %0, 0x40" : "=r" (after) :: "memory");
-        assert(before == 0x456 && after == 0x789);
-        
-        sched_yield();
-    }
-    printf("hustatus = %lx\n", hustatus);
-    printf("uscratch before = %lx, after = %lx\n", before, after);
+#if 1
+    asm volatile(
+            "li t0, 0x200000180\n\t" //hustatus
+            "csrw 0x800, t0\n\t"
+
+            // "la t0, 1f\n\t" //utvec
+            // "csrw 0x5, t0\n\t"
+
+            "la t0, 1f\n\t" //uepc
+            "csrw 0x41, t0 \n\t"
+
+            "li t0, 0x0\n\t"
+            "li t0, 0x8000000010000000\n\t"
+            "csrw 0x880, t0\n\t" //hugatp
+            // "csrw 0x480， t0\n\t" //huvsatp
+            ".word 0xE2000073\n\t"
+            "uret\n\t"
+            "1:\n\t"
+            ::: "t0"
+        );
+#endif
 
     close_driver(IOCTL_DRIVER_NAME, fd_ioctl);
     return 0;

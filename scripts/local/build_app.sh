@@ -1,4 +1,6 @@
-cd app && make && cd -
+cd app 
+make 
+cd ../
 
 mkdir -p mnt
 sudo mount ./prepare/ubuntu-vdisk.img ./mnt
