@@ -7,6 +7,12 @@ use context::*;
 
 global_asm!(include_str!("../asm_offset.S"));
 global_asm!(include_str!("../asm_csr.S"));
+global_asm!(include_str!("vm_code.S"));
+
+extern "C"
+{
+    fn vm_code();
+}
 
 pub struct VirtualCpu {
     pub vcpu_id: u32,
@@ -128,7 +134,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
 
             /* set UEPC */
             RESTORE_GUEST_HYP_UEPC a0, t0
-            la t0, __vm_code // for debug
             CSRW_CSR_UEPC t0
 
             /* set HUGATP */
@@ -178,7 +183,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
 
             .align 2
             __vm_exit:
-
 
             /* save guest-a0 in sscratch & get host-a0 */
             CSRRW_CSR_USCRATCH a0, a0
@@ -276,31 +280,17 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             //RESTORE_HOST_GP_X29 a0, x29
             //RESTORE_HOST_GP_X30 a0, x30
             //RESTORE_HOST_GP_X31 a0, x31
-
-
-            la t6, __guest_end
-            jr t6
-
-
-            .align 2
-          __vm_code:
-            li	t0,	0
-	        li  a0, 0
-	        li  a0, 0
-
-            .align 2
-            __guest_end:
-
             " :: "r"(ctx) :"memory", "x5", "x6", "x7", "x10", "x11", "x28", "x29", "x30", "x31": "volatile");
 
             // Save the key reg for vm exit handler
             // UCAUSE / UTVAL
             llvm_asm!(".align 2
                 mv a0, $0
-                csrr t3, 0x42
-                SAVE_HOST_GP_X1 a0, t3
-                csrr t3, 0x43
-                SAVE_HOST_GP_X2 a0, t3
+                CSRR_CSR_UCAUSE t3
+                SAVE_GUEST_HYP_UCAUSE a0, t3
+
+                CSRR_CSR_UTVAL t3
+                SAVE_GUEST_HYP_UTVAL a0, t3
             " :: "r"(ctx) :"memory", "x10", "x28": "volatile");
 }
 
@@ -314,7 +304,7 @@ mod tests {
     use crate::mm::gstagemmu;
 
     #[test]
-    fn test_struct_ptr() { 
+    fn test_uret() { 
         let mut vcpuctx = VcpuCtx::new();
         let mut fd;
         let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -340,6 +330,10 @@ mod tests {
             println!("ioctl {}", res3);
         }
 
+        let uepc: u64;
+        let utval: u64;
+        let ucause: u64;
+
         let ptr = &vcpuctx as *const VcpuCtx;
         println!("the ptr is {}", ptr as u64);
         let ptr_u64 = ptr as u64;
@@ -347,9 +341,9 @@ mod tests {
             let gsmmu = gstagemmu::GStageMmu::new();
             let pt_hpa = (tmp_buf_pfn | (1 << 63));
             vcpuctx.guest_ctx.hyp_regs.hugatp = pt_hpa;
-            //vcpuctx.guest_ctx.hyp_regs.hugatp = 0x0;
             println!("HUGATP : {:x}", pt_hpa);
-            //libc::println
+            
+            vcpuctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
 
             //hustatus.SPP=1 .SPVP=1 uret to VS mode
             vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
@@ -357,48 +351,21 @@ mod tests {
 
             enter_guest_inline(ptr_u64);
 
-            println!("the data 0 {:x}", *(ptr_u64 as *mut u64));
-            println!("the data 416 {:x}", *((ptr_u64 + 416) as *mut u64));
-            println!("the data HOST_HYP_USCRATCH {:x}", *((ptr_u64 + 384) as *mut u64));
-            println!("the data 8 {:x}", *((ptr_u64 + 8) as *mut u64));
-            println!("the data 16 {:x}", *((ptr_u64 + 16) as *mut u64));
-            println!("the data 24 {:x}", *((ptr_u64 + 24) as *mut u64));
-            println!("the data 32 {:x}", *((ptr_u64 + 32) as *mut u64));
-            println!("the data 40 {:x}", *((ptr_u64 + 40) as *mut u64));
-            println!("the data 48 {:x}", *((ptr_u64 + 48) as *mut u64));
-            println!("the data 56 {:x}", *((ptr_u64 + 56) as *mut u64));
-            println!("the data 64 {:x}", *((ptr_u64 + 64) as *mut u64));
-            println!("the data 72 {:x}", *((ptr_u64 + 72) as *mut u64));
-            println!("the data 80 {:x}", *((ptr_u64 + 80) as *mut u64));
-            println!("the data 88 {:x}", *((ptr_u64 + 88) as *mut u64));
-            println!("the data 96 {:x}", *((ptr_u64 + 96) as *mut u64));
-            println!("the data 104 {:x}", *((ptr_u64 + 104) as *mut u64));
-            println!("the data 112 {:x}", *((ptr_u64 + 112) as *mut u64));
-            println!("the data 120 {:x}", *((ptr_u64 + 120) as *mut u64));
-            println!("the data 128 {:x}", *((ptr_u64 + 128) as *mut u64));
-            println!("the data 136 {:x}", *((ptr_u64 + 136) as *mut u64));
-            println!("the data 144 {:x}", *((ptr_u64 + 144) as *mut u64));
-            println!("the data 152 {:x}", *((ptr_u64 + 152) as *mut u64));
-            println!("the data 160 {:x}", *((ptr_u64 + 160) as *mut u64));
-            println!("the data 168 {}", *((ptr_u64 + 168) as *mut u64));
-            println!("the data 176 {}", *((ptr_u64 + 176) as *mut u64));
-            println!("the data 184 {}", *((ptr_u64 + 184) as *mut u64));
-            println!("the data 192 {}", *((ptr_u64 + 192) as *mut u64));
-            println!("the data 200 {}", *((ptr_u64 + 200) as *mut u64));
-            println!("the data 208 {}", *((ptr_u64 + 208) as *mut u64));
-            println!("the data 216 {}", *((ptr_u64 + 216) as *mut u64));
-            println!("the data 224 {}", *((ptr_u64 + 224) as *mut u64));
-            println!("the data 232 {}", *((ptr_u64 + 232) as *mut u64));
-            println!("the data 240 {}", *((ptr_u64 + 240) as *mut u64));
-            println!("the data 248 {}", *((ptr_u64 + 248) as *mut u64));
-            println!("the data 256 hustatus {}", *((ptr_u64 + 256) as *mut u64));
+            uepc = vcpuctx.guest_ctx.hyp_regs.uepc;
+            utval = vcpuctx.guest_ctx.hyp_regs.utval;
+            ucause = vcpuctx.guest_ctx.hyp_regs.ucause;
 
+            println!("guest hyp uepc 0x{:x}", uepc);
+            println!("guest hyp utval 0x{:x}", utval);
+            println!("guest hyp ucause 0x{:x}", ucause);
+            
             let res4 = libc::ioctl(fd, 0x6b05);
             println!("ioctl {}", res4);
         }
 
-        // Always wrong to get output
-        assert_eq!(1, 0);
+        // vm should trap(20) at vm_code
+        assert_eq!(uepc, utval);
+        assert_eq!(20, ucause);
     }
 
     // Check the correctness of vcpu new()

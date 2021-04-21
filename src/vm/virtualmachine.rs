@@ -2,6 +2,7 @@ use crate::vcpu::virtualcpu;
 use crate::mm::gstagemmu;
 use std::thread;
 use std::sync::{Arc, Mutex};
+use std::ffi::CString;
 
 // Export to vcpu
 pub struct VmSharedState {
@@ -21,6 +22,7 @@ pub struct VirtualMachine {
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
     pub gsmmu: gstagemmu::GStageMmu,
+    //pub ioctl_fd: i32,
 }
 
 impl VirtualMachine {
@@ -30,6 +32,14 @@ impl VirtualMachine {
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
         let gsmmu = gstagemmu::GStageMmu::new();
+        //let file_path = CString::new("/dev/laputa_dev").unwrap();
+        //let ioctl_fd;
+        //unsafe {
+        //    ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+        //}
+
+        // For now
+        //VirtualMachine::open_hu_extension(ioctl_fd);
 
         // Create vm struct instance
         let mut vm = Self {
@@ -37,6 +47,7 @@ impl VirtualMachine {
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
             gsmmu,
+            //ioctl_fd,
         };
 
         // Create vcpu struct instance
@@ -58,6 +69,9 @@ impl VirtualMachine {
         // For debug
         self.gsmmu.gsmmu_test();
 
+        // Open HU-extension via ioctl
+        //VirtualMachine::open_hu_extension(self.ioctl_fd);
+
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
 
@@ -71,6 +85,24 @@ impl VirtualMachine {
 
         for i in vcpu_handle {
             i.join().unwrap();
+        }
+    }
+
+    pub fn vm_destory(&mut self) {
+        unsafe {
+            //libc::close(self.ioctl_fd);
+        }
+    }
+
+    pub fn open_hu_extension(ioctl_fd: i32) {
+        unsafe { 
+            //fd = libc::open(file_path.as_ptr(), 2); 
+            let edeleg = (1<<7) as libc::c_ulong;
+            let ideleg = (1<<2) as libc::c_ulong;
+            let deleg = [edeleg,ideleg];
+            let deleg_ptr = (&deleg) as *const u64;
+            let res = libc::ioctl(ioctl_fd, 1074817795, deleg_ptr);
+            println!("ioctl result: {}", res);
         }
     }
 }
