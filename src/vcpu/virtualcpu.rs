@@ -9,6 +9,7 @@ global_asm!(include_str!("../asm_offset.S"));
 global_asm!(include_str!("../asm_csr.S"));
 global_asm!(include_str!("vm_code.S"));
 
+#[allow(unused)]
 extern "C"
 {
     fn vm_code();
@@ -70,12 +71,15 @@ pub unsafe fn vm_code_ecall() {
             ecall":::: "volatile");
 }
 
+#[allow(unused)]
 pub unsafe fn set_hugatp(hugatp: u64) {
     llvm_asm!(".align 2
             mv t0, $0
             CSRW_CSR_HUGATP t0
             " :: "r"(hugatp) :"memory", "x28": "volatile");
+}
 
+#[allow(unused)]
 #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 pub unsafe fn enter_guest_inline(ctx: u64) {
     llvm_asm!(".align 2
@@ -142,10 +146,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             RESTORE_GUEST_HYP_UEPC a0, t0
             CSRRW_CSR_UEPC t0, t0
             SAVE_GUEST_HYP_UEPC a0, t0
-
-            /* set HUGATP */
-            //RESTORE_GUEST_HYP_HUGATP a0, t0
-            //CSRW_CSR_HUGATP t0
 
             .word 0xE2000073
 
@@ -306,21 +306,21 @@ mod tests {
     use super::*;
     use std::thread;
     use std::ffi::CString;
-    use crate::mm::gstagemmu;
 
     #[test]
     fn test_first_uret() { 
         let mut vcpuctx = VcpuCtx::new();
-        let mut fd;
+        let fd;
+        let mut res;
         let file_path = CString::new("/dev/laputa_dev").unwrap();
 
-        let mut tmp_buf_pfn: u64 = 0;
+        let tmp_buf_pfn: u64 = 0;
         unsafe { 
             fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
 
             // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
             let tmp_buf_pfn_ptr = (&tmp_buf_pfn) as *const u64;
-            let res1 = libc::ioctl(fd, 0x80086b01, tmp_buf_pfn_ptr);
+            libc::ioctl(fd, 0x80086b01, tmp_buf_pfn_ptr);
             println!("tmp_buf_pfn : {:x}", tmp_buf_pfn);
 
             // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
@@ -328,11 +328,11 @@ mod tests {
             let ideleg = (1<<0) as libc::c_ulong;
             let deleg = [edeleg,ideleg];
             let deleg_ptr = (&deleg) as *const u64;
-            let res2 = libc::ioctl(fd, 1074817795, deleg_ptr);
-            println!("ioctl {}", res2);
+            res = libc::ioctl(fd, 1074817795, deleg_ptr);
+            println!("ioctl 1074817795 : {}", res);
 
-            let res3 = libc::ioctl(fd, 0x6b04);
-            println!("ioctl {}", res3);
+            res = libc::ioctl(fd, 0x6b04);
+            println!("ioctl 0x6b04 : {}", res);
         }
 
         let uepc: u64;
@@ -343,8 +343,7 @@ mod tests {
         println!("the ptr is {}", ptr as u64);
         let ptr_u64 = ptr as u64;
         unsafe {
-            let gsmmu = gstagemmu::GStageMmu::new();
-            let pt_hpa = (tmp_buf_pfn | (1 << 63));
+            let pt_hpa = tmp_buf_pfn | (1 << 63);
             //vcpuctx.guest_ctx.hyp_regs.hugatp = pt_hpa;
             set_hugatp(pt_hpa);
             println!("HUGATP : {:x}", pt_hpa);
@@ -365,8 +364,8 @@ mod tests {
             println!("guest hyp utval 0x{:x}", utval);
             println!("guest hyp ucause 0x{:x}", ucause);
             
-            let res4 = libc::ioctl(fd, 0x6b05);
-            println!("ioctl {}", res4);
+            res = libc::ioctl(fd, 0x6b05);
+            println!("ioctl 0x6b05 {}", res);
         }
 
         // vm should trap(20) at vm_code

@@ -2,7 +2,7 @@ use crate::vcpu::virtualcpu;
 use crate::mm::gstagemmu;
 use std::thread;
 use std::sync::{Arc, Mutex};
-use std::ffi::CString;
+//use std::ffi::CString;
 
 // Export to vcpu
 pub struct VmSharedState {
@@ -89,18 +89,20 @@ impl VirtualMachine {
     }
 
     pub fn vm_destory(&mut self) {
-        unsafe {
-            //libc::close(self.ioctl_fd);
-        }
+        /* unsafe {
+            libc::close(self.ioctl_fd);
+        } */
     }
 
+    #[allow(unused)]
     pub fn open_hu_extension(ioctl_fd: i32) {
-        unsafe { 
-            //fd = libc::open(file_path.as_ptr(), 2); 
+        unsafe {
             let edeleg = (1<<7) as libc::c_ulong;
             let ideleg = (1<<2) as libc::c_ulong;
             let deleg = [edeleg,ideleg];
             let deleg_ptr = (&deleg) as *const u64;
+
+            // call ioctl
             let res = libc::ioctl(ioctl_fd, 1074817795, deleg_ptr);
             println!("ioctl result: {}", res);
         }
