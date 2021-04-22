@@ -93,8 +93,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             // save host gp with a0=ctx, except t0-t6 and zero-x0
             SAVE_HOST_CTX a0
 
-            /* a0 = ctx */
-
             /* SSTATUS? HUSTATUS got hstatus.SPV & sstatus.SPP */
             RESTORE_GUEST_HYP_HUSTATUS a0, t1
             CSRRW_CSR_HUSTATUS t1, t1
@@ -120,12 +118,13 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             CSRRW_CSR_UEPC t0, t0
             SAVE_GUEST_HYP_UEPC a0, t0
 
+            //hufence
             .word 0xE2000073
 
             // restore guest GP except A0 & X0
             RESTORE_GUEST_CTX a0
 
-            /* uret */
+            /* huret */
             uret
 
             .align 2
@@ -134,8 +133,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             /* save guest-a0 in sscratch & get host-a0 */
             CSRRW_CSR_USCRATCH a0, a0
             SAVE_HOST_GP_X0 a0, a0
-
-            /* a0 = ctx */
 
             /* save guest gp except A0 & X0 */
             SAVE_GUEST_CTX a0

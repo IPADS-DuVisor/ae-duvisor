@@ -18,6 +18,7 @@ pub fn run(config: &cmdline::VMConfig) {
     let vcpu_num = config.vcpu_count;
 
     let mut vm = VirtualMachine::new(vcpu_num);
+    vm.vm_init();
     vm.vm_run();
     vm.vm_destory();
     println!("Finish vm running...");
