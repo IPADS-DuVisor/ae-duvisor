@@ -1,9 +1,10 @@
 #!/bin/bash
+
 if [ $USER == gitlab-runner ]; then
     # for CI environment
-    $PREPARE = ~/
+    PREPARE="$HOME/prepare"
 else
-    $PREPARE = ./prepare
+    PREPARE="./prepare"
 fi
 
 ./qemu-laputa/build/riscv64-softmmu/qemu-system-riscv64 \
