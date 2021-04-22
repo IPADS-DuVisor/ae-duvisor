@@ -1,4 +1,10 @@
 #!/bin/bash
+if [ $USER == gitlab-runner ]; then
+    # for CI environment
+    $PREPARE = ~/
+else
+    $PREPARE = ./prepare
+fi
 
 ./qemu-laputa/build/riscv64-softmmu/qemu-system-riscv64 \
     -nographic \
@@ -8,7 +14,7 @@
     -machine virt \
     -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.elf \
     -kernel ./linux-laputa/arch/riscv/boot/Image \
-    -initrd ./prepare/rootfs.img \
+    -initrd $PREPARE/rootfs.img \
     -append "root=/dev/ram rw console=ttyS0 earlycon=sbi" \
     -device virtio-blk-pci,drive=vdisk \
-    -drive if=none,id=vdisk,file=./prepare/ubuntu-vdisk.img,format=raw
+    -drive if=none,id=vdisk,file=$PREPARE/ubuntu-vdisk.img,format=raw

@@ -11,7 +11,7 @@ spawn bash -c "./scripts/local/boot.sh"
 expect {
     "Please press Enter to activate this console" {
         send "\n ./chroot.sh &&
-        mount -t proc proc /proc
+        mount -t proc proc /proc &&
         mount -t sysfs sysfs /sys &&
         mount -t devtmpfs devtmpfs /dev \n"
         exp_continue

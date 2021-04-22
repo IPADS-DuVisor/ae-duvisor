@@ -16,7 +16,7 @@ laputa_test_names=${laputa_names/$laputa_name}
 mkdir -p mnt
 sudo mount ./prepare/ubuntu-vdisk.img ./mnt
 sudo mkdir -p ./mnt/laputa/tests_bin
-sudo cp scripts/run_tests.sh $laputa_name ./mnt/laputa
+sudo cp scripts/local/run_tests.sh $laputa_name ./mnt/laputa
 sudo cp $laputa_test_names ./mnt/laputa/tests_bin/
 sudo mv ./mnt/laputa/$laputa_name_basename ./mnt/laputa/laputa
 sudo cp -r testfiles ./mnt/laputa
