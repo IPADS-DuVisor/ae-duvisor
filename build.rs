@@ -15,9 +15,9 @@ macro_rules! hu_csr_add {
     };
 }
 
-fn field_offset<T>(ctx: &T, reg: &u64) -> u64 {
-    let ctx_ptr = (ctx as *const T) as u64;
-    let reg_ptr = (reg as *const u64) as u64;
+fn field_offset<T1, T2>(ctx: &T1, reg: &T2) -> u64 {
+    let ctx_ptr = (ctx as *const T1) as u64;
+    let reg_ptr = (reg as *const T2) as u64;
 
     reg_ptr - ctx_ptr
 }
@@ -106,127 +106,127 @@ fn main() {
     let vcpu = VcpuCtx::new();
     let mut offset_define_list: Vec<OffsetDefine> = Vec::new();
 
-    // Add offset define
-    // Host GP
-    offset_define_add!(offset_define_list, "HOST_GP_X0", vcpu, vcpu.host_ctx.gp_regs.x_reg[0]);
-    offset_define_add!(offset_define_list, "HOST_GP_X1", vcpu, vcpu.host_ctx.gp_regs.x_reg[1]);
-    offset_define_add!(offset_define_list, "HOST_GP_X2", vcpu, vcpu.host_ctx.gp_regs.x_reg[2]);
-    offset_define_add!(offset_define_list, "HOST_GP_X3", vcpu, vcpu.host_ctx.gp_regs.x_reg[3]);
-    offset_define_add!(offset_define_list, "HOST_GP_X4", vcpu, vcpu.host_ctx.gp_regs.x_reg[4]);
-    offset_define_add!(offset_define_list, "HOST_GP_X5", vcpu, vcpu.host_ctx.gp_regs.x_reg[5]);
-    offset_define_add!(offset_define_list, "HOST_GP_X6", vcpu, vcpu.host_ctx.gp_regs.x_reg[6]);
-    offset_define_add!(offset_define_list, "HOST_GP_X7", vcpu, vcpu.host_ctx.gp_regs.x_reg[7]);
-    offset_define_add!(offset_define_list, "HOST_GP_X8", vcpu, vcpu.host_ctx.gp_regs.x_reg[8]);
-    offset_define_add!(offset_define_list, "HOST_GP_X9", vcpu, vcpu.host_ctx.gp_regs.x_reg[9]);
-    offset_define_add!(offset_define_list, "HOST_GP_X10", vcpu, vcpu.host_ctx.gp_regs.x_reg[10]);
-    offset_define_add!(offset_define_list, "HOST_GP_X11", vcpu, vcpu.host_ctx.gp_regs.x_reg[11]);
-    offset_define_add!(offset_define_list, "HOST_GP_X12", vcpu, vcpu.host_ctx.gp_regs.x_reg[12]);
-    offset_define_add!(offset_define_list, "HOST_GP_X13", vcpu, vcpu.host_ctx.gp_regs.x_reg[13]);
-    offset_define_add!(offset_define_list, "HOST_GP_X14", vcpu, vcpu.host_ctx.gp_regs.x_reg[14]);
-    offset_define_add!(offset_define_list, "HOST_GP_X15", vcpu, vcpu.host_ctx.gp_regs.x_reg[15]);
-    offset_define_add!(offset_define_list, "HOST_GP_X16", vcpu, vcpu.host_ctx.gp_regs.x_reg[16]);
-    offset_define_add!(offset_define_list, "HOST_GP_X17", vcpu, vcpu.host_ctx.gp_regs.x_reg[17]);
-    offset_define_add!(offset_define_list, "HOST_GP_X18", vcpu, vcpu.host_ctx.gp_regs.x_reg[18]);
-    offset_define_add!(offset_define_list, "HOST_GP_X19", vcpu, vcpu.host_ctx.gp_regs.x_reg[19]);
-    offset_define_add!(offset_define_list, "HOST_GP_X20", vcpu, vcpu.host_ctx.gp_regs.x_reg[20]);
-    offset_define_add!(offset_define_list, "HOST_GP_X21", vcpu, vcpu.host_ctx.gp_regs.x_reg[21]);
-    offset_define_add!(offset_define_list, "HOST_GP_X22", vcpu, vcpu.host_ctx.gp_regs.x_reg[22]);
-    offset_define_add!(offset_define_list, "HOST_GP_X23", vcpu, vcpu.host_ctx.gp_regs.x_reg[23]);
-    offset_define_add!(offset_define_list, "HOST_GP_X24", vcpu, vcpu.host_ctx.gp_regs.x_reg[24]);
-    offset_define_add!(offset_define_list, "HOST_GP_X25", vcpu, vcpu.host_ctx.gp_regs.x_reg[25]);
-    offset_define_add!(offset_define_list, "HOST_GP_X26", vcpu, vcpu.host_ctx.gp_regs.x_reg[26]);
-    offset_define_add!(offset_define_list, "HOST_GP_X27", vcpu, vcpu.host_ctx.gp_regs.x_reg[27]);
-    offset_define_add!(offset_define_list, "HOST_GP_X28", vcpu, vcpu.host_ctx.gp_regs.x_reg[28]);
-    offset_define_add!(offset_define_list, "HOST_GP_X29", vcpu, vcpu.host_ctx.gp_regs.x_reg[29]);
-    offset_define_add!(offset_define_list, "HOST_GP_X30", vcpu, vcpu.host_ctx.gp_regs.x_reg[30]);
-    offset_define_add!(offset_define_list, "HOST_GP_X31", vcpu, vcpu.host_ctx.gp_regs.x_reg[31]);
+    // GP offset
+    let mut gp_list: Vec<OffsetDefine> = Vec::new();
 
-    // Host HYP
-    offset_define_add!(offset_define_list, "HOST_HYP_HUSTATUS", vcpu, vcpu.host_ctx.hyp_regs.hustatus);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUEDELEG", vcpu, vcpu.host_ctx.hyp_regs.huedeleg);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUIDELEG", vcpu, vcpu.host_ctx.hyp_regs.huideleg);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUVIP", vcpu, vcpu.host_ctx.hyp_regs.huvip);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUIP", vcpu, vcpu.host_ctx.hyp_regs.huip);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUIE", vcpu, vcpu.host_ctx.hyp_regs.huie);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUGEIP", vcpu, vcpu.host_ctx.hyp_regs.hugeip);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUGEIE", vcpu, vcpu.host_ctx.hyp_regs.hugeie);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUCOUNTEREN", vcpu, vcpu.host_ctx.hyp_regs.hucounteren);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUTIMEDELTA", vcpu, vcpu.host_ctx.hyp_regs.hutimedelta);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUTIMEDELTAH", vcpu, vcpu.host_ctx.hyp_regs.hutimedeltah);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUTVAL", vcpu, vcpu.host_ctx.hyp_regs.hutval);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUTINST", vcpu, vcpu.host_ctx.hyp_regs.hutinst);
-    offset_define_add!(offset_define_list, "HOST_HYP_HUGATP", vcpu, vcpu.host_ctx.hyp_regs.hugatp);
-    offset_define_add!(offset_define_list, "HOST_HYP_UTVEC", vcpu, vcpu.host_ctx.hyp_regs.utvec);
-    offset_define_add!(offset_define_list, "HOST_HYP_UEPC", vcpu, vcpu.host_ctx.hyp_regs.uepc);
-    offset_define_add!(offset_define_list, "HOST_HYP_USCRATCH", vcpu, vcpu.host_ctx.hyp_regs.uscratch);
-    offset_define_add!(offset_define_list, "HOST_HYP_UTVAL", vcpu, vcpu.host_ctx.hyp_regs.utval);
-    offset_define_add!(offset_define_list, "HOST_HYP_UCAUSE", vcpu, vcpu.host_ctx.hyp_regs.ucause);
+    offset_define_add!(gp_list, "X0", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[0]);
+    offset_define_add!(gp_list, "X1", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[1]);
+    offset_define_add!(gp_list, "X2", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[2]);
+    offset_define_add!(gp_list, "X3", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[3]);
+    offset_define_add!(gp_list, "X4", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[4]);
+    offset_define_add!(gp_list, "X5", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[5]);
+    offset_define_add!(gp_list, "X6", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[6]);
+    offset_define_add!(gp_list, "X7", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[7]);
+    offset_define_add!(gp_list, "X8", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[8]);
+    offset_define_add!(gp_list, "X9", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[9]);
+    offset_define_add!(gp_list, "X10", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[10]);
+    offset_define_add!(gp_list, "X11", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[11]);
+    offset_define_add!(gp_list, "X12", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[12]);
+    offset_define_add!(gp_list, "X13", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[13]);
+    offset_define_add!(gp_list, "X14", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[14]);
+    offset_define_add!(gp_list, "X15", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[15]);
+    offset_define_add!(gp_list, "X16", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[16]);
+    offset_define_add!(gp_list, "X17", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[17]);
+    offset_define_add!(gp_list, "X18", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[18]);
+    offset_define_add!(gp_list, "X19", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[19]);
+    offset_define_add!(gp_list, "X20", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[20]);
+    offset_define_add!(gp_list, "X21", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[21]);
+    offset_define_add!(gp_list, "X22", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[22]);
+    offset_define_add!(gp_list, "X23", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[23]);
+    offset_define_add!(gp_list, "X24", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[24]);
+    offset_define_add!(gp_list, "X25", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[25]);
+    offset_define_add!(gp_list, "X26", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[26]);
+    offset_define_add!(gp_list, "X27", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[27]);
+    offset_define_add!(gp_list, "X28", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[28]);
+    offset_define_add!(gp_list, "X29", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[29]);
+    offset_define_add!(gp_list, "X30", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[30]);
+    offset_define_add!(gp_list, "X31", vcpu.host_ctx.gp_regs, vcpu.host_ctx.gp_regs.x_reg[31]);
 
-    // Guest GP
-    offset_define_add!(offset_define_list, "GUEST_GP_X0", vcpu, vcpu.guest_ctx.gp_regs.x_reg[0]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X1", vcpu, vcpu.guest_ctx.gp_regs.x_reg[1]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X2", vcpu, vcpu.guest_ctx.gp_regs.x_reg[2]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X3", vcpu, vcpu.guest_ctx.gp_regs.x_reg[3]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X4", vcpu, vcpu.guest_ctx.gp_regs.x_reg[4]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X5", vcpu, vcpu.guest_ctx.gp_regs.x_reg[5]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X6", vcpu, vcpu.guest_ctx.gp_regs.x_reg[6]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X7", vcpu, vcpu.guest_ctx.gp_regs.x_reg[7]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X8", vcpu, vcpu.guest_ctx.gp_regs.x_reg[8]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X9", vcpu, vcpu.guest_ctx.gp_regs.x_reg[9]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X10", vcpu, vcpu.guest_ctx.gp_regs.x_reg[10]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X11", vcpu, vcpu.guest_ctx.gp_regs.x_reg[11]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X12", vcpu, vcpu.guest_ctx.gp_regs.x_reg[12]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X13", vcpu, vcpu.guest_ctx.gp_regs.x_reg[13]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X14", vcpu, vcpu.guest_ctx.gp_regs.x_reg[14]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X15", vcpu, vcpu.guest_ctx.gp_regs.x_reg[15]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X16", vcpu, vcpu.guest_ctx.gp_regs.x_reg[16]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X17", vcpu, vcpu.guest_ctx.gp_regs.x_reg[17]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X18", vcpu, vcpu.guest_ctx.gp_regs.x_reg[18]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X19", vcpu, vcpu.guest_ctx.gp_regs.x_reg[19]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X20", vcpu, vcpu.guest_ctx.gp_regs.x_reg[20]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X21", vcpu, vcpu.guest_ctx.gp_regs.x_reg[21]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X22", vcpu, vcpu.guest_ctx.gp_regs.x_reg[22]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X23", vcpu, vcpu.guest_ctx.gp_regs.x_reg[23]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X24", vcpu, vcpu.guest_ctx.gp_regs.x_reg[24]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X25", vcpu, vcpu.guest_ctx.gp_regs.x_reg[25]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X26", vcpu, vcpu.guest_ctx.gp_regs.x_reg[26]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X27", vcpu, vcpu.guest_ctx.gp_regs.x_reg[27]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X28", vcpu, vcpu.guest_ctx.gp_regs.x_reg[28]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X29", vcpu, vcpu.guest_ctx.gp_regs.x_reg[29]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X30", vcpu, vcpu.guest_ctx.gp_regs.x_reg[30]);
-    offset_define_add!(offset_define_list, "GUEST_GP_X31", vcpu, vcpu.guest_ctx.gp_regs.x_reg[31]);
+    // SYS offset
+    let mut sys_list: Vec<OffsetDefine> = Vec::new();
 
-    //Guest SYS
-    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSSTATUS", vcpu, vcpu.guest_ctx.sys_regs.huvsstatus);
-    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSIP", vcpu, vcpu.guest_ctx.sys_regs.huvsip);
-    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSIE", vcpu, vcpu.guest_ctx.sys_regs.huvsie);
-    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSTVEC", vcpu, vcpu.guest_ctx.sys_regs.huvstvec);
-    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSSCRATCH", vcpu, vcpu.guest_ctx.sys_regs.huvsscratch);
-    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSEPC", vcpu, vcpu.guest_ctx.sys_regs.huvsepc);
-    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSCAUSE", vcpu, vcpu.guest_ctx.sys_regs.huvscause);
-    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSTVAL", vcpu, vcpu.guest_ctx.sys_regs.huvstval);
-    offset_define_add!(offset_define_list, "GUEST_SYS_HUVSATP", vcpu, vcpu.guest_ctx.sys_regs.huvsatp);
+    offset_define_add!(sys_list, "HUVSSTATUS", vcpu.guest_ctx.sys_regs, vcpu.guest_ctx.sys_regs.huvsstatus);
+    offset_define_add!(sys_list, "HUVSIP", vcpu.guest_ctx.sys_regs, vcpu.guest_ctx.sys_regs.huvsip);
+    offset_define_add!(sys_list, "HUVSIE", vcpu.guest_ctx.sys_regs, vcpu.guest_ctx.sys_regs.huvsie);
+    offset_define_add!(sys_list, "HUVSTVEC", vcpu.guest_ctx.sys_regs, vcpu.guest_ctx.sys_regs.huvstvec);
+    offset_define_add!(sys_list, "HUVSSCRATCH", vcpu.guest_ctx.sys_regs, vcpu.guest_ctx.sys_regs.huvsscratch);
+    offset_define_add!(sys_list, "HUVSEPC", vcpu.guest_ctx.sys_regs, vcpu.guest_ctx.sys_regs.huvsepc);
+    offset_define_add!(sys_list, "HUVSCAUSE", vcpu.guest_ctx.sys_regs, vcpu.guest_ctx.sys_regs.huvscause);
+    offset_define_add!(sys_list, "HUVSTVAL", vcpu.guest_ctx.sys_regs, vcpu.guest_ctx.sys_regs.huvstval);
+    offset_define_add!(sys_list, "HUVSATP", vcpu.guest_ctx.sys_regs, vcpu.guest_ctx.sys_regs.huvsatp);
 
-    // Guest HYP
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUSTATUS", vcpu, vcpu.guest_ctx.hyp_regs.hustatus);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUEDELEG", vcpu, vcpu.guest_ctx.hyp_regs.huedeleg);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUIDELEG", vcpu, vcpu.guest_ctx.hyp_regs.huideleg);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUVIP", vcpu, vcpu.guest_ctx.hyp_regs.huvip);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUIP", vcpu, vcpu.guest_ctx.hyp_regs.huip);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUIE", vcpu, vcpu.guest_ctx.hyp_regs.huie);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUGEIP", vcpu, vcpu.guest_ctx.hyp_regs.hugeip);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUGEIE", vcpu, vcpu.guest_ctx.hyp_regs.hugeie);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUCOUNTEREN", vcpu, vcpu.guest_ctx.hyp_regs.hucounteren);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUTIMEDELTA", vcpu, vcpu.guest_ctx.hyp_regs.hutimedelta);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUTIMEDELTAH", vcpu, vcpu.guest_ctx.hyp_regs.hutimedeltah);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUTVAL", vcpu, vcpu.guest_ctx.hyp_regs.hutval);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUTINST", vcpu, vcpu.guest_ctx.hyp_regs.hutinst);
-    offset_define_add!(offset_define_list, "GUEST_HYP_HUGATP", vcpu, vcpu.guest_ctx.hyp_regs.hugatp);
-    offset_define_add!(offset_define_list, "GUEST_HYP_UTVEC", vcpu, vcpu.guest_ctx.hyp_regs.utvec);
-    offset_define_add!(offset_define_list, "GUEST_HYP_UEPC", vcpu, vcpu.guest_ctx.hyp_regs.uepc);
-    offset_define_add!(offset_define_list, "GUEST_HYP_USCRATCH", vcpu, vcpu.guest_ctx.hyp_regs.uscratch);
-    offset_define_add!(offset_define_list, "GUEST_HYP_UTVAL", vcpu, vcpu.guest_ctx.hyp_regs.utval);
-    offset_define_add!(offset_define_list, "GUEST_HYP_UCAUSE", vcpu, vcpu.guest_ctx.hyp_regs.ucause);
+    // HYP offset
+    let mut hyp_list: Vec<OffsetDefine> = Vec::new();
+
+    offset_define_add!(hyp_list, "HUSTATUS", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.hustatus);
+    offset_define_add!(hyp_list, "HUEDELEG", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.huedeleg);
+    offset_define_add!(hyp_list, "HUIDELEG", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.huideleg);
+    offset_define_add!(hyp_list, "HUVIP", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.huvip);
+    offset_define_add!(hyp_list, "HUIP", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.huip);
+    offset_define_add!(hyp_list, "HUIE", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.huie);
+    offset_define_add!(hyp_list, "HUGEIP", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.hugeip);
+    offset_define_add!(hyp_list, "HUGEIE", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.hugeie);
+    offset_define_add!(hyp_list, "HUCOUNTEREN", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.hucounteren);
+    offset_define_add!(hyp_list, "HUTIMEDELTA", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.hutimedelta);
+    offset_define_add!(hyp_list, "HUTIMEDELTAH", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.hutimedeltah);
+    offset_define_add!(hyp_list, "HUTVAL", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.hutval);
+    offset_define_add!(hyp_list, "HUTINST", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.hutinst);
+    offset_define_add!(hyp_list, "HUGATP", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.hugatp);
+    offset_define_add!(hyp_list, "UTVEC", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.utvec);
+    offset_define_add!(hyp_list, "UEPC", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.uepc);
+    offset_define_add!(hyp_list, "USCRATCH", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.uscratch);
+    offset_define_add!(hyp_list, "UTVAL", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.utval);
+    offset_define_add!(hyp_list, "UCAUSE", vcpu.guest_ctx.hyp_regs, vcpu.guest_ctx.hyp_regs.ucause);
+
+    // HOST_GP
+    for i in &gp_list {
+        let mut name1 = "HOST_GP_".to_string();
+        let name2 = i.name.to_string();
+        name1 += &name2;
+
+        let offset = field_offset(&vcpu, &vcpu.host_ctx.gp_regs) + i.offset;
+        offset_define_list.push(OffsetDefine::new(name1, offset));
+    }
+
+    // HOST_HYP
+    for i in &hyp_list {
+        let mut name1 = "HOST_HYP_".to_string();
+        let name2 = i.name.to_string();
+        name1 += &name2;
+
+        let offset = field_offset(&vcpu, &vcpu.host_ctx.hyp_regs) + i.offset;
+        offset_define_list.push(OffsetDefine::new(name1, offset));
+    }
+
+    // GUEST_GP
+    for i in &gp_list {
+        let mut name1 = "GUEST_GP_".to_string();
+        let name2 = i.name.to_string();
+        name1 += &name2;
+
+        let offset = field_offset(&vcpu, &vcpu.guest_ctx.gp_regs) + i.offset;
+        offset_define_list.push(OffsetDefine::new(name1, offset));
+    }
+
+    // GUEST_HYP
+    for i in &hyp_list {
+        let mut name1 = "GUEST_HYP_".to_string();
+        let name2 = i.name.to_string();
+        name1 += &name2;
+
+        let offset = field_offset(&vcpu, &vcpu.guest_ctx.hyp_regs) + i.offset;
+        offset_define_list.push(OffsetDefine::new(name1, offset));
+    }
+
+    // GUEST_SYS
+    for i in &sys_list {
+        let mut name1 = "GUEST_SYS_".to_string();
+        let name2 = i.name.to_string();
+        name1 += &name2;
+
+        let offset = field_offset(&vcpu, &vcpu.guest_ctx.sys_regs) + i.offset;
+        offset_define_list.push(OffsetDefine::new(name1, offset));
+    }
 
     write_asm_offset_file(&offset_define_list);
 
