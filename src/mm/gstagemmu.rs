@@ -169,13 +169,14 @@ impl GStageMmu {
         pte
     }
 
-    pub fn gpa_to_ptregion_offset(&mut self, gpa: u64) -> Option<u64> {
+    pub fn gpa_to_ptregion_offset(&mut self, gpa: u64) -> Option<[u64; 4]> {
         let mut page_table_va = self.page_table.region.hpm_vptr as u64;
         let mut page_table_va_wrap;
         let mut page_table_hpa;
         let mut page_table_hpa_wrap;
         let mut index: u64;
         let mut shift: u64;
+        let mut offsets = [0; 4];
 
         for level in 0..3 {
             shift = 39 - PAGE_ORDER * level;
@@ -206,10 +207,12 @@ impl GStageMmu {
                 }
                 page_table_va = page_table_va_wrap.unwrap();
             }
+            offsets[level as usize] = pte_addr_va - (self.page_table.region.hpm_vptr as u64);
         }
 
         index = ((gpa >> 12) & 0x1ff) * 8;
-        Some(page_table_va + index - (self.page_table.region.hpm_vptr as u64))
+        offsets[3] = page_table_va + index - (self.page_table.region.hpm_vptr as u64);
+        Some(offsets)
     }
 
     pub fn map_query(&mut self, gpa: u64) -> Option<Pte> {
@@ -288,11 +291,11 @@ impl GStageMmu {
 
     // SV48x4
     pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> Option<u32> {
-        let offset_wrap = self.gpa_to_ptregion_offset(gpa);
-        if offset_wrap.is_none() {
+        let offsets_wrap = self.gpa_to_ptregion_offset(gpa);
+        if offsets_wrap.is_none() {
             return None;
         }
-        let offset = offset_wrap.unwrap();
+        let offset = offsets_wrap.unwrap()[3];
         let page_table_va = self.page_table.region.hpm_vptr as u64;
         let pte_addr = page_table_va + offset;
 
@@ -341,24 +344,46 @@ impl GStageMmu {
         Some(0)
     }
 
-    // Unmap only L3 PTEs for now. 
-    // TODO: Unmap L0/L1/L2 page table pages if there are no valid PTEs in them
+    fn is_empty_page(pte_addr :u64) -> bool{
+        let pte_addr = pte_addr & (!0xfff);
+        let mut index = 0;
+        let mut empty_flag = true;
+        let mut pte_val;
+        while index < PAGE_SIZE {
+            let pte_addr_ptr = ( pte_addr + index ) as *mut u64;
+            pte_val = unsafe { *pte_addr_ptr };
+            if pte_val != 0 {
+                empty_flag = false;
+                break;
+            }
+            index += 8;
+        }
+        empty_flag
+    }
+
+    // Unmap L0/L1/L2 page table pages if there are no valid PTEs in them
     pub fn unmap_page(&mut self, gpa: u64) -> Option<u32> {
         if (gpa & 0xfff) != 0 {
             return None;
         }
 
-        let offset_wrap = self.gpa_to_ptregion_offset(gpa);
-        if offset_wrap.is_none() {
+        let offsets_wrap = self.gpa_to_ptregion_offset(gpa);
+        if offsets_wrap.is_none() {
             return None;
         }
-        let offset = offset_wrap.unwrap();
-        let page_table_va = self.page_table.region.hpm_vptr as u64;
-        let pte_addr = page_table_va + offset;
-
-        let pte_addr_ptr = pte_addr as *mut u64;
-        unsafe {
-            *pte_addr_ptr = 0;
+        let offsets = offsets_wrap.unwrap();
+        for level in 0..4{
+            let offset = offsets[(3 - level) as usize];
+            let page_table_va = self.page_table.region.hpm_vptr as u64;
+            let pte_addr = page_table_va + offset;
+    
+            let pte_addr_ptr = pte_addr as *mut u64;
+            unsafe {
+                *pte_addr_ptr = 0;
+            }
+            if !GStageMmu::is_empty_page(pte_addr) {
+                break;
+            }
         }
 
         Some(0)
@@ -403,7 +428,7 @@ mod tests {
 
         // Check the root table has been created
         let free_offset = gsmmu.page_table.free_offset;
-        assert_eq!(free_offset, 16384);
+        assert_eq!(free_offset, 0x4000);
 
         // Check the root table has been cleared
         let mut root_ptr = gsmmu.page_table.region.hpm_vptr;
@@ -444,7 +469,7 @@ mod tests {
 
         // Check the page table has been created
         let free_offset = gsmmu.page_table.free_offset;
-        assert_eq!(free_offset, 16384 + 4096);
+        assert_eq!(free_offset, 0x4000 + 0x1000);
 
         // Check the page table has been cleared
         let root_ptr = gsmmu.page_table.region.hpm_vptr;
@@ -623,6 +648,122 @@ mod tests {
         // Should be cleared
         assert_eq!(pte, 0);
     }
+
+    #[test]
+    fn test_cascaded_map_page_unmap_page() {
+        let mut gsmmu = GStageMmu::new();
+        let gpa : u64 = 0x1000;
+        // Create a page table
+        gsmmu.map_page(gpa, 0x2000, PTE_READ | PTE_EXECUTE);
+
+        // Check the pte
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as u64;
+
+        let offsets_wrap = gsmmu.gpa_to_ptregion_offset(gpa);
+        assert!(!offsets_wrap.is_none());
+        let offsets = offsets_wrap.unwrap();
+
+        for level in 0..4{
+            let offset = offsets[level as usize];
+            let pte_addr = root_ptr + offset;
+            let pte_addr_ptr = pte_addr as *mut u64;
+            let pte_val = unsafe { *pte_addr_ptr };
+            assert_ne!(pte_val, 0);
+        }
+
+        gsmmu.unmap_page(0x1000);
+
+        for level in 0..4{
+            let offset = offsets[level as usize];
+            let pte_addr = root_ptr + offset;
+            let pte_addr_ptr = pte_addr as *mut u64;
+            let pte_val = unsafe { *pte_addr_ptr };
+            assert_eq!(pte_val, 0);
+        }
+    }
+
+    #[test]
+    fn test_cascaded_map_range_unmap_range() {
+        let mut gsmmu = GStageMmu::new();
+        let gpa : u64 = 0x1000;
+        let hpa : u64 = 0x2000;
+        // Create a page table
+        gsmmu.map_range(gpa, hpa, 2 * PAGE_SIZE, PTE_READ | PTE_EXECUTE);
+
+        // Check the pte
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as u64;
+
+        let offsets_wrap = gsmmu.gpa_to_ptregion_offset(gpa);
+        assert!(!offsets_wrap.is_none());
+        let offsets = offsets_wrap.unwrap();
+
+        for level in 0..4{
+            let offset = offsets[(3 - level) as usize];
+            let pte_addr = root_ptr + offset;
+            let pte_addr_ptr = pte_addr as *mut u64;
+            let pte_val = unsafe { *pte_addr_ptr };
+            assert_ne!(pte_val, 0);
+        }
+
+        gsmmu.unmap_range(gpa, 2 * PAGE_SIZE);
+
+        for level in 0..4{
+            let offset = offsets[(3 - level) as usize];
+            let pte_addr = root_ptr + offset;
+            let pte_addr_ptr = pte_addr as *mut u64;
+            let pte_val = unsafe { *pte_addr_ptr };
+            assert_eq!(pte_val, 0);
+        }
+    }
+
+    #[test]
+    fn test_cascaded_map_range_unmap_page() {
+        let mut gsmmu = GStageMmu::new();
+        let gpa : u64 = 0x1000;
+        let hpa : u64 = 0x2000;
+        // Create a page table
+        gsmmu.map_range(gpa, hpa, 2 * PAGE_SIZE, PTE_READ | PTE_EXECUTE);
+
+        // Check the pte
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as u64;
+
+        let offsets_wrap = gsmmu.gpa_to_ptregion_offset(gpa);
+        assert!(!offsets_wrap.is_none());
+        let offsets = offsets_wrap.unwrap();
+
+        for level in 0..4{
+            let offset = offsets[(3 - level) as usize];
+            let pte_addr = root_ptr + offset;
+            let pte_addr_ptr = pte_addr as *mut u64;
+            let pte_val = unsafe { *pte_addr_ptr };
+            assert_ne!(pte_val, 0);
+        }
+
+        gsmmu.unmap_page(gpa);
+
+        for level in 0..4{
+            let offset = offsets[level as usize];
+            let pte_addr = root_ptr + offset;
+            let pte_addr_ptr = pte_addr as *mut u64;
+            let pte_val = unsafe { *pte_addr_ptr };
+            if level != 3 {
+                assert_ne!(pte_val, 0);
+            } else {
+                assert_eq!(pte_val, 0);
+            }
+        }
+
+        gsmmu.unmap_page(gpa + PAGE_SIZE);
+
+        for level in 0..4{
+            let offset = offsets[(3 - level) as usize];
+            let pte_addr = root_ptr + offset;
+            let pte_addr_ptr = pte_addr as *mut u64;
+            let pte_val = unsafe { *pte_addr_ptr };
+            assert_eq!(pte_val, 0);
+        }
+    }
+
 
     #[test]
     fn test_unmap_range() {
