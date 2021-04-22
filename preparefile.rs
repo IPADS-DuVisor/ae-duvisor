@@ -224,9 +224,6 @@ pub fn prepare_asm_csr_file() {
         offset_define_list.push(ContextOffset::new(name1, offset));
     }
 
-    offset_define_add!(offset_define_list, "HOST_GP_OFFSET", vcpu, vcpu.host_ctx.gp_regs);
-    offset_define_add!(offset_define_list, "GUEST_GP_OFFSET", vcpu, vcpu.guest_ctx.gp_regs);
-
     write_asm_offset_file(&offset_define_list);
 }
 

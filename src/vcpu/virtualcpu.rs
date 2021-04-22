@@ -32,8 +32,7 @@ impl VirtualCpu {
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
         let vcpu_ctx = VcpuCtx::new();
         let virq = virq::VirtualInterrupt::new();
-        let vtimer = vtimer::VirtualTimer::new(0, 0);
-        
+        let vtimer = vtimer::VirtualTimer::new(0, 0); 
 
         Self {
             vcpu_id,
@@ -125,6 +124,9 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             // restore guest GP except A0 & X0
             RESTORE_GUEST_CTX a0
 
+            /* restore guest A0 */
+            RESTORE_GUEST_GP_X10 a0, x10
+
             /* huret */
             uret
 
@@ -168,15 +170,14 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
             RESTORE_HOST_CTX a0
             " :: "r"(ctx) :"memory", "x5", "x6", "x7", "x10", "x11", "x28", "x29", "x30", "x31": "volatile");
 
-            // Save the key reg for vm exit handler
-            // UCAUSE / UTVAL
-            llvm_asm!(".align 2
-                mv a0, $0
-                CSRR_CSR_UCAUSE t3
-                SAVE_GUEST_HYP_UCAUSE a0, t3
-
-                CSRR_CSR_UTVAL t3
-                SAVE_GUEST_HYP_UTVAL a0, t3
+    // Save the key reg for vm exit handler
+    // UCAUSE / UTVAL
+    llvm_asm!(".align 2
+            mv a0, $0
+            CSRR_CSR_UCAUSE t3
+            SAVE_GUEST_HYP_UCAUSE a0, t3
+            CSRR_CSR_UTVAL t3
+            SAVE_GUEST_HYP_UTVAL a0, t3
             " :: "r"(ctx) :"memory", "x10", "x28": "volatile");
 }
 

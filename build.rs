@@ -4,7 +4,7 @@ use preparefile::*;
 
 
 fn main() {
-    println!("cargo:warning=------------build.rs start!-------------");
+    println!("cargo:warning=------------build.rs start-------------");
 
     // Prepare src/vcpu/asm_offset.S
     prepare_asm_offset_file();
@@ -15,5 +15,5 @@ fn main() {
     // Prepare src/vcpu/asm_switch.S
     prepare_asm_switch_file();
 
-    println!("cargo:warning=------------build.rs end!---------------");
+    println!("cargo:warning=------------build.rs end---------------");
 }

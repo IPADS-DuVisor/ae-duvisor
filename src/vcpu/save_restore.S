@@ -9,6 +9,7 @@
     SAVE_GP_X7 \reg1, x7
     SAVE_GP_X8 \reg1, x8
     SAVE_GP_X9 \reg1, x9
+    SAVE_GP_X10 \reg1, x10
     SAVE_GP_X11 \reg1, x11
     SAVE_GP_X12 \reg1, x12
     SAVE_GP_X13 \reg1, x13
