@@ -1,9 +1,9 @@
 use crate::vm::virtualmachine;
 use crate::irq::virq;
 use crate::irq::vtimer;
-use crate::vcpu::context;
+use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
-use context::*;
+use vcpucontext::*;
 
 global_asm!(include_str!("../asm_offset.S"));
 global_asm!(include_str!("../asm_csr.S"));
