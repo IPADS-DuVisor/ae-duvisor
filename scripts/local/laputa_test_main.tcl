@@ -1,6 +1,6 @@
 proc main_test { } {
     # Test the binary
-    expect "ubuntu@ubuntu:~/laputa\\\$"
+    expect ":/laputa#"
 
     send "./laputa --smp 4\n"
     expect {

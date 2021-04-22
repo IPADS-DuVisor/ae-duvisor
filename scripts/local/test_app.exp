@@ -3,8 +3,6 @@ source [file join [file dirname $argv0] ./laputa_test_main.tcl]
 
 set timeout 180
 
-set args_for_laputa_test [lindex $argv 0];
-
 spawn bash -c "./scripts/local/boot.sh"
 
 
@@ -14,29 +12,18 @@ expect {
         mount -t proc proc /proc \n
         mount -t sysfs sysfs /sys \n
         mount -t devtmpfs devtmpfs /dev \n 
-        echo 5 > /proc/sys/kernel/printk \n"
+        echo 5 > /proc/sys/kernel/printk \n
+        ./laputa/ioctl_test\n"
         exp_continue
     }
 
-    "root@(none)" {
-        send "cd laputa && ./run_tests.sh $args_for_laputa_test\n"
-        expect {
-            "test failed" {
-                exit -1
-            }
-            "ALL TEST PASSED" {
-        
-            }
-            timeout {
-                exit -1
-            }
-        }
+    "tests passed" {
+
     }
+    
     timeout {
         exit -1
     }
 }
-
-main_test
 
 puts "Test OK"
