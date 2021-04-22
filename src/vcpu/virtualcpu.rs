@@ -5,8 +5,9 @@ use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
 use vcpucontext::*;
 
-global_asm!(include_str!("../asm_offset.S"));
-global_asm!(include_str!("../asm_csr.S"));
+global_asm!(include_str!("asm_offset.S"));
+global_asm!(include_str!("asm_csr.S"));
+global_asm!(include_str!("asm_switch.S"));
 global_asm!(include_str!("vm_code.S"));
 global_asm!(include_str!("save_restore.S"));
 

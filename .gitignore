@@ -2,12 +2,11 @@
 **/*.rs.bk
 Cargo.lock
 /prepare
-/src/asm_csr.S
-/src/asm_offset.S
-/src/asm-offset.h
-/src/vcpu/asmoffset.rs
 /.vscode
 /mnt
 /testfiles/integration/test_images/build
 /testfiles/*/*.img
 /testfiles/*.img
+/src/vcpu/asm_csr.S
+/src/vcpu/asm_offset.S
+/src/vcpu/asm_switch.S
