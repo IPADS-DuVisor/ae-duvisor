@@ -1,8 +1,8 @@
 #!/bin/bash
 ret=0
 for file in ./tests_bin/*; do
-    echo $file
-    ./$file
+    echo $file $1
+    ./$file $1
     if [ $? -ne 0 ];
     then
 	    ret=-1

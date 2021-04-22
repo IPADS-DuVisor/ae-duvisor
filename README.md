@@ -27,7 +27,10 @@ rm -r prepare
 ```
 ./scripts/local/docker_test_laputa.sh
 ```
-
+Or if you want to run test in verbose mode, run:
+```
+./scripts/local/docker_test_laputa.sh --nocapture
+```
 ## Build testing app
 ```
 ./scripts/local/docker_build_app.sh
