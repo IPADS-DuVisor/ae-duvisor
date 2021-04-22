@@ -55,7 +55,7 @@ impl VirtualMachine {
         vm
     }
 
-    // init vm & vcpu before vm_run()
+    // Init vm & vcpu before vm_run()
     pub fn vm_init(&mut self) {
         let file_path = CString::new("/dev/laputa_dev").unwrap();
         let ioctl_fd;

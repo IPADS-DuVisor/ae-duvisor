@@ -1,3 +1,5 @@
+// reg1 should be A0(X10)
+
 // save host ctx
 .macro SAVE_HOST_CTX reg1
 	// save host gp with reg1=ctx, except t0-t6 and zero-x0
@@ -27,9 +29,9 @@
 	SAVE_HOST_GP_X27 \reg1, x27
 .endm
 
-// restore host ctx, reg1 must be A0(X10)
+// restore host ctx
 .macro RESTORE_HOST_CTX reg1
-	/* restore host gp with a0=ctx, except t0-t6 and zero-x0 */
+	//restore host gp with a0=ctx, except t0-t6 and zero-x0
     RESTORE_HOST_GP_X1 \reg1, x1
     RESTORE_HOST_GP_X2 \reg1, x2
     RESTORE_HOST_GP_X3 \reg1, x3
@@ -59,7 +61,7 @@
     RESTORE_HOST_GP_X27 \reg1, x27
 .endm
 
-// save guest ctx, reg1 must be A0(X10)
+// save guest ctx
 .macro SAVE_GUEST_CTX reg1
 	/* save guest gp except A0 & X0 */
     SAVE_GUEST_GP_X1 \reg1, x1
@@ -94,7 +96,7 @@
     SAVE_GUEST_GP_X31 \reg1, x31
 .endm
 
-// restore guest ctx, reg1 must be A0(X10)
+// restore guest ctx
 .macro RESTORE_GUEST_CTX reg1
 	// restore guest GP except A0 & X0
     RESTORE_GUEST_GP_X1 \reg1, x1
@@ -127,6 +129,7 @@
     RESTORE_GUEST_GP_X29 \reg1, x29
     RESTORE_GUEST_GP_X30 \reg1, x30
     RESTORE_GUEST_GP_X31 \reg1, x31
+
     /* restore guest reg1 */
     RESTORE_GUEST_GP_X10 \reg1, x10
 .endm

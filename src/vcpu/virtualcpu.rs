@@ -92,38 +92,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
 
             // save host gp with a0=ctx, except t0-t6 and zero-x0
             SAVE_HOST_CTX a0
-            //SAVE_HOST_GP_X0 a0, x0 // zero
-//            SAVE_HOST_GP_X1 a0, x1
-//            SAVE_HOST_GP_X2 a0, x2
-//            SAVE_HOST_GP_X3 a0, x3
-//            SAVE_HOST_GP_X4 a0, x4
-//            //SAVE_HOST_GP_X5 a0, x5 // t0
-//            //SAVE_HOST_GP_X6 a0, x6 // t1
-//            //SAVE_HOST_GP_X7 a0, x7 // t2
-//            SAVE_HOST_GP_X8 a0, x8
-//            SAVE_HOST_GP_X9 a0, x9
-//            SAVE_HOST_GP_X10 a0, x10
-//            SAVE_HOST_GP_X11 a0, x11
-//            SAVE_HOST_GP_X12 a0, x12
-//            SAVE_HOST_GP_X13 a0, x13
-//            SAVE_HOST_GP_X14 a0, x14
-//            SAVE_HOST_GP_X15 a0, x15
-//            SAVE_HOST_GP_X16 a0, x16
-//            SAVE_HOST_GP_X17 a0, x17
-//            SAVE_HOST_GP_X18 a0, x18
-//            SAVE_HOST_GP_X19 a0, x19
-//            SAVE_HOST_GP_X20 a0, x20
-//            SAVE_HOST_GP_X21 a0, x21
-//            SAVE_HOST_GP_X22 a0, x22
-//            SAVE_HOST_GP_X23 a0, x23
-//            SAVE_HOST_GP_X24 a0, x24
-//            SAVE_HOST_GP_X25 a0, x25
-//            SAVE_HOST_GP_X26 a0, x26
-//            SAVE_HOST_GP_X27 a0, x27
-            //SAVE_HOST_GP_X28 a0, x28 // t3
-            //SAVE_HOST_GP_X29 a0, x29 // t4
-            //SAVE_HOST_GP_X30 a0, x30 // t5
-            //SAVE_HOST_GP_X31 a0, x31 // t6
 
             /* a0 = ctx */
 
@@ -156,40 +124,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
 
             // restore guest GP except A0 & X0
             RESTORE_GUEST_CTX a0
-//            RESTORE_GUEST_GP_X1 a0, x1
-//            RESTORE_GUEST_GP_X2 a0, x2
-//            RESTORE_GUEST_GP_X3 a0, x3
-//            RESTORE_GUEST_GP_X4 a0, x4
-//            RESTORE_GUEST_GP_X5 a0, x5
-//            RESTORE_GUEST_GP_X6 a0, x6
-//            RESTORE_GUEST_GP_X7 a0, x7
-//            RESTORE_GUEST_GP_X8 a0, x8
-//            RESTORE_GUEST_GP_X9 a0, x9
-//            //RESTORE_GUEST_GP_X10 a0, x10 // a0
-//            RESTORE_GUEST_GP_X11 a0, x11
-//            RESTORE_GUEST_GP_X12 a0, x12
-//            RESTORE_GUEST_GP_X13 a0, x13
-//            RESTORE_GUEST_GP_X14 a0, x14
-//            RESTORE_GUEST_GP_X15 a0, x15
-//            RESTORE_GUEST_GP_X16 a0, x16
-//            RESTORE_GUEST_GP_X17 a0, x17
-//            RESTORE_GUEST_GP_X18 a0, x18
-//            RESTORE_GUEST_GP_X19 a0, x19
-//            RESTORE_GUEST_GP_X20 a0, x20
-//            RESTORE_GUEST_GP_X21 a0, x21
-//            RESTORE_GUEST_GP_X22 a0, x22
-//            RESTORE_GUEST_GP_X23 a0, x23
-//            RESTORE_GUEST_GP_X24 a0, x24
-//            RESTORE_GUEST_GP_X25 a0, x25
-//            RESTORE_GUEST_GP_X26 a0, x26
-//            RESTORE_GUEST_GP_X27 a0, x27
-//            RESTORE_GUEST_GP_X28 a0, x28
-//            RESTORE_GUEST_GP_X29 a0, x29
-//            RESTORE_GUEST_GP_X30 a0, x30
-//            RESTORE_GUEST_GP_X31 a0, x31
-//
-//            /* restore guest A0 */
-//            RESTORE_GUEST_GP_X10 a0, x10
 
             /* uret */
             uret
@@ -205,36 +139,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
 
             /* save guest gp except A0 & X0 */
             SAVE_GUEST_CTX a0
-//            SAVE_GUEST_GP_X1 a0, x1
-//            SAVE_GUEST_GP_X2 a0, x2
-//            SAVE_GUEST_GP_X3 a0, x3
-//            SAVE_GUEST_GP_X4 a0, x4
-//            SAVE_GUEST_GP_X5 a0, x5
-//            SAVE_GUEST_GP_X6 a0, x6
-//            SAVE_GUEST_GP_X7 a0, x7
-//            SAVE_GUEST_GP_X8 a0, x8
-//            SAVE_GUEST_GP_X9 a0, x9
-//            SAVE_GUEST_GP_X11 a0, x11
-//            SAVE_GUEST_GP_X12 a0, x12
-//            SAVE_GUEST_GP_X13 a0, x13
-//            SAVE_GUEST_GP_X14 a0, x14
-//            SAVE_GUEST_GP_X15 a0, x15
-//            SAVE_GUEST_GP_X16 a0, x16
-//            SAVE_GUEST_GP_X17 a0, x17
-//            SAVE_GUEST_GP_X18 a0, x18
-//            SAVE_GUEST_GP_X19 a0, x19
-//            SAVE_GUEST_GP_X20 a0, x20
-//            SAVE_GUEST_GP_X21 a0, x21
-//            SAVE_GUEST_GP_X22 a0, x22
-//            SAVE_GUEST_GP_X23 a0, x23
-//            SAVE_GUEST_GP_X24 a0, x24
-//            SAVE_GUEST_GP_X25 a0, x25
-//            SAVE_GUEST_GP_X26 a0, x26
-//            SAVE_GUEST_GP_X27 a0, x27
-//            SAVE_GUEST_GP_X28 a0, x28
-//            SAVE_GUEST_GP_X29 a0, x29
-//            SAVE_GUEST_GP_X30 a0, x30
-//            SAVE_GUEST_GP_X31 a0, x31
 
             /* save guest A0 with USCRATCH */
             CSRR_CSR_USCRATCH t1
@@ -264,37 +168,6 @@ pub unsafe fn enter_guest_inline(ctx: u64) {
 
             /* restore host gp with a0=ctx, except t0-t6 and zero-x0 */
             RESTORE_HOST_CTX a0
-//            RESTORE_HOST_GP_X1 a0, x1
-//            RESTORE_HOST_GP_X2 a0, x2
-//            RESTORE_HOST_GP_X3 a0, x3
-//            RESTORE_HOST_GP_X4 a0, x4
-//            RESTORE_HOST_GP_X5 a0, x5
-//            RESTORE_HOST_GP_X6 a0, x6
-//            RESTORE_HOST_GP_X7 a0, x7
-//            RESTORE_HOST_GP_X8 a0, x8
-//            RESTORE_HOST_GP_X9 a0, x9
-//            RESTORE_HOST_GP_X10 a0, x10
-//            RESTORE_HOST_GP_X11 a0, x11
-//            RESTORE_HOST_GP_X12 a0, x12
-//            RESTORE_HOST_GP_X13 a0, x13
-//            RESTORE_HOST_GP_X14 a0, x14
-//            RESTORE_HOST_GP_X15 a0, x15
-//            RESTORE_HOST_GP_X16 a0, x16
-//            RESTORE_HOST_GP_X17 a0, x17
-//            RESTORE_HOST_GP_X18 a0, x18
-//            RESTORE_HOST_GP_X19 a0, x19
-//            RESTORE_HOST_GP_X20 a0, x20
-//            RESTORE_HOST_GP_X21 a0, x21
-//            RESTORE_HOST_GP_X22 a0, x22
-//            RESTORE_HOST_GP_X23 a0, x23
-//            RESTORE_HOST_GP_X24 a0, x24
-//            RESTORE_HOST_GP_X25 a0, x25
-//            RESTORE_HOST_GP_X26 a0, x26
-//            RESTORE_HOST_GP_X27 a0, x27
-            //RESTORE_HOST_GP_X28 a0, x28
-            //RESTORE_HOST_GP_X29 a0, x29
-            //RESTORE_HOST_GP_X30 a0, x30
-            //RESTORE_HOST_GP_X31 a0, x31
             " :: "r"(ctx) :"memory", "x5", "x6", "x7", "x10", "x11", "x28", "x29", "x30", "x31": "volatile");
 
             // Save the key reg for vm exit handler
