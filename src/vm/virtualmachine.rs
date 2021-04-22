@@ -2,7 +2,7 @@ use crate::vcpu::virtualcpu;
 use crate::mm::gstagemmu;
 use std::thread;
 use std::sync::{Arc, Mutex};
-//use std::ffi::CString;
+use std::ffi::CString;
 
 // Export to vcpu
 pub struct VmSharedState {
@@ -22,7 +22,7 @@ pub struct VirtualMachine {
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
     pub gsmmu: gstagemmu::GStageMmu,
-    //pub ioctl_fd: i32,
+    pub ioctl_fd: Option<i32>,
 }
 
 impl VirtualMachine {
@@ -32,14 +32,7 @@ impl VirtualMachine {
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
         let gsmmu = gstagemmu::GStageMmu::new();
-        //let file_path = CString::new("/dev/laputa_dev").unwrap();
-        //let ioctl_fd;
-        //unsafe {
-        //    ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
-        //}
-
-        // For now
-        //VirtualMachine::open_hu_extension(ioctl_fd);
+        let ioctl_fd = None;
 
         // Create vm struct instance
         let mut vm = Self {
@@ -47,18 +40,39 @@ impl VirtualMachine {
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
             gsmmu,
-            //ioctl_fd,
+            ioctl_fd,
         };
 
         // Create vcpu struct instance
         for i in 0..vcpu_num {
-            let vcpu = virtualcpu::VirtualCpu::new(i, vm_state_mutex.clone());
+            let vcpu = virtualcpu::VirtualCpu::new(i, ioctl_fd, 
+                    vm_state_mutex.clone());
             vcpu_mutex = Arc::new(Mutex::new(vcpu));
             vm.vcpus.push(vcpu_mutex);
         }
 
         // Return vm instance with vcpus
         vm
+    }
+
+    // init vm & vcpu before vm_run()
+    pub fn vm_init(&mut self) {
+        let file_path = CString::new("/dev/laputa_dev").unwrap();
+        let ioctl_fd;
+
+        unsafe {
+            ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+        }
+
+        // Set fd of /dev/laputa_dev
+        self.ioctl_fd = Some(ioctl_fd);
+        
+        for i in &self.vcpus {
+            i.lock().unwrap().ioctl_fd = Some(ioctl_fd);
+        }
+
+        // Open HU-extension via ioctl
+        VirtualMachine::open_hu_extension(ioctl_fd);
     }
 
     pub fn vm_run(&mut self) {
@@ -68,9 +82,6 @@ impl VirtualMachine {
 
         // For debug
         self.gsmmu.gsmmu_test();
-
-        // Open HU-extension via ioctl
-        // VirtualMachine::open_hu_extension(self.ioctl_fd);
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
@@ -89,16 +100,16 @@ impl VirtualMachine {
     }
 
     pub fn vm_destory(&mut self) {
-        /* unsafe {
-            libc::close(self.ioctl_fd);
-        } */
+        unsafe {
+            libc::close(self.ioctl_fd.unwrap());
+        }
     }
 
     #[allow(unused)]
     pub fn open_hu_extension(ioctl_fd: i32) {
         unsafe {
-            let edeleg = (1<<7) as libc::c_ulong;
-            let ideleg = (1<<2) as libc::c_ulong;
+            let edeleg = ((1<<20) | (1<<21) | (1<<23)) as libc::c_ulong;
+            let ideleg = (1<<0) as libc::c_ulong;
             let deleg = [edeleg,ideleg];
             let deleg_ptr = (&deleg) as *const u64;
 
