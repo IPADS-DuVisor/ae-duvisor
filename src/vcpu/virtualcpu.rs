@@ -3,6 +3,31 @@ use crate::irq::virq;
 use crate::irq::vtimer;
 use std::sync::{Arc, Mutex};
 
+mod vm_exception_constants {
+    pub const EXC_SUPERVISOR_SYSCALL: u64 = 10;
+    pub const EXC_INST_GUEST_PAGE_FAULT: u64 = 20;
+    pub const EXC_LOAD_GUEST_PAGE_FAULT: u64 = 21;
+    pub const EXC_VIRTUAL_INST_FAULT: u64 = 22;
+    pub const EXC_STORE_GUEST_PAGE_FAULT: u64 = 23;
+    pub const EXC_IRQ_MASK: u64 = 1 << 63;
+}
+pub use vm_exception_constants::*;
+
+mod errno_constants {
+    pub const ENOPERMIT: i32 = -1;
+    pub const ENOMAPPING: i32 = -2;
+}
+pub use errno_constants::*;
+
+pub enum ExitReason {
+    ExitUnknown,
+    ExitEaccess,
+    ExitMmio,
+    ExitIntr,
+    ExitSystemEvent,
+    ExitRiscvSbi,
+}
+
 pub struct GpRegs {
     pub x_reg: [u64; 32]
 }
@@ -164,6 +189,7 @@ pub struct VirtualCpu {
     pub virq: virq::VirtualInterrupt,
     pub vtimer: vtimer::VirtualTimer,
     // TODO: irq_pending with shared memory
+    pub exit_reason: ExitReason,
 }
 
 impl VirtualCpu {
@@ -171,6 +197,7 @@ impl VirtualCpu {
         let vcpu_ctx = VcpuCtx::new();
         let virq = virq::VirtualInterrupt::new();
         let vtimer = vtimer::VirtualTimer::new(0, 0);
+        let exit_reason = ExitReason::ExitUnknown;
 
         Self {
             vcpu_id,
@@ -178,6 +205,7 @@ impl VirtualCpu {
             vcpu_ctx,
             virq,
             vtimer,
+            exit_reason,
         }
     }
 
@@ -192,6 +220,87 @@ impl VirtualCpu {
         self.vm.lock().unwrap().vm_id += 100;
 
         0
+    }
+    
+    fn virtual_inst_fault(&mut self) -> i32 {
+        let ret = 0;
+        let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
+        println!("virtual_inst_fault: insn = {:x}", utval);
+        
+        ret
+    }
+
+    fn stage2_page_fault(&mut self) -> i32 {
+        let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
+        let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
+        let fault_addr = (hutval << 2) | (utval & 0x3);
+        println!("gstage_page_fault: fault_addr = {:x}", fault_addr);
+
+        let mut ret = 0;
+        // map_query
+        match ret {
+            ENOPERMIT => {
+                self.exit_reason = ExitReason::ExitEaccess;
+                eprintln!("Query return ENOPERMIT: {}", ret);
+                ret = ENOPERMIT
+            }
+            ENOMAPPING => {
+                println!("Query return ENOMAPPING: {}", ret);
+                // find gpa region by fault_addr
+                // map new region to VM if the region exists
+                // handle MMIO otherwise
+            }
+            _ => {
+                self.exit_reason = ExitReason::ExitUnknown;
+                eprintln!("Invalid query result: {}", ret);
+            }
+        }
+
+        ret
+    }
+
+    fn supervisor_ecall(&mut self) -> i32 {
+        let ret = 0;
+        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: funcID
+        let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
+        // ...
+        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: 7th arg
+        println!("supervisor_ecall: funcID = {:x}, arg1 = {:x}, arg7 = {:x}",
+            a0, a1, a7);
+        
+        ret
+    }
+
+    fn handle_vcpu_exit(&mut self) -> i32 {
+        let mut ret: i32 = -1;
+        let ucause = self.vcpu_ctx.host_ctx.hyp_regs.ucause;
+        self.exit_reason = ExitReason::ExitUnknown;
+
+        if (ucause & EXC_IRQ_MASK) != 0 {
+            return 1;
+        }
+
+        match ucause {
+            EXC_VIRTUAL_INST_FAULT => {
+                ret = self.virtual_inst_fault();
+            }
+            EXC_INST_GUEST_PAGE_FAULT | EXC_LOAD_GUEST_PAGE_FAULT |
+                EXC_STORE_GUEST_PAGE_FAULT => {
+                ret = self.stage2_page_fault();
+            }
+            EXC_SUPERVISOR_SYSCALL => {
+                ret = self.supervisor_ecall();
+            }
+            _ => {
+                eprintln!("Invalid ucause: {}", ucause);
+            }
+        }
+
+        if ret < 0 {
+            eprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
+        }
+
+        ret
     }
 
     pub fn thread_vcpu_run(&mut self) -> u32 {
@@ -318,5 +427,46 @@ mod tests {
          */
         let result = vm.vm_state.lock().unwrap().vm_id;
         assert_eq!(result, vcpu_num * 100);
+    }
+    
+    // Check the correctness of vcpu_exit_handler
+    #[test]
+    fn test_vcpu_exit_handler() { 
+        let vcpu_id = 20;
+        let vm_state = virtualmachine::VmSharedState::new();
+        let vm_mutex = Arc::new(Mutex::new(vm_state));
+        let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+        let mut res;
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_IRQ_MASK | 0x1;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 1);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_SUPERVISOR_SYSCALL;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 0);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0x8048000;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xf0;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_INST_GUEST_PAGE_FAULT;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 0);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0x7ff000;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xf;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_LOAD_GUEST_PAGE_FAULT;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 0);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xa001;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_VIRTUAL_INST_FAULT;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 0);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0xdead0000;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xfff;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_STORE_GUEST_PAGE_FAULT;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 0);
     }
 }
