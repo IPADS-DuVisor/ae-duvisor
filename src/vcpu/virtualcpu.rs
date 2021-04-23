@@ -193,7 +193,7 @@ mod tests {
     use super::*;
     use std::thread;
     use std::ffi::CString;
-    use crate::plat::kvm::kvm::ioctl_constants;
+    use crate::plat::kvm::ioctl::ioctl_constants;
     use ioctl_constants::*;
 
     #[test]
@@ -210,7 +210,7 @@ mod tests {
             // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
             let tmp_buf_pfn_ptr = (&tmp_buf_pfn) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, tmp_buf_pfn_ptr);
-            println!("tmp_buf_pfn : {:x}", tmp_buf_pfn);
+            println!("IOCTL_LAPUTA_GET_API_VERSION -  tmp_buf_pfn : {:x}", tmp_buf_pfn);
 
             // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
             let edeleg = ((1<<20) | (1<<21) | (1<<23)) as libc::c_ulong; // guest page fault(sedeleg)
@@ -218,10 +218,10 @@ mod tests {
             let deleg = [edeleg,ideleg];
             let deleg_ptr = (&deleg) as *const u64;
             res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
-            println!("ioctl 1074817795 : {}", res);
+            println!("IOCTL_LAPUTA_REQUEST_DELEG : {}", res);
 
             res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
-            println!("ioctl 0x6b04 : {}", res);
+            println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
         }
 
         let uepc: u64;
@@ -254,7 +254,7 @@ mod tests {
             println!("guest hyp ucause 0x{:x}", ucause);
             
             res = libc::ioctl(fd, IOCTL_LAPUTA_UNREGISTER_VCPU);
-            println!("ioctl 0x6b05 {}", res);
+            println!("IOCTL_LAPUTA_UNREGISTER_VCPU : {}", res);
         }
 
         // vm should trap(20) at vm_code
