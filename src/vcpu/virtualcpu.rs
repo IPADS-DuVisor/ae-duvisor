@@ -12,6 +12,13 @@ global_asm!(include_str!("vm_code.S"));
 global_asm!(include_str!("save_restore.S"));
 
 #[allow(unused)]
+#[link(name = "enter_guest")]
+extern "C" {
+    // int enter_guest(struct VcpuCtx *ctx)
+    fn enter_guest(vcpuctx: u64) -> i32;
+}
+
+#[allow(unused)]
 extern "C"
 {
     fn vm_code();
@@ -224,7 +231,7 @@ mod tests {
         let ptr_u64 = ptr as u64;
         unsafe {
             let pt_hpa = tmp_buf_pfn | (1 << 63);
-            //vcpuctx.guest_ctx.hyp_regs.hugatp = pt_hpa;
+            
             set_hugatp(pt_hpa);
             println!("HUGATP : {:x}", pt_hpa);
             
@@ -232,9 +239,9 @@ mod tests {
 
             //hustatus.SPP=1 .SPVP=1 uret to VS mode
             vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
-            //VirtualCpu::open_hu_extension(ioctl_fd);
 
-            enter_guest_inline(ptr_u64);
+            //enter_guest_inline(ptr_u64);
+            enter_guest(ptr_u64);
 
             uepc = vcpuctx.guest_ctx.hyp_regs.uepc;
             utval = vcpuctx.guest_ctx.hyp_regs.utval;
@@ -366,4 +373,9 @@ mod tests {
         let result = vm.vm_state.lock().unwrap().vm_id;
         assert_eq!(result, vcpu_num * 100);
     }
+
+/*     #[test]
+    fn test_lib_import() {
+        unsafe{ foo(); }
+    } */
 }
