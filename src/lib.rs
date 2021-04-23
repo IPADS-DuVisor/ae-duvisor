@@ -7,6 +7,7 @@ pub mod vm;
 mod vcpu;
 mod mm;
 mod irq;
+mod plat;
 use vm::VirtualMachine;
 
 pub mod init;
