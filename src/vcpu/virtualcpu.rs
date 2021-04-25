@@ -32,12 +32,11 @@ pub struct VirtualCpu {
     pub vcpu_ctx: VcpuCtx,
     pub virq: virq::VirtualInterrupt,
     pub vtimer: vtimer::VirtualTimer,
-    pub ioctl_fd: Option<i32>,
     // TODO: irq_pending with shared memory
 }
 
 impl VirtualCpu {
-    pub fn new(vcpu_id: u32, ioctl_fd: Option<i32>,
+    pub fn new(vcpu_id: u32,
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
         let vcpu_ctx = VcpuCtx::new();
         let virq = virq::VirtualInterrupt::new();
@@ -49,7 +48,6 @@ impl VirtualCpu {
             vcpu_ctx,
             virq,
             vtimer,
-            ioctl_fd,
         }
     }
 
@@ -154,7 +152,7 @@ mod tests {
         let vcpu_id = 20;
         let vm_state = virtualmachine::VmSharedState::new();
         let vm_mutex = Arc::new(Mutex::new(vm_state));
-        let vcpu = VirtualCpu::new(vcpu_id, None, vm_mutex);
+        let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
         assert_eq!(vcpu.vcpu_id, vcpu_id);
     }
@@ -165,7 +163,7 @@ mod tests {
         let vcpu_id = 1;
         let vm_state = virtualmachine::VmSharedState::new();
         let vm_mutex = Arc::new(Mutex::new(vm_state));
-        let vcpu = VirtualCpu::new(vcpu_id, None, vm_mutex);
+        let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
         let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
         assert_eq!(tmp, 0);
@@ -189,7 +187,7 @@ mod tests {
         let vcpu_id = 1;
         let vm_state = virtualmachine::VmSharedState::new();
         let vm_mutex = Arc::new(Mutex::new(vm_state));
-        let mut vcpu = VirtualCpu::new(vcpu_id, None, vm_mutex);
+        let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
         // guest ctx
         vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = 17;

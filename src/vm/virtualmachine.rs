@@ -9,12 +9,14 @@ use ioctl_constants::*;
 // Export to vcpu
 pub struct VmSharedState {
     pub vm_id: u32,
+    pub ioctl_fd: Option<i32>,
 }
 
 impl VmSharedState {
     pub fn new() -> Self {
         Self {
             vm_id: 0,
+            ioctl_fd: None,
         }
     }
 }
@@ -24,7 +26,6 @@ pub struct VirtualMachine {
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
     pub gsmmu: gstagemmu::GStageMmu,
-    pub ioctl_fd: Option<i32>,
 }
 
 impl VirtualMachine {
@@ -34,7 +35,6 @@ impl VirtualMachine {
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
         let gsmmu = gstagemmu::GStageMmu::new();
-        let ioctl_fd = None;
 
         // Create vm struct instance
         let mut vm = Self {
@@ -42,12 +42,11 @@ impl VirtualMachine {
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
             gsmmu,
-            ioctl_fd,
         };
 
         // Create vcpu struct instance
         for i in 0..vcpu_num {
-            let vcpu = virtualcpu::VirtualCpu::new(i, ioctl_fd, 
+            let vcpu = virtualcpu::VirtualCpu::new(i,
                     vm_state_mutex.clone());
             vcpu_mutex = Arc::new(Mutex::new(vcpu));
             vm.vcpus.push(vcpu_mutex);
@@ -67,11 +66,7 @@ impl VirtualMachine {
         }
 
         // Set fd of /dev/laputa_dev
-        self.ioctl_fd = Some(ioctl_fd);
-        
-        for i in &self.vcpus {
-            i.lock().unwrap().ioctl_fd = Some(ioctl_fd);
-        }
+        self.vm_state.lock().unwrap().ioctl_fd = Some(ioctl_fd);
 
         // Open HU-extension via ioctl
         VirtualMachine::open_hu_extension(ioctl_fd);
@@ -103,7 +98,7 @@ impl VirtualMachine {
 
     pub fn vm_destory(&mut self) {
         unsafe {
-            libc::close(self.ioctl_fd.unwrap());
+            libc::close(self.vm_state.lock().unwrap().ioctl_fd.unwrap());
         }
     }
 

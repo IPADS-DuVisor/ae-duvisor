@@ -27,11 +27,6 @@ enter_guest:
     csrrw t3, CSR_USCRATCH, a0
     sd t3, (HOST_HYP_USCRATCH)(a0)
 
-    /* set utvec to catch the trap & save UTVEC */
-    //la	t4, __vm_exit
-    //csrrw t4, CSR_UTVEC, t4
-    //sd t4, (HOST_HYP_UTVEC)(a0)
-
     /* set UEPC */
     ld t0, (GUEST_HYP_UEPC)(a0)
     csrrw t0, CSR_UEPC, t0
