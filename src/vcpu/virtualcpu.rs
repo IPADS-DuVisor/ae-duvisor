@@ -193,7 +193,13 @@ mod tests {
 
     #[test]
     fn test_first_uret() { 
-        let mut vcpuctx = VcpuCtx::new();
+        //let vm = VirtualMachine::new(1);
+        //vm.vcpus[0].lock().unwrap().vcpu_ctx
+        let vm_state = virtualmachine::VmSharedState::new();
+        let vm_state_mutex = Arc::new(Mutex::new(vm_state));
+        let mut vcpu = VirtualCpu::new(0, vm_state_mutex);
+        //vcpu.vcpu_ctx
+        //let mut vcpuctx = VcpuCtx::new();
         let fd;
         let mut res;
         let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -225,7 +231,7 @@ mod tests {
         let utval: u64;
         let ucause: u64;
 
-        let ptr = &vcpuctx as *const VcpuCtx;
+        let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
         println!("the ptr is {}", ptr as u64);
         let ptr_u64 = ptr as u64;
         unsafe {
@@ -236,17 +242,17 @@ mod tests {
 
             set_utvec();
             
-            vcpuctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
+            vcpu.vcpu_ctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
 
             //hustatus.SPP=1 .SPVP=1 uret to VS mode
-            vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT) 
+            vcpu.vcpu_ctx.guest_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT) 
                 | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
             enter_guest(ptr_u64);
 
-            uepc = vcpuctx.guest_ctx.hyp_regs.uepc;
-            utval = vcpuctx.guest_ctx.hyp_regs.utval;
-            ucause = vcpuctx.guest_ctx.hyp_regs.ucause;
+            uepc = vcpu.vcpu_ctx.guest_ctx.hyp_regs.uepc;
+            utval = vcpu.vcpu_ctx.guest_ctx.hyp_regs.utval;
+            ucause = vcpu.vcpu_ctx.guest_ctx.hyp_regs.ucause;
 
             println!("guest hyp uepc 0x{:x}", uepc);
             println!("guest hyp utval 0x{:x}", utval);
