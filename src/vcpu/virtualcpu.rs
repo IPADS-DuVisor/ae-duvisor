@@ -192,6 +192,115 @@ mod tests {
     use csr_constants::*;
 
     #[test]
+    fn test_stage2_page_fault() { 
+        let mut vcpuctx = VcpuCtx::new();
+        let fd;
+        let mut res;
+        let file_path = CString::new("/dev/laputa_dev").unwrap();
+
+        let version: u64 = 0;
+        let mut test_buf: u64 = 0;
+        let mut test_buf_pfn: u64 = 0;
+        let test_buf_size: usize = 32 << 20;
+        unsafe { 
+            fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
+
+            // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
+            let version_ptr = (&version) as *const u64;
+            libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
+            println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", version);
+            
+            let addr = 0 as *mut libc::c_void;
+            let mmap_ptr = libc::mmap(addr, test_buf_size, 
+                libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, fd, 0);
+            assert_ne!(mmap_ptr, libc::MAP_FAILED);
+            
+            test_buf = mmap_ptr as u64;
+            test_buf_pfn = test_buf;
+            let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
+            libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
+            println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", test_buf_pfn);
+            
+            let mut test_buf_ptr = test_buf as *mut i32;
+            *test_buf_ptr = 0x73;
+            test_buf_ptr = (test_buf + 4) as *mut i32;
+            *test_buf_ptr = 0xa001;
+
+            let hugatp = test_buf + 4096 * 4;
+            let pte_ptr = (hugatp + 8 * ((test_buf_pfn << 12) >> 30)) as *mut u64;
+            *pte_ptr = (((test_buf_pfn << 12) >> 30) << 28) | 0x1f; // 512G 1-level direct mapping
+            println!("PTE : {:x}", *pte_ptr);
+
+            // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
+            let edeleg = ((1<<10)) | ((1<<20) | (1<<21) | (1<<23)) as libc::c_ulong; // guest page fault(sedeleg)
+            let ideleg = (1<<0) as libc::c_ulong;
+            let deleg = [edeleg,ideleg];
+            let deleg_ptr = (&deleg) as *const u64;
+            res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
+            println!("IOCTL_LAPUTA_REQUEST_DELEG : {}", res);
+
+            res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
+            println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
+        }
+
+        let mut uepc: u64 = 0;
+        let mut utval: u64 = 0;
+        let mut ucause: u64 = 0;
+
+        let ptr = &vcpuctx as *const VcpuCtx;
+        println!("the ptr is {:x}", ptr as u64);
+        let ptr_u64 = ptr as u64;
+        let mut get_out: i32 = 0;
+        
+        vcpuctx.guest_ctx.hyp_regs.hugatp = (test_buf_pfn + 2) | (8 << 60);
+        vcpuctx.guest_ctx.hyp_regs.uepc = (test_buf_pfn << 12) as u64;
+        //hustatus.SPP=1 .SPVP=1 uret to VS mode
+        vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
+
+        while get_out == 0 {
+            unsafe {
+                set_hugatp(vcpuctx.guest_ctx.hyp_regs.hugatp);
+                println!("HUGATP : {:x}", vcpuctx.guest_ctx.hyp_regs.hugatp);
+
+                //enter_guest_inline(ptr_u64);
+                enter_guest(ptr_u64);
+
+                uepc = vcpuctx.guest_ctx.hyp_regs.uepc;
+                utval = vcpuctx.guest_ctx.hyp_regs.utval;
+                ucause = vcpuctx.guest_ctx.hyp_regs.ucause;
+
+                println!("guest hyp uepc 0x{:x}", uepc);
+                println!("guest hyp utval 0x{:x}", utval);
+                println!("guest hyp ucause 0x{:x}", ucause);
+
+                if ucause == 20 {
+                    vcpuctx.guest_ctx.hyp_regs.hugatp = (test_buf_pfn + 4) | (8 << 60);
+                }
+            }
+            if ucause == 10 {
+                get_out = 1;
+            }
+        }
+            
+        unsafe {
+            res = libc::ioctl(fd, IOCTL_LAPUTA_UNREGISTER_VCPU);
+            println!("IOCTL_LAPUTA_UNREGISTER_VCPU : {}", res);
+            
+            let addr = test_buf as *mut libc::c_void;
+            libc::munmap(addr, test_buf_size); 
+            
+            let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
+            libc::ioctl(fd, IOCTL_LAPUTA_RELEASE_PFN, test_buf_pfn_ptr);
+            println!("IOCTL_LAPUTA_RELEASE_PFN -  test_buf_pfn : {:x}", test_buf_pfn);
+        }
+        
+        assert_eq!(uepc, test_buf_pfn << 12);
+        assert_eq!(utval, 0);
+        assert_eq!(ucause, 10);
+    }
+
+    /*
+    #[test]
     fn test_first_uret() { 
         //let vm = VirtualMachine::new(1);
         //vm.vcpus[0].lock().unwrap().vcpu_ctx
@@ -266,6 +375,7 @@ mod tests {
         assert_eq!(uepc, utval);
         assert_eq!(20, ucause);
     }
+    */
 
     // Check the correctness of vcpu new()
     #[test]
