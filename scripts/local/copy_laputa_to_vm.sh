@@ -23,6 +23,7 @@ laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/debug/deps/ -type f ! -n
 laputa_test_names=${laputa_names/$laputa_name}
 mkdir -p mnt
 sudo mount $PREPARE/ubuntu-vdisk.img ./mnt
+sudo rm -r ./mnt/laputa
 sudo mkdir -p ./mnt/laputa/tests_bin
 sudo cp scripts/local/run_tests.sh $laputa_name ./mnt/laputa
 sudo cp $laputa_test_names ./mnt/laputa/tests_bin/
