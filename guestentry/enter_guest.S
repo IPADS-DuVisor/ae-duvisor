@@ -94,4 +94,10 @@ enter_guest_asm:
     sd t3, (GUEST_HYP_UTVAL)(a0)
 
     ret
+
+.global set_hugatp
+
+set_hugatp:
+    csrw CSR_HUGATP, a0
+    ret
     

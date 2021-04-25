@@ -5,17 +5,16 @@ use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
 use vcpucontext::*;
 
-global_asm!(include_str!("asm_offset.S"));
-global_asm!(include_str!("asm_csr.S"));
-global_asm!(include_str!("asm_switch.S"));
 global_asm!(include_str!("vm_code.S"));
-global_asm!(include_str!("save_restore.S"));
 
 #[allow(unused)]
 #[link(name = "enter_guest")]
 extern "C" {
     // int enter_guest(struct VcpuCtx *ctx)
     fn enter_guest(vcpuctx: u64) -> i32;
+
+    // void set_hugatp(uint64_t hugatp)
+    fn set_hugatp(hugatp: u64);
 }
 
 #[allow(unused)]
@@ -69,123 +68,6 @@ impl VirtualCpu {
 
         0
     }
-}
-
-#[no_mangle]
-pub fn vm_code_print() {
-    println!("Enter vm");
-}
-
-#[no_mangle]
-pub unsafe fn vm_code_ecall() {
-    llvm_asm!(".align 2
-            ecall":::: "volatile");
-}
-
-#[allow(unused)]
-pub unsafe fn set_hugatp(hugatp: u64) {
-    llvm_asm!(".align 2
-            mv t0, $0
-            CSRW_CSR_HUGATP t0
-            " :: "r"(hugatp) :"memory", "x28": "volatile");
-}
-
-#[allow(unused)]
-#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
-pub unsafe fn enter_guest_inline(ctx: u64) {
-    llvm_asm!(".align 2
-            // a0 point to vcpu_ctx
-            mv a0, $0
-
-            // save host gp with a0=ctx, except t0-t6 and zero-x0
-            SAVE_HOST_CTX a0
-
-            /* SSTATUS? HUSTATUS got hstatus.SPV & sstatus.SPP */
-            RESTORE_GUEST_HYP_HUSTATUS a0, t1
-            CSRRW_CSR_HUSTATUS t1, t1
-            //CSRR_CSR_HUSTATUS t3
-            SAVE_HOST_HYP_HUSTATUS a0, t1
-
-            /* SCOUNTEREN? HUCOUNTEREN should be 64-bit with hcounteren(32-bit) + scounteren(32-bit) */
-            RESTORE_GUEST_HYP_HUCOUNTEREN a0, t1
-            CSRRW_CSR_HUCOUNTEREN t1, t1
-            SAVE_HOST_HYP_HUCOUNTEREN a0, t1
-
-            /* save a0-vcpu-ctx in CSR_USCRATCH & save USCRATCH */ 
-            CSRRW_CSR_USCRATCH t3, a0
-            SAVE_HOST_HYP_USCRATCH a0, t3
-
-            /* set utvec to catch the trap & save UTVEC */
-            la	t4, __vm_exit
-            CSRRW_CSR_UTVEC t4, t4
-            SAVE_HOST_HYP_UTVEC a0, t4
-
-            /* set UEPC */
-            RESTORE_GUEST_HYP_UEPC a0, t0
-            CSRRW_CSR_UEPC t0, t0
-            SAVE_GUEST_HYP_UEPC a0, t0
-
-            //hufence
-            .word 0xE2000073
-
-            // restore guest GP except A0 & X0
-            RESTORE_GUEST_CTX a0
-
-            /* restore guest A0 */
-            RESTORE_GUEST_GP_X10 a0, x10
-
-            /* huret */
-            uret
-
-            .align 2
-            __vm_exit:
-
-            /* save guest-a0 in sscratch & get host-a0 */
-            CSRRW_CSR_USCRATCH a0, a0
-            SAVE_HOST_GP_X0 a0, a0
-
-            /* save guest gp except A0 & X0 */
-            SAVE_GUEST_CTX a0
-
-            /* save guest A0 with USCRATCH */
-            CSRR_CSR_USCRATCH t1
-            SAVE_GUEST_GP_X10 a0, t1
-
-            /* save guest UEPC */
-            CSRR_CSR_UEPC t0
-            SAVE_GUEST_HYP_UEPC a0, t0
-
-            /* restore host utvec */
-            RESTORE_HOST_HYP_UTVEC a0, t1
-            CSRW_CSR_UTVEC t1
-
-            /* restore host uscratch */
-            RESTORE_HOST_HYP_USCRATCH a0, t2
-            CSRW_CSR_USCRATCH t2
-
-            /* restore host HUCOUNTEREN */
-            RESTORE_HOST_HYP_HUCOUNTEREN a0, t3
-            CSRRW_CSR_HUCOUNTEREN t3, t3
-            SAVE_GUEST_HYP_HUCOUNTEREN a0, t3
-
-            /* restore host HUSTATUS */
-            RESTORE_HOST_HYP_HUSTATUS a0, t4
-            CSRRW_CSR_HUSTATUS t4, t4
-            SAVE_GUEST_HYP_HUSTATUS a0, t4
-
-            /* restore host gp with a0=ctx, except t0-t6 and zero-x0 */
-            RESTORE_HOST_CTX a0
-            " :: "r"(ctx) :"memory", "x5", "x6", "x7", "x10", "x11", "x28", "x29", "x30", "x31": "volatile");
-
-    // Save the key reg for vm exit handler
-    // UCAUSE / UTVAL
-    llvm_asm!(".align 2
-            mv a0, $0
-            CSRR_CSR_UCAUSE t3
-            SAVE_GUEST_HYP_UCAUSE a0, t3
-            CSRR_CSR_UTVAL t3
-            SAVE_GUEST_HYP_UTVAL a0, t3
-            " :: "r"(ctx) :"memory", "x10", "x28": "volatile");
 }
 
 #[cfg(test)]
@@ -375,9 +257,4 @@ mod tests {
         let result = vm.vm_state.lock().unwrap().vm_id;
         assert_eq!(result, vcpu_num * 100);
     }
-
-/*     #[test]
-    fn test_lib_import() {
-        unsafe{ foo(); }
-    } */
 }
