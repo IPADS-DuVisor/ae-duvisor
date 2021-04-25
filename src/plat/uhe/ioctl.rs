@@ -1,4 +1,4 @@
-// KVM syscall
+// User Hypervisor Extension (UHE)
 
 #[allow(unused)]
 pub mod ioctl_constants {

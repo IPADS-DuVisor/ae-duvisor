@@ -10,11 +10,14 @@ global_asm!(include_str!("vm_code.S"));
 #[allow(unused)]
 #[link(name = "enter_guest")]
 extern "C" {
-    // int enter_guest(struct VcpuCtx *ctx)
+    // int enter_guest(struct VcpuCtx *ctx);
     fn enter_guest(vcpuctx: u64) -> i32;
 
     // void set_hugatp(uint64_t hugatp)
     fn set_hugatp(hugatp: u64);
+
+    // void set_utvec()
+    fn set_utvec();
 }
 
 #[allow(unused)]
@@ -29,16 +32,15 @@ pub struct VirtualCpu {
     pub vcpu_ctx: VcpuCtx,
     pub virq: virq::VirtualInterrupt,
     pub vtimer: vtimer::VirtualTimer,
-    pub ioctl_fd: Option<i32>,
     // TODO: irq_pending with shared memory
 }
 
 impl VirtualCpu {
-    pub fn new(vcpu_id: u32, ioctl_fd: Option<i32>,
+    pub fn new(vcpu_id: u32,
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
         let vcpu_ctx = VcpuCtx::new();
         let virq = virq::VirtualInterrupt::new();
-        let vtimer = vtimer::VirtualTimer::new(0, 0); 
+        let vtimer = vtimer::VirtualTimer::new(0, 0);
 
         Self {
             vcpu_id,
@@ -46,7 +48,6 @@ impl VirtualCpu {
             vcpu_ctx,
             virq,
             vtimer,
-            ioctl_fd,
         }
     }
 
@@ -75,8 +76,12 @@ mod tests {
     use super::*;
     use std::thread;
     use std::ffi::CString;
-    use crate::plat::kvm::ioctl::ioctl_constants;
+    use crate::plat::uhe::ioctl::ioctl_constants;
+    use crate::plat::uhe::csr::csr_constants;
+    use crate::irq::delegation::delegation_constants;
     use ioctl_constants::*;
+    use delegation_constants::*;
+    use csr_constants::*;
 
     #[test]
     fn test_stage2_page_fault() { 
@@ -198,14 +203,16 @@ mod tests {
         unsafe { 
             fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
 
-            // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
+            // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn)
             let tmp_buf_pfn_ptr = (&tmp_buf_pfn) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, tmp_buf_pfn_ptr);
             println!("IOCTL_LAPUTA_GET_API_VERSION -  tmp_buf_pfn : {:x}", tmp_buf_pfn);
 
             // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
-            let edeleg = ((1<<20) | (1<<21) | (1<<23)) as libc::c_ulong; // guest page fault(sedeleg)
-            let ideleg = (1<<0) as libc::c_ulong;
+            // delegate guest page fault
+            let edeleg = ((1 << INST_GUEST_PAGE_FAULT) | (1 << LOAD_GUEST_ACCESS_FAULT) 
+                | (1 << STORE_GUEST_AMO_ACCESS_FAULT)) as libc::c_ulong;
+            let ideleg = (1 << S_SOFT) as libc::c_ulong;
             let deleg = [edeleg,ideleg];
             let deleg_ptr = (&deleg) as *const u64;
             res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
@@ -227,13 +234,15 @@ mod tests {
 
             set_hugatp(pt_hpa);
             println!("HUGATP : {:x}", pt_hpa);
+
+            set_utvec();
             
             vcpuctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
 
             //hustatus.SPP=1 .SPVP=1 uret to VS mode
-            vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
+            vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT) 
+                | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
-            //enter_guest_inline(ptr_u64);
             enter_guest(ptr_u64);
 
             uepc = vcpuctx.guest_ctx.hyp_regs.uepc;
@@ -260,7 +269,7 @@ mod tests {
         let vcpu_id = 20;
         let vm_state = virtualmachine::VmSharedState::new();
         let vm_mutex = Arc::new(Mutex::new(vm_state));
-        let vcpu = VirtualCpu::new(vcpu_id, None, vm_mutex);
+        let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
         assert_eq!(vcpu.vcpu_id, vcpu_id);
     }
@@ -271,7 +280,7 @@ mod tests {
         let vcpu_id = 1;
         let vm_state = virtualmachine::VmSharedState::new();
         let vm_mutex = Arc::new(Mutex::new(vm_state));
-        let vcpu = VirtualCpu::new(vcpu_id, None, vm_mutex);
+        let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
         let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
         assert_eq!(tmp, 0);
@@ -295,7 +304,7 @@ mod tests {
         let vcpu_id = 1;
         let vm_state = virtualmachine::VmSharedState::new();
         let vm_mutex = Arc::new(Mutex::new(vm_state));
-        let mut vcpu = VirtualCpu::new(vcpu_id, None, vm_mutex);
+        let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
         // guest ctx
         vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = 17;
