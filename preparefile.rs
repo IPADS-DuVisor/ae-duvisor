@@ -115,7 +115,7 @@ fn create_hyp_list() -> Vec<ContextOffset> {
 }
 
 // VcpuCtx - VcpuCtx.##Ctx.##Regs.reg
-fn create_ctx_offset(mut offset_list: Vec<ContextOffset>, 
+fn create_ctx_reg_offset(mut offset_list: Vec<ContextOffset>, 
     gp_list: &Vec<ContextOffset>, sys_list: &Vec<ContextOffset>,
     hyp_list: &Vec<ContextOffset>) -> Vec<ContextOffset>{
     let vcpu = VcpuCtx::new();
@@ -195,7 +195,7 @@ pub fn prepare_asm_offset_header() {
     let mut sys_list = create_sys_list();
     let mut hyp_list = create_hyp_list();
 
-    offset_list = create_ctx_offset(offset_list, &gp_list, 
+    offset_list = create_ctx_reg_offset(offset_list, &gp_list, 
         &sys_list, &hyp_list);
     offset_list = create_ctx_gp_offset(offset_list);
 
