@@ -114,97 +114,89 @@ fn create_hyp_list() -> Vec<ContextOffset> {
     hyp_list
 }
 
-fn create_type_offset(mut offset_define_list: Vec<ContextOffset>) -> Vec<ContextOffset>{
-    let gp_list = create_gp_list();
-    let sys_list = create_sys_list();
-    let hyp_list = create_hyp_list();
+// Create offset for VcpuCtx.####Ctx.TYPE and VcpuCtx.####Ctx.TYPE.reg
+fn create_type_offset(mut offset_define_list: Vec<ContextOffset>, 
+    gp_list: &Vec<ContextOffset>, sys_list: &Vec<ContextOffset>,
+    hyp_list: &Vec<ContextOffset>) -> Vec<ContextOffset>{
+    for i in gp_list {
+        let mut whole_name = "GP_".to_string();
+        let reg_name = i.name.to_string();
+        whole_name += &reg_name;
 
-    for i in &gp_list {
-        let mut name1 = "GP_".to_string();
-        let name2 = i.name.to_string();
-        name1 += &name2;
-
-        offset_define_list.push(ContextOffset::new(name1, i.offset));
+        offset_define_list.push(ContextOffset::new(whole_name, i.offset));
     }
 
-    for i in &sys_list {
-        let mut name1 = "SYS_".to_string();
-        let name2 = i.name.to_string();
-        name1 += &name2;
+    for i in sys_list {
+        let mut whole_name = "SYS_".to_string();
+        let reg_name = i.name.to_string();
+        whole_name += &reg_name;
 
-        offset_define_list.push(ContextOffset::new(name1, i.offset));
+        offset_define_list.push(ContextOffset::new(whole_name, i.offset));
     }
 
-    for i in &hyp_list {
-        let mut name1 = "HYP_".to_string();
-        let name2 = i.name.to_string();
-        name1 += &name2;
+    for i in hyp_list {
+        let mut whole_name = "HYP_".to_string();
+        let reg_name = i.name.to_string();
+        whole_name += &reg_name;
 
-        offset_define_list.push(ContextOffset::new(name1, i.offset));
+        offset_define_list.push(ContextOffset::new(whole_name, i.offset));
     }
 
     offset_define_list
 }
 
-fn create_ctx_offset(mut offset_define_list: Vec<ContextOffset>) -> Vec<ContextOffset>{
+// Create offset for VcpuCtx and VcpuCtx.##Ctx.##Regs.reg
+fn create_ctx_offset(mut offset_define_list: Vec<ContextOffset>, 
+    gp_list: &Vec<ContextOffset>, sys_list: &Vec<ContextOffset>,
+    hyp_list: &Vec<ContextOffset>) -> Vec<ContextOffset>{
     let vcpu = VcpuCtx::new();
-    let gp_list = create_gp_list();
-    let sys_list = create_sys_list();
-    let hyp_list = create_hyp_list();
 
     // HOST_GP
-    for i in &gp_list {
-        let mut name1 = "HOST_GP_".to_string();
-        let name2 = i.name.to_string();
-        name1 += &name2;
+    for i in gp_list {
+        let mut whole_name = "HOST_GP_".to_string();
+        let reg_name = i.name.to_string();
+        whole_name += &reg_name;
 
-        let offset = field_offset(&vcpu, &vcpu.host_ctx.gp_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(name1, offset));
+        let mut offset = field_offset(&vcpu, &vcpu.host_ctx.gp_regs) + i.offset;
+        offset_define_list.push(ContextOffset::new(whole_name, offset));
+
+        whole_name = "GUEST_GP_".to_string();
+        whole_name += &reg_name;
+
+        offset = field_offset(&vcpu, &vcpu.guest_ctx.gp_regs) + i.offset;
+        offset_define_list.push(ContextOffset::new(whole_name, offset));
     }
 
-    // HOST_HYP
-    for i in &hyp_list {
-        let mut name1 = "HOST_HYP_".to_string();
-        let name2 = i.name.to_string();
-        name1 += &name2;
+    // HOST_HYP & GUEST_HYP
+    for i in hyp_list {
+        let mut whole_name = "HOST_HYP_".to_string();
+        let reg_name = i.name.to_string();
+        whole_name += &reg_name;
 
-        let offset = field_offset(&vcpu, &vcpu.host_ctx.hyp_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(name1, offset));
-    }
+        let mut offset = field_offset(&vcpu, &vcpu.host_ctx.hyp_regs) + i.offset;
+        offset_define_list.push(ContextOffset::new(whole_name, offset));
 
-    // GUEST_GP
-    for i in &gp_list {
-        let mut name1 = "GUEST_GP_".to_string();
-        let name2 = i.name.to_string();
-        name1 += &name2;
+        whole_name = "GUEST_HYP_".to_string();
+        whole_name += &reg_name;
 
-        let offset = field_offset(&vcpu, &vcpu.guest_ctx.gp_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(name1, offset));
-    }
-
-    // GUEST_HYP
-    for i in &hyp_list {
-        let mut name1 = "GUEST_HYP_".to_string();
-        let name2 = i.name.to_string();
-        name1 += &name2;
-
-        let offset = field_offset(&vcpu, &vcpu.guest_ctx.hyp_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(name1, offset));
+        offset = field_offset(&vcpu, &vcpu.guest_ctx.hyp_regs) + i.offset;
+        offset_define_list.push(ContextOffset::new(whole_name, offset));
     }
 
     // GUEST_SYS
-    for i in &sys_list {
-        let mut name1 = "GUEST_SYS_".to_string();
-        let name2 = i.name.to_string();
-        name1 += &name2;
+    for i in sys_list {
+        let mut whole_name = "GUEST_SYS_".to_string();
+        let reg_name = i.name.to_string();
+        whole_name += &reg_name;
 
         let offset = field_offset(&vcpu, &vcpu.guest_ctx.sys_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(name1, offset));
+        offset_define_list.push(ContextOffset::new(whole_name, offset));
     }
 
     offset_define_list
 }
 
+// Create offset for VcpuCtx and VcpuCtx.####Ctx.GpRegs
 fn create_gp_offset(mut offset_define_list: Vec<ContextOffset>) -> Vec<ContextOffset>{
     let vcpu = VcpuCtx::new();
     
@@ -229,9 +221,14 @@ fn write_asm_offset_header(offset_define_list: Vec<ContextOffset>) {
 
 pub fn prepare_asm_offset_header() {
     let mut offset_define_list: Vec<ContextOffset> = Vec::new();
+    let gp_list = create_gp_list();
+    let sys_list = create_sys_list();
+    let hyp_list = create_hyp_list();
 
-    offset_define_list = create_type_offset(offset_define_list);
-    offset_define_list = create_ctx_offset(offset_define_list);
+    offset_define_list = create_type_offset(offset_define_list, &gp_list, 
+        &sys_list, &hyp_list);
+    offset_define_list = create_ctx_offset(offset_define_list, &gp_list, 
+        &sys_list, &hyp_list);
     offset_define_list = create_gp_offset(offset_define_list);
 
     write_asm_offset_header(offset_define_list);

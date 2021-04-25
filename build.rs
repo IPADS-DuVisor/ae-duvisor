@@ -6,8 +6,6 @@ extern crate cc;
 
 
 fn main() {
-    println!("cargo:warning=------------build.rs start-------------");
-
     // Prepare /guestentry/asm_offset.h
     prepare_asm_offset_header();
 
@@ -15,6 +13,4 @@ fn main() {
         .file("guestentry/guest_entry.c")
         .file("guestentry/enter_guest.S")
         .compile("enter_guest");
-
-    println!("cargo:warning=------------build.rs end---------------");
 }
