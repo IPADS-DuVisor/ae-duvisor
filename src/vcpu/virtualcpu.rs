@@ -77,7 +77,11 @@ mod tests {
     use std::thread;
     use std::ffi::CString;
     use crate::plat::uhe::ioctl::ioctl_constants;
+    use crate::plat::uhe::ioctl::hustatus_constants;
+    use crate::irq::delegation::delegation_constants;
     use ioctl_constants::*;
+    use delegation_constants::*;
+    use hustatus_constants::*;
 
     #[test]
     fn test_first_uret() { 
@@ -96,8 +100,10 @@ mod tests {
             println!("IOCTL_LAPUTA_GET_API_VERSION -  tmp_buf_pfn : {:x}", tmp_buf_pfn);
 
             // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
-            let edeleg = ((1<<20) | (1<<21) | (1<<23)) as libc::c_ulong; // guest page fault(sedeleg)
-            let ideleg = (1<<0) as libc::c_ulong;
+            // delegate guest page fault
+            let edeleg = ((1 << INST_GUEST_PAGE_FAULT) | (1 << LOAD_GUEST_ACCESS_FAULT) 
+                | (1 << STORE_GUEST_AMO_ACCESS_FAULT)) as libc::c_ulong;
+            let ideleg = (1 << S_SOFT) as libc::c_ulong;
             let deleg = [edeleg,ideleg];
             let deleg_ptr = (&deleg) as *const u64;
             res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
@@ -125,7 +131,8 @@ mod tests {
             vcpuctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
 
             //hustatus.SPP=1 .SPVP=1 uret to VS mode
-            vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
+            vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV) 
+                | (1 << HUSTATUS_SPVP)) as u64;
 
             enter_guest(ptr_u64);
 

@@ -8,3 +8,9 @@ pub mod ioctl_constants {
     pub const IOCTL_LAPUTA_REGISTER_VCPU: u64 = 0x6B04;
     pub const IOCTL_LAPUTA_UNREGISTER_VCPU: u64 = 0x6B05;
 }
+
+#[allow(unused)]
+pub mod hustatus_constants {
+    pub const HUSTATUS_SPV: u64 = 7;
+    pub const HUSTATUS_SPVP: u64 = 8;
+}
