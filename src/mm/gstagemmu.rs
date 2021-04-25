@@ -82,7 +82,7 @@ impl PageTableRegion {
 
         // clear the new page table
         let ptr = ret_ptr as *mut libc::c_void;
-        unsafe{ libc::memset(ptr, 0, length as usize); }
+        unsafe { libc::memset(ptr, 0, length as usize); }
 
         // offset update
         self.free_offset += length;
@@ -344,7 +344,7 @@ impl GStageMmu {
         Some(0)
     }
 
-    fn is_empty_page(pte_addr :u64) -> bool{
+    fn is_empty_page(pte_addr :u64) -> bool {
         let pte_addr = pte_addr & (!0xfff);
         let mut index = 0;
         let mut empty_flag = true;
@@ -372,7 +372,7 @@ impl GStageMmu {
             return None;
         }
         let offsets = offsets_wrap.unwrap();
-        for level in 0..4{
+        for level in 0..4 {
             let offset = offsets[(3 - level) as usize];
             let page_table_va = self.page_table.region.hpm_vptr as u64;
             let pte_addr = page_table_va + offset;
@@ -663,7 +663,7 @@ mod tests {
         assert!(!offsets_wrap.is_none());
         let offsets = offsets_wrap.unwrap();
 
-        for level in 0..4{
+        for level in 0..4 {
             let offset = offsets[level as usize];
             let pte_addr = root_ptr + offset;
             let pte_addr_ptr = pte_addr as *mut u64;
@@ -673,7 +673,7 @@ mod tests {
 
         gsmmu.unmap_page(0x1000);
 
-        for level in 0..4{
+        for level in 0..4 {
             let offset = offsets[level as usize];
             let pte_addr = root_ptr + offset;
             let pte_addr_ptr = pte_addr as *mut u64;
@@ -697,7 +697,7 @@ mod tests {
         assert!(!offsets_wrap.is_none());
         let offsets = offsets_wrap.unwrap();
 
-        for level in 0..4{
+        for level in 0..4 {
             let offset = offsets[(3 - level) as usize];
             let pte_addr = root_ptr + offset;
             let pte_addr_ptr = pte_addr as *mut u64;
@@ -707,7 +707,7 @@ mod tests {
 
         gsmmu.unmap_range(gpa, 2 * PAGE_SIZE);
 
-        for level in 0..4{
+        for level in 0..4 {
             let offset = offsets[(3 - level) as usize];
             let pte_addr = root_ptr + offset;
             let pte_addr_ptr = pte_addr as *mut u64;
@@ -731,7 +731,7 @@ mod tests {
         assert!(!offsets_wrap.is_none());
         let offsets = offsets_wrap.unwrap();
 
-        for level in 0..4{
+        for level in 0..4 {
             let offset = offsets[(3 - level) as usize];
             let pte_addr = root_ptr + offset;
             let pte_addr_ptr = pte_addr as *mut u64;
@@ -741,7 +741,7 @@ mod tests {
 
         gsmmu.unmap_page(gpa);
 
-        for level in 0..4{
+        for level in 0..4 {
             let offset = offsets[level as usize];
             let pte_addr = root_ptr + offset;
             let pte_addr_ptr = pte_addr as *mut u64;
@@ -755,7 +755,7 @@ mod tests {
 
         gsmmu.unmap_page(gpa + PAGE_SIZE);
 
-        for level in 0..4{
+        for level in 0..4 {
             let offset = offsets[(3 - level) as usize];
             let pte_addr = root_ptr + offset;
             let pte_addr_ptr = pte_addr as *mut u64;
