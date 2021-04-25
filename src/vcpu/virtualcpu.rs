@@ -15,6 +15,9 @@ extern "C" {
 
     // void set_hugatp(uint64_t hugatp)
     fn set_hugatp(hugatp: u64);
+
+    // void set_utvec()
+    fn set_utvec();
 }
 
 #[allow(unused)]
@@ -38,7 +41,7 @@ impl VirtualCpu {
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
         let vcpu_ctx = VcpuCtx::new();
         let virq = virq::VirtualInterrupt::new();
-        let vtimer = vtimer::VirtualTimer::new(0, 0); 
+        let vtimer = vtimer::VirtualTimer::new(0, 0);
 
         Self {
             vcpu_id,
@@ -89,7 +92,7 @@ mod tests {
         unsafe { 
             fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
 
-            // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
+            // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn)
             let tmp_buf_pfn_ptr = (&tmp_buf_pfn) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, tmp_buf_pfn_ptr);
             println!("IOCTL_LAPUTA_GET_API_VERSION -  tmp_buf_pfn : {:x}", tmp_buf_pfn);
@@ -118,6 +121,8 @@ mod tests {
 
             set_hugatp(pt_hpa);
             println!("HUGATP : {:x}", pt_hpa);
+
+            set_utvec();
             
             vcpuctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
 

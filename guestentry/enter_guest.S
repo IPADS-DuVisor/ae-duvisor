@@ -5,6 +5,7 @@
 .align 2
 
 .global enter_guest
+.global __vm_exit
 
 enter_guest:
     /* a0 point to vcpu_ctx */
@@ -22,15 +23,14 @@ enter_guest:
     csrrw t1, CSR_HUCOUNTEREN, t1
     sd t1, (HOST_HYP_HUCOUNTEREN)(a0)
 
-
     /* save a0-vcpu-ctx in CSR_USCRATCH & save USCRATCH */ 
     csrrw t3, CSR_USCRATCH, a0
     sd t3, (HOST_HYP_USCRATCH)(a0)
 
     /* set utvec to catch the trap & save UTVEC */
-    la	t4, __vm_exit
-    csrrw t4, CSR_UTVEC, t4
-    sd t4, (HOST_HYP_UTVEC)(a0)
+    //la	t4, __vm_exit
+    //csrrw t4, CSR_UTVEC, t4
+    //sd t4, (HOST_HYP_UTVEC)(a0)
 
     /* set UEPC */
     ld t0, (GUEST_HYP_UEPC)(a0)
@@ -65,10 +65,6 @@ __vm_exit:
     csrr t0, CSR_UEPC
     sd t0, (GUEST_HYP_UEPC)(a0)
 
-    /* restore host utvec */
-    ld t1, (HOST_HYP_UTVEC)(a0)
-    csrw CSR_UTVEC, t1
-
     /* restore host uscratch */
     ld t2, (HOST_HYP_USCRATCH)(a0)
     csrw CSR_USCRATCH, t2
@@ -100,3 +96,9 @@ set_hugatp:
     csrw CSR_HUGATP, a0
     ret
     
+.global set_utvec
+
+set_utvec:
+    la t4, __vm_exit
+    csrw CSR_UTVEC, t4
+    ret

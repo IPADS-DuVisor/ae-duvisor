@@ -1,8 +1,10 @@
 use crate::vcpu::virtualcpu;
 use crate::mm::gstagemmu;
+use crate::plat::uhe::ioctl::ioctl_constants;
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::ffi::CString;
+use ioctl_constants::*;
 
 // Export to vcpu
 pub struct VmSharedState {
@@ -114,7 +116,7 @@ impl VirtualMachine {
             let deleg_ptr = (&deleg) as *const u64;
 
             // call ioctl
-            let res = libc::ioctl(ioctl_fd, 1074817795, deleg_ptr);
+            let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
             println!("ioctl result: {}", res);
         }
     }

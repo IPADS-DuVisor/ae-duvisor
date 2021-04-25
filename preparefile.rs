@@ -114,38 +114,38 @@ fn create_hyp_list() -> Vec<ContextOffset> {
     hyp_list
 }
 
-// Create offset for VcpuCtx.####Ctx.TYPE and VcpuCtx.####Ctx.TYPE.reg
+// VcpuCtx.####Ctx.TYPE - VcpuCtx.####Ctx.TYPE.reg
 fn create_type_offset(mut offset_define_list: Vec<ContextOffset>, 
     gp_list: &Vec<ContextOffset>, sys_list: &Vec<ContextOffset>,
     hyp_list: &Vec<ContextOffset>) -> Vec<ContextOffset>{
     for i in gp_list {
-        let mut whole_name = "GP_".to_string();
+        let mut full_name = "GP_".to_string();
         let reg_name = i.name.to_string();
-        whole_name += &reg_name;
+        full_name += &reg_name;
 
-        offset_define_list.push(ContextOffset::new(whole_name, i.offset));
+        offset_define_list.push(ContextOffset::new(full_name, i.offset));
     }
 
     for i in sys_list {
-        let mut whole_name = "SYS_".to_string();
+        let mut full_name = "SYS_".to_string();
         let reg_name = i.name.to_string();
-        whole_name += &reg_name;
+        full_name += &reg_name;
 
-        offset_define_list.push(ContextOffset::new(whole_name, i.offset));
+        offset_define_list.push(ContextOffset::new(full_name, i.offset));
     }
 
     for i in hyp_list {
-        let mut whole_name = "HYP_".to_string();
+        let mut full_name = "HYP_".to_string();
         let reg_name = i.name.to_string();
-        whole_name += &reg_name;
+        full_name += &reg_name;
 
-        offset_define_list.push(ContextOffset::new(whole_name, i.offset));
+        offset_define_list.push(ContextOffset::new(full_name, i.offset));
     }
 
     offset_define_list
 }
 
-// Create offset for VcpuCtx and VcpuCtx.##Ctx.##Regs.reg
+// VcpuCtx - VcpuCtx.##Ctx.##Regs.reg
 fn create_ctx_offset(mut offset_define_list: Vec<ContextOffset>, 
     gp_list: &Vec<ContextOffset>, sys_list: &Vec<ContextOffset>,
     hyp_list: &Vec<ContextOffset>) -> Vec<ContextOffset>{
@@ -153,55 +153,55 @@ fn create_ctx_offset(mut offset_define_list: Vec<ContextOffset>,
 
     // HOST_GP
     for i in gp_list {
-        let mut whole_name = "HOST_GP_".to_string();
+        let mut full_name = "HOST_GP_".to_string();
         let reg_name = i.name.to_string();
-        whole_name += &reg_name;
+        full_name += &reg_name;
 
         let mut offset = field_offset(&vcpu, &vcpu.host_ctx.gp_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(whole_name, offset));
+        offset_define_list.push(ContextOffset::new(full_name, offset));
 
-        whole_name = "GUEST_GP_".to_string();
-        whole_name += &reg_name;
+        full_name = "GUEST_GP_".to_string();
+        full_name += &reg_name;
 
         offset = field_offset(&vcpu, &vcpu.guest_ctx.gp_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(whole_name, offset));
+        offset_define_list.push(ContextOffset::new(full_name, offset));
     }
 
     // HOST_HYP & GUEST_HYP
     for i in hyp_list {
-        let mut whole_name = "HOST_HYP_".to_string();
+        let mut full_name = "HOST_HYP_".to_string();
         let reg_name = i.name.to_string();
-        whole_name += &reg_name;
+        full_name += &reg_name;
 
         let mut offset = field_offset(&vcpu, &vcpu.host_ctx.hyp_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(whole_name, offset));
+        offset_define_list.push(ContextOffset::new(full_name, offset));
 
-        whole_name = "GUEST_HYP_".to_string();
-        whole_name += &reg_name;
+        full_name = "GUEST_HYP_".to_string();
+        full_name += &reg_name;
 
         offset = field_offset(&vcpu, &vcpu.guest_ctx.hyp_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(whole_name, offset));
+        offset_define_list.push(ContextOffset::new(full_name, offset));
     }
 
     // GUEST_SYS
     for i in sys_list {
-        let mut whole_name = "GUEST_SYS_".to_string();
+        let mut full_name = "GUEST_SYS_".to_string();
         let reg_name = i.name.to_string();
-        whole_name += &reg_name;
+        full_name += &reg_name;
 
         let offset = field_offset(&vcpu, &vcpu.guest_ctx.sys_regs) + i.offset;
-        offset_define_list.push(ContextOffset::new(whole_name, offset));
+        offset_define_list.push(ContextOffset::new(full_name, offset));
     }
 
     offset_define_list
 }
 
-// Create offset for VcpuCtx and VcpuCtx.####Ctx.GpRegs
+// VcpuCtx - VcpuCtx.####Ctx.GpRegs
 fn create_gp_offset(mut offset_define_list: Vec<ContextOffset>) -> Vec<ContextOffset>{
     let vcpu = VcpuCtx::new();
     
-    offset_define_add!(offset_define_list, "HOST_GP", vcpu, vcpu.host_ctx);
-    offset_define_add!(offset_define_list, "GUEST_GP", vcpu, vcpu.guest_ctx);
+    offset_define_add!(offset_define_list, "HOST_GP", vcpu, vcpu.host_ctx.gp_regs);
+    offset_define_add!(offset_define_list, "GUEST_GP", vcpu, vcpu.guest_ctx.gp_regs);
 
     offset_define_list
 }
