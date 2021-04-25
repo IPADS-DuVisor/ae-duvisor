@@ -4,9 +4,9 @@
 
 .align 2
 
-.global enter_guest_asm
+.global enter_guest
 
-enter_guest_asm:
+enter_guest:
     /* a0 point to vcpu_ctx */
 
     /* save host gp with a0=ctx, except t0-t6 and zero-x0 */
@@ -38,7 +38,7 @@ enter_guest_asm:
     sd t0, (GUEST_HYP_UEPC)(a0)
 
     /* hufence */
-    .word 0xE2000073
+    .word INS_HUFENCE_GVMA
 
     /* restore guest GP except A0 & X0 */
     RESTORE_GUEST_CTX a0
@@ -50,8 +50,7 @@ enter_guest_asm:
     uret
 
     .align 2
-    __vm_exit:
-
+__vm_exit:
     /* save guest-a0 in sscratch & get host-a0 */
     csrrw a0, CSR_USCRATCH, a0
 

@@ -10,7 +10,7 @@ global_asm!(include_str!("vm_code.S"));
 #[allow(unused)]
 #[link(name = "enter_guest")]
 extern "C" {
-    // int enter_guest(struct VcpuCtx *ctx)
+    // int enter_guest(struct VcpuCtx *ctx);
     fn enter_guest(vcpuctx: u64) -> i32;
 
     // void set_hugatp(uint64_t hugatp)
@@ -124,7 +124,6 @@ mod tests {
             //hustatus.SPP=1 .SPVP=1 uret to VS mode
             vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
 
-            //enter_guest_inline(ptr_u64);
             enter_guest(ptr_u64);
 
             uepc = vcpuctx.guest_ctx.hyp_regs.uepc;
