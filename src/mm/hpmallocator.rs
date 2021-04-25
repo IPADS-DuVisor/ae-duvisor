@@ -66,7 +66,7 @@ impl HpmAllocator {
         let hpm_vptr = ptr as *mut u64;
 
         // --- Just for now ---
-        let mut base_address = 0x40000000;
+        let mut base_address = 0x10000;
 
         for i in &self.hpm_region_list {
             // each hpm_region is separated by 0x1000
