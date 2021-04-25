@@ -1,1 +1,1 @@
-pub mod ioctl;
+pub mod syscall;

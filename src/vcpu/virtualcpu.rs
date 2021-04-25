@@ -75,7 +75,7 @@ mod tests {
     use super::*;
     use std::thread;
     use std::ffi::CString;
-    use crate::plat::kvm::ioctl::ioctl_constants;
+    use crate::plat::uhe::ioctl::ioctl_constants;
     use ioctl_constants::*;
 
     #[test]
