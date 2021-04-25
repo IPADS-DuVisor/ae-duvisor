@@ -77,11 +77,11 @@ mod tests {
     use std::thread;
     use std::ffi::CString;
     use crate::plat::uhe::ioctl::ioctl_constants;
-    use crate::plat::uhe::ioctl::hustatus_constants;
+    use crate::plat::uhe::csr::csr_constants;
     use crate::irq::delegation::delegation_constants;
     use ioctl_constants::*;
     use delegation_constants::*;
-    use hustatus_constants::*;
+    use csr_constants::*;
 
     #[test]
     fn test_first_uret() { 
@@ -131,8 +131,8 @@ mod tests {
             vcpuctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
 
             //hustatus.SPP=1 .SPVP=1 uret to VS mode
-            vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV) 
-                | (1 << HUSTATUS_SPVP)) as u64;
+            vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT) 
+                | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
             enter_guest(ptr_u64);
 

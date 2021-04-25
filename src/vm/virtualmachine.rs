@@ -1,10 +1,12 @@
 use crate::vcpu::virtualcpu;
 use crate::mm::gstagemmu;
 use crate::plat::uhe::ioctl::ioctl_constants;
+use crate::irq::delegation::delegation_constants;
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::ffi::CString;
 use ioctl_constants::*;
+use delegation_constants::*;
 
 // Export to vcpu
 pub struct VmSharedState {
@@ -105,7 +107,8 @@ impl VirtualMachine {
     #[allow(unused)]
     pub fn open_hu_extension(ioctl_fd: i32) {
         unsafe {
-            let edeleg = ((1<<20) | (1<<21) | (1<<23)) as libc::c_ulong;
+            let edeleg = ((1 << INST_GUEST_PAGE_FAULT) | (1 << LOAD_GUEST_ACCESS_FAULT) 
+                | (1 << STORE_GUEST_AMO_ACCESS_FAULT)) as libc::c_ulong;
             let ideleg = (1<<0) as libc::c_ulong;
             let deleg = [edeleg,ideleg];
             let deleg_ptr = (&deleg) as *const u64;
