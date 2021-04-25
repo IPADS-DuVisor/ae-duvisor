@@ -344,7 +344,7 @@ impl GStageMmu {
         Some(0)
     }
 
-    fn is_empty_page(pte_addr :u64) -> bool {
+    fn is_empty_ptp(pte_addr :u64) -> bool {
         let pte_addr = pte_addr & (!0xfff);
         let mut index = 0;
         let mut empty_flag = true;
@@ -381,7 +381,7 @@ impl GStageMmu {
             unsafe {
                 *pte_addr_ptr = 0;
             }
-            if !GStageMmu::is_empty_page(pte_addr) {
+            if !GStageMmu::is_empty_ptp(pte_addr) {
                 break;
             }
         }
