@@ -5,7 +5,6 @@
 .align 2
 
 .global enter_guest
-.global __vm_exit
 
 enter_guest:
     /* a0 point to vcpu_ctx */
@@ -33,7 +32,7 @@ enter_guest:
     sd t0, (GUEST_HYP_UEPC)(a0)
 
     /* hufence */
-    .word INS_HUFENCE_GVMA
+    //.word INS_HUFENCE_GVMA
 
     /* restore guest GP except A0 & X0 */
     RESTORE_GUEST_CTX a0
@@ -45,7 +44,7 @@ enter_guest:
     uret
 
     .align 2
-__vm_exit:
+exit_guest:
     /* save guest-a0 in sscratch & get host-a0 */
     csrrw a0, CSR_USCRATCH, a0
 
@@ -94,6 +93,6 @@ set_hugatp:
 .global set_utvec
 
 set_utvec:
-    la t4, __vm_exit
+    la t4, exit_guest
     csrw CSR_UTVEC, t4
     ret
