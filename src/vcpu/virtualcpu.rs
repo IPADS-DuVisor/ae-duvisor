@@ -1,160 +1,29 @@
 use crate::vm::virtualmachine;
 use crate::irq::virq;
 use crate::irq::vtimer;
+use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
+use vcpucontext::*;
 
-pub struct GpRegs {
-    pub x_reg: [u64; 32]
+global_asm!(include_str!("vm_code.S"));
+
+#[allow(unused)]
+#[link(name = "enter_guest")]
+extern "C" {
+    // int enter_guest(struct VcpuCtx *ctx);
+    fn enter_guest(vcpuctx: u64) -> i32;
+
+    // void set_hugatp(uint64_t hugatp)
+    fn set_hugatp(hugatp: u64);
+
+    // void set_utvec()
+    fn set_utvec();
 }
 
-impl GpRegs {
-    pub fn new() -> Self {
-        Self {
-            x_reg: [0; 32],
-        }
-    }
-}
-
-pub struct SysRegs { //scounteren?
-    pub vsstatus: u64,
-    pub vsip: u64,
-    pub vsie: u64,
-    pub vstec: u64,
-    pub vsscratch: u64,
-    pub vsepc: u64,
-    pub vscause: u64,
-    pub vstval: u64,
-    pub vsatp: u64,
-    pub vscounteren: u64 // save for scounteren
-}
-
-impl SysRegs {
-    pub fn new() -> Self {
-        Self {
-            vsstatus: 0,
-            vsip: 0,
-            vsie: 0,
-            vstec: 0,
-            vsscratch: 0,
-            vsepc: 0,
-            vscause: 0,
-            vstval: 0,
-            vsatp: 0,
-            // For scounteren
-            vscounteren: 0
-        }
-    }
-}
-
-pub struct HypRegs {
-    pub hustatus: u64,
-    pub huedeleg: u64,
-    pub huideleg: u64,
-    pub huvip: u64,
-    pub huip: u64,
-    pub huie: u64, 
-    // TODO: hip & hie in doc
-
-    // TODO: In doc: Direct IRQ to VM, not needed in HU-mode?
-    pub hugeip: u64,
-
-    // TODO: In doc: Direct IRQ to VM, not needed in HU-mode?
-    pub hugeie: u64,
-
-    pub hucounteren: u64,
-    pub hutimedelta: u64,
-    pub hutimedeltah: u64,
-    pub hutval: u64,
-    pub hutinst: u64,
-    pub hugatp: u64,
-    pub utvec: u64,
-    pub uepc: u64, // for sepc
-    pub uscratch: u64, // for sscratch
-    pub utval: u64, // for stval
-    pub ucause: u64, // for scause
-    pub scounteren: u64, // move from SysReg to reduce HostCtx
-}
-
-impl HypRegs {
-    pub fn new() -> Self {
-        Self {
-            hustatus: 0,
-            huedeleg: 0,
-            huideleg: 0,
-            huvip: 0,
-            huip: 0,
-            huie: 0, 
-            hugeip: 0,
-            hugeie: 0,
-            hucounteren: 0,
-            hutimedelta: 0,
-            hutimedeltah: 0,
-            hutval: 0,
-            hutinst: 0,
-            hugatp: 0,
-            utvec: 0,
-            uepc: 0,
-            uscratch: 0,
-            utval: 0,
-            ucause: 0,
-            scounteren: 0,
-        }
-    }
-}
-
-pub struct HostCtx {
-    pub gp_regs: GpRegs,
-    pub hyp_regs: HypRegs
-}
-
-impl HostCtx {
-    pub fn new() -> Self {
-        let gp_regs = GpRegs::new();
-        let hyp_regs = HypRegs::new();
-
-        Self {
-            gp_regs,
-            hyp_regs
-        }
-    }
-}
-
-pub struct GuestCtx {
-    pub gp_regs: GpRegs,
-    pub sys_regs: SysRegs,
-    pub hyp_regs: HypRegs
-}
-
-impl GuestCtx {
-    pub fn new() -> Self {
-        let gp_regs = GpRegs::new();
-        let sys_regs = SysRegs::new();
-        let hyp_regs = HypRegs::new();
-
-        Self {
-            gp_regs,
-            sys_regs,
-            hyp_regs
-        }
-    }
-}
-
-// Context for both ULH & VM
-pub struct VcpuCtx {
-    pub host_ctx: HostCtx,
-    pub guest_ctx: GuestCtx
-}
-
-impl VcpuCtx {
-    pub fn new() -> Self {
-        let host_ctx = HostCtx::new();
-        let guest_ctx = GuestCtx::new();
-
-        Self {
-            host_ctx,
-            guest_ctx
-        }
-    }
+#[allow(unused)]
+extern "C"
+{
+    fn vm_code();
 }
 
 pub struct VirtualCpu {
@@ -167,7 +36,8 @@ pub struct VirtualCpu {
 }
 
 impl VirtualCpu {
-    pub fn new(vcpu_id: u32, vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
+    pub fn new(vcpu_id: u32,
+            vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
         let vcpu_ctx = VcpuCtx::new();
         let virq = virq::VirtualInterrupt::new();
         let vtimer = vtimer::VirtualTimer::new(0, 0);
@@ -185,7 +55,7 @@ impl VirtualCpu {
     fn test_change_guest_ctx(&mut self) -> u32 {
         // Change guest context
         self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] += 10;
-        self.vcpu_ctx.guest_ctx.sys_regs.vsscratch += 11;
+        self.vcpu_ctx.guest_ctx.sys_regs.huvsscratch += 11;
         self.vcpu_ctx.guest_ctx.hyp_regs.hutinst += 12;
 
         // Increse vm_id in vm_state
@@ -205,6 +75,83 @@ impl VirtualCpu {
 mod tests {
     use super::*;
     use std::thread;
+    use std::ffi::CString;
+    use crate::plat::uhe::ioctl::ioctl_constants;
+    use crate::plat::uhe::csr::csr_constants;
+    use crate::irq::delegation::delegation_constants;
+    use ioctl_constants::*;
+    use delegation_constants::*;
+    use csr_constants::*;
+
+    #[test]
+    fn test_first_uret() { 
+        let mut vcpuctx = VcpuCtx::new();
+        let fd;
+        let mut res;
+        let file_path = CString::new("/dev/laputa_dev").unwrap();
+
+        let tmp_buf_pfn: u64 = 0;
+        unsafe { 
+            fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
+
+            // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn)
+            let tmp_buf_pfn_ptr = (&tmp_buf_pfn) as *const u64;
+            libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, tmp_buf_pfn_ptr);
+            println!("IOCTL_LAPUTA_GET_API_VERSION -  tmp_buf_pfn : {:x}", tmp_buf_pfn);
+
+            // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
+            // delegate guest page fault
+            let edeleg = ((1 << INST_GUEST_PAGE_FAULT) | (1 << LOAD_GUEST_ACCESS_FAULT) 
+                | (1 << STORE_GUEST_AMO_ACCESS_FAULT)) as libc::c_ulong;
+            let ideleg = (1 << S_SOFT) as libc::c_ulong;
+            let deleg = [edeleg,ideleg];
+            let deleg_ptr = (&deleg) as *const u64;
+            res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
+            println!("IOCTL_LAPUTA_REQUEST_DELEG : {}", res);
+
+            res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
+            println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
+        }
+
+        let uepc: u64;
+        let utval: u64;
+        let ucause: u64;
+
+        let ptr = &vcpuctx as *const VcpuCtx;
+        println!("the ptr is {}", ptr as u64);
+        let ptr_u64 = ptr as u64;
+        unsafe {
+            let pt_hpa = tmp_buf_pfn | (1 << 63);
+
+            set_hugatp(pt_hpa);
+            println!("HUGATP : {:x}", pt_hpa);
+
+            set_utvec();
+            
+            vcpuctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
+
+            //hustatus.SPP=1 .SPVP=1 uret to VS mode
+            vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT) 
+                | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
+
+            enter_guest(ptr_u64);
+
+            uepc = vcpuctx.guest_ctx.hyp_regs.uepc;
+            utval = vcpuctx.guest_ctx.hyp_regs.utval;
+            ucause = vcpuctx.guest_ctx.hyp_regs.ucause;
+
+            println!("guest hyp uepc 0x{:x}", uepc);
+            println!("guest hyp utval 0x{:x}", utval);
+            println!("guest hyp ucause 0x{:x}", ucause);
+            
+            res = libc::ioctl(fd, IOCTL_LAPUTA_UNREGISTER_VCPU);
+            println!("IOCTL_LAPUTA_UNREGISTER_VCPU : {}", res);
+        }
+
+        // vm should trap(20) at vm_code
+        assert_eq!(uepc, utval);
+        assert_eq!(20, ucause);
+    }
 
     // Check the correctness of vcpu new()
     #[test]
@@ -237,7 +184,7 @@ mod tests {
         let tmp = vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst;
         assert_eq!(tmp, 0);
         
-        let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.vsatp;
+        let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
         assert_eq!(tmp, 0);
     }
 
@@ -254,8 +201,8 @@ mod tests {
         let tmp = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
         assert_eq!(tmp, 17);
 
-        vcpu.vcpu_ctx.guest_ctx.sys_regs.vsatp = 17;
-        let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.vsatp;
+        vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp = 17;
+        let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
         assert_eq!(tmp, 17);
 
         vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst = 17;
@@ -305,7 +252,7 @@ mod tests {
         let mut hypreg;
         for i in &vm.vcpus {
             gpreg = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
-            sysreg = i.lock().unwrap().vcpu_ctx.guest_ctx.sys_regs.vsscratch;
+            sysreg = i.lock().unwrap().vcpu_ctx.guest_ctx.sys_regs.huvsscratch;
             hypreg = i.lock().unwrap().vcpu_ctx.guest_ctx.hyp_regs.hutinst;
             assert_eq!(gpreg, 10);
             assert_eq!(sysreg, 11);

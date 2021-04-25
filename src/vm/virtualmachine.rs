@@ -1,17 +1,24 @@
 use crate::vcpu::virtualcpu;
 use crate::mm::gstagemmu;
+use crate::plat::uhe::ioctl::ioctl_constants;
+use crate::irq::delegation::delegation_constants;
 use std::thread;
 use std::sync::{Arc, Mutex};
+use std::ffi::CString;
+use ioctl_constants::*;
+use delegation_constants::*;
 
 // Export to vcpu
 pub struct VmSharedState {
     pub vm_id: u32,
+    pub ioctl_fd: Option<i32>,
 }
 
 impl VmSharedState {
     pub fn new() -> Self {
         Self {
             vm_id: 0,
+            ioctl_fd: None,
         }
     }
 }
@@ -41,13 +48,30 @@ impl VirtualMachine {
 
         // Create vcpu struct instance
         for i in 0..vcpu_num {
-            let vcpu = virtualcpu::VirtualCpu::new(i, vm_state_mutex.clone());
+            let vcpu = virtualcpu::VirtualCpu::new(i,
+                    vm_state_mutex.clone());
             vcpu_mutex = Arc::new(Mutex::new(vcpu));
             vm.vcpus.push(vcpu_mutex);
         }
 
         // Return vm instance with vcpus
         vm
+    }
+
+    // Init vm & vcpu before vm_run()
+    pub fn vm_init(&mut self) {
+        let file_path = CString::new("/dev/laputa_dev").unwrap();
+        let ioctl_fd;
+
+        unsafe {
+            ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+        }
+
+        // Set fd of /dev/laputa_dev
+        self.vm_state.lock().unwrap().ioctl_fd = Some(ioctl_fd);
+
+        // Open HU-extension via ioctl
+        VirtualMachine::open_hu_extension(ioctl_fd);
     }
 
     pub fn vm_run(&mut self) {
@@ -71,6 +95,27 @@ impl VirtualMachine {
 
         for i in vcpu_handle {
             i.join().unwrap();
+        }
+    }
+
+    pub fn vm_destory(&mut self) {
+        unsafe {
+            libc::close(self.vm_state.lock().unwrap().ioctl_fd.unwrap());
+        }
+    }
+
+    #[allow(unused)]
+    pub fn open_hu_extension(ioctl_fd: i32) {
+        unsafe {
+            let edeleg = ((1 << INST_GUEST_PAGE_FAULT) | (1 << LOAD_GUEST_ACCESS_FAULT) 
+                | (1 << STORE_GUEST_AMO_ACCESS_FAULT)) as libc::c_ulong;
+            let ideleg = (1<<0) as libc::c_ulong;
+            let deleg = [edeleg,ideleg];
+            let deleg_ptr = (&deleg) as *const u64;
+
+            // call ioctl
+            let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
+            println!("ioctl result: {}", res);
         }
     }
 }
