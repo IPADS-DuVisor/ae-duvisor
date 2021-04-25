@@ -8,6 +8,7 @@ extern crate cc;
 fn main() {
     println!("cargo:warning=------------build.rs start-------------");
 
+    // Prepare /guestentry/asm_offset.h
     prepare_asm_offset_header();
 
     cc::Build::new()

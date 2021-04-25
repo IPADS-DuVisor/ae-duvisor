@@ -7,7 +7,4 @@ Cargo.lock
 /testfiles/integration/test_images/build
 /testfiles/*/*.img
 /testfiles/*.img
-/src/vcpu/asm_csr.S
-/src/vcpu/asm_offset.S
-/src/vcpu/asm_switch.S
 /guestentry/asm_offset.h
