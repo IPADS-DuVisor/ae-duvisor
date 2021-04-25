@@ -655,7 +655,7 @@ mod tests {
         let gpa : u64 = 0x1000;
         let hpa : u64 = 0x2000; 
         // Create a page table
-        gsmmu.map_page(gpa, 0x2000, PTE_READ | PTE_EXECUTE);
+        gsmmu.map_page(gpa, hpa, PTE_READ | PTE_EXECUTE);
 
         // construct expected pte value for each level
         let root_ptr = gsmmu.page_table.region.hpm_vptr as u64;
@@ -711,10 +711,10 @@ mod tests {
             ((root_ptr_pa + 4*PAGE_SIZE) >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_VALID, 
             ((root_ptr_pa + 5*PAGE_SIZE) >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_VALID, 
             ((root_ptr_pa + 6*PAGE_SIZE) >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_VALID, 
-            ((hpa >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_VALID | PTE_READ | PTE_EXECUTE)
+            (((hpa + PAGE_SIZE) >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_VALID | PTE_READ | PTE_EXECUTE)
         ];
 
-        let offsets_wrap = gsmmu.gpa_to_ptregion_offset(gpa);
+        let offsets_wrap = gsmmu.gpa_to_ptregion_offset(gpa + PAGE_SIZE);
         assert!(!offsets_wrap.is_none());
         let offsets = offsets_wrap.unwrap();
 
