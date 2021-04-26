@@ -472,19 +472,19 @@ impl GStageMmu {
         Some(0)
     }
 
-    pub fn gpa_region_add(&mut self, gpa: u64, length: u64) -> Option<usize>{
+    pub fn gpa_region_add(&mut self, gpa: u64, length: u64) -> Result<u64, u64>{
         let region_wrap = self.allocator.hpm_alloc(length);
 
         if region_wrap.is_none() {
             println!("gpa_region_add : hpm_alloc failed");
-            return None;
+            return Err(0);
         }
 
         let region = region_wrap.unwrap();
 
         if region.len() != 1 {
             println!("gpa_region_add : gpa region alloc failed for length {}", region.len());
-            return None;
+            return Err(0);
         }
 
         let mut hpa = 0;
@@ -496,18 +496,23 @@ impl GStageMmu {
         let gpa_region = gparegion::GpaRegion::new(gpa, hpa, length);
         self.gpa_regions.push(gpa_region);
 
-        let length = self.gpa_regions.len();
-        return Some(length);
+        return Ok(hpa);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::process;
+
+rusty_fork_test! {
+
 
     // Check new() of GStageMmu
     #[test]
     fn test_gsmmu_new() { 
+        println!("******************       **********test_gsmmu_new: My pid is {}", process::id());
+
         let mem_size = 1 << 30;
         let gsmmu = GStageMmu::new();
 
@@ -527,11 +532,22 @@ mod tests {
     // Check gpa_region add
     #[test]
     fn test_gpa_region_add() { 
+        println!("*******************        **********test_gpa_region_add: My pid is {}", process::id());
+
         let mem_size = 1 << 30;
         let mut gsmmu = GStageMmu::new();
         let mut gpa: u64 = 0;
         let mut hpa: u64 = 0;
         let mut length: u64 = 0;
+
+        //let mut count = 0;
+        //loop {
+        //    count += 1;
+        //    if count > 10000000 {
+        //        break;
+        //    }
+        //    count -= 1;
+        //}
 
         gsmmu.gpa_region_add(0x1000, 0x4000);
 
@@ -714,6 +730,8 @@ mod tests {
 
     #[test]
     fn test_unmap_page() {
+        println!("******************       **********test_unmap_page: My pid is {}", process::id());
+        
         let mem_size = 1 << 30;
         let mut gsmmu = GStageMmu::new();
 
@@ -744,6 +762,7 @@ mod tests {
 
     #[test]
     fn test_unmap_range() {
+        println!("******************       **********test_unmap_range: My pid is {}", process::id());
         let mem_size = 1 << 30;
         let mut gsmmu = GStageMmu::new();
 
@@ -858,6 +877,7 @@ mod tests {
         }
     }
 
+
     #[test]
     fn test_map_protect() {
         let mem_size = 1 << 30;
@@ -883,5 +903,5 @@ mod tests {
 
         assert_eq!(pte, 2059);
     }
- 
+}
 }

@@ -128,6 +128,7 @@ impl VirtualMachine {
 #[cfg(test)]
 mod tests {
     use super::*;
+rusty_fork_test! {
 
     #[test]
     fn test_vm_new() { 
@@ -150,4 +151,4 @@ mod tests {
 
         assert_eq!(sum, 6); // 0 + 1 + 2 + 3
     }
-}
+}}

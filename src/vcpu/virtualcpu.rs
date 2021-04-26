@@ -193,6 +193,7 @@ mod tests {
     use delegation_constants::*;
     use csr_constants::*;
 
+rusty_fork_test! {
     #[test]
     fn test_stage2_page_fault() { 
         let vcpu_id = 0;
@@ -396,6 +397,8 @@ mod tests {
         assert_eq!(vcpu.vcpu_id, vcpu_id);
     }
 
+
+
     // Check the init state of the vcpu  
     #[test]
     fn test_vcpu_ctx_init() { 
@@ -419,6 +422,8 @@ mod tests {
         let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
         assert_eq!(tmp, 0);
     }
+
+
 
     // Check the rw permission of vcpu ctx 
     #[test]
@@ -539,4 +544,5 @@ mod tests {
         res = vcpu.handle_vcpu_exit();
         assert_eq!(res, 0);
     } */
-}
+}}
+
