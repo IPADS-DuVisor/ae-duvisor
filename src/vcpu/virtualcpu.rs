@@ -7,6 +7,31 @@ use vcpucontext::*;
 
 global_asm!(include_str!("vm_code.S"));
 
+mod vm_exception_constants {
+    pub const EXC_SUPERVISOR_SYSCALL: u64 = 10;
+    pub const EXC_INST_GUEST_PAGE_FAULT: u64 = 20;
+    pub const EXC_LOAD_GUEST_PAGE_FAULT: u64 = 21;
+    pub const EXC_VIRTUAL_INST_FAULT: u64 = 22;
+    pub const EXC_STORE_GUEST_PAGE_FAULT: u64 = 23;
+    pub const EXC_IRQ_MASK: u64 = 1 << 63;
+}
+pub use vm_exception_constants::*;
+
+mod errno_constants {
+    pub const ENOPERMIT: i32 = -1;
+    pub const ENOMAPPING: i32 = -2;
+}
+pub use errno_constants::*;
+
+pub enum ExitReason {
+    ExitUnknown,
+    ExitEaccess,
+    ExitMmio,
+    ExitIntr,
+    ExitSystemEvent,
+    ExitRiscvSbi,
+}
+
 #[allow(unused)]
 #[link(name = "enter_guest")]
 extern "C" {
@@ -33,6 +58,7 @@ pub struct VirtualCpu {
     pub virq: virq::VirtualInterrupt,
     pub vtimer: vtimer::VirtualTimer,
     // TODO: irq_pending with shared memory
+    pub exit_reason: ExitReason,
 }
 
 impl VirtualCpu {
@@ -41,6 +67,7 @@ impl VirtualCpu {
         let vcpu_ctx = VcpuCtx::new();
         let virq = virq::VirtualInterrupt::new();
         let vtimer = vtimer::VirtualTimer::new(0, 0);
+        let exit_reason = ExitReason::ExitUnknown;
 
         Self {
             vcpu_id,
@@ -48,6 +75,7 @@ impl VirtualCpu {
             vcpu_ctx,
             virq,
             vtimer,
+            exit_reason,
         }
     }
 
@@ -62,6 +90,89 @@ impl VirtualCpu {
         self.vm.lock().unwrap().vm_id += 100;
 
         0
+    }
+    
+    fn virtual_inst_fault(&mut self) -> i32 {
+        let ret = 0;
+        let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
+        println!("virtual_inst_fault: insn = {:x}", utval);
+        
+        ret
+    }
+
+    fn stage2_page_fault(&mut self) -> i32 {
+        let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
+        let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
+        let fault_addr = (hutval << 2) | (utval & 0x3);
+        println!("gstage_page_fault: fault_addr = {:x}", fault_addr);
+
+        let mut ret = 0;
+        // map_query
+        match ret {
+            ENOPERMIT => {
+                self.exit_reason = ExitReason::ExitEaccess;
+                eprintln!("Query return ENOPERMIT: {}", ret);
+                ret = ENOPERMIT
+            }
+            ENOMAPPING => {
+                println!("Query return ENOMAPPING: {}", ret);
+                // find gpa region by fault_addr
+                // map new region to VM if the region exists
+                // handle MMIO otherwise
+            }
+            _ => {
+                self.exit_reason = ExitReason::ExitUnknown;
+                eprintln!("Invalid query result: {}", ret);
+            }
+        }
+
+        ret
+    }
+
+    fn supervisor_ecall(&mut self) -> i32 {
+        let mut ret = 0;
+        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: funcID
+        let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
+        // ...
+        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: 7th arg
+        println!("supervisor_ecall: funcID = {:x}, arg1 = {:x}, arg7 = {:x}",
+            a0, a1, a7);
+        // for test
+        ret = -1;
+        
+        ret
+    }
+
+    fn handle_vcpu_exit(&mut self) -> i32 {
+        let mut ret: i32 = -1;
+        let ucause = self.vcpu_ctx.host_ctx.hyp_regs.ucause;
+        self.exit_reason = ExitReason::ExitUnknown;
+
+        if (ucause & EXC_IRQ_MASK) != 0 {
+            return 1;
+        }
+
+        match ucause {
+            EXC_VIRTUAL_INST_FAULT => {
+                ret = self.virtual_inst_fault();
+            }
+            EXC_INST_GUEST_PAGE_FAULT | EXC_LOAD_GUEST_PAGE_FAULT |
+                EXC_STORE_GUEST_PAGE_FAULT => {
+                ret = self.stage2_page_fault();
+            }
+            EXC_SUPERVISOR_SYSCALL => {
+                ret = self.supervisor_ecall();
+            }
+            _ => {
+                eprintln!("Invalid ucause: {}", ucause);
+            }
+        }
+
+        if ret < 0 {
+            eprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
+        }
+
+        ret
     }
 
     pub fn thread_vcpu_run(&mut self) -> u32 {
@@ -85,7 +196,10 @@ mod tests {
 
     #[test]
     fn test_stage2_page_fault() { 
-        let mut vcpuctx = VcpuCtx::new();
+        let vcpu_id = 0;
+        let vm_state = virtualmachine::VmSharedState::new();
+        let vm_mutex = Arc::new(Mutex::new(vm_state));
+        let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
         let fd;
         let mut res;
         let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -139,39 +253,40 @@ mod tests {
         let mut utval: u64 = 0;
         let mut ucause: u64 = 0;
 
-        let ptr = &vcpuctx as *const VcpuCtx;
-        println!("the ptr is {:x}", ptr as u64);
+        let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
         let ptr_u64 = ptr as u64;
-        let mut get_out: i32 = 0;
+        println!("the ptr is {:x}", ptr_u64);
+        let mut ret: i32 = 0;
         
-        vcpuctx.guest_ctx.hyp_regs.hugatp = (test_buf_pfn + 2) | (8 << 60);
-        vcpuctx.guest_ctx.hyp_regs.uepc = (test_buf_pfn << 12) as u64;
-        //hustatus.SPP=1 .SPVP=1 uret to VS mode
-        vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = (test_buf_pfn << 12) as u64;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = (test_buf_pfn + 2) | (8 << 60);
 
-        while get_out == 0 {
+        while ret == 0 {
             unsafe {
-                set_hugatp(vcpuctx.guest_ctx.hyp_regs.hugatp);
-                println!("HUGATP : {:x}", vcpuctx.guest_ctx.hyp_regs.hugatp);
+                set_hugatp(vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                println!("HUGATP : {:x}", vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+
+                //hustatus.SPP=1 .SPVP=1 uret to VS mode
+                vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
+            
+                set_utvec();
 
                 //enter_guest_inline(ptr_u64);
                 enter_guest(ptr_u64);
 
-                uepc = vcpuctx.guest_ctx.hyp_regs.uepc;
-                utval = vcpuctx.guest_ctx.hyp_regs.utval;
-                ucause = vcpuctx.guest_ctx.hyp_regs.ucause;
+                uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
+                utval = vcpu.vcpu_ctx.host_ctx.hyp_regs.utval;
+                ucause = vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause;
 
                 println!("guest hyp uepc 0x{:x}", uepc);
                 println!("guest hyp utval 0x{:x}", utval);
                 println!("guest hyp ucause 0x{:x}", ucause);
 
                 if ucause == 20 {
-                    vcpuctx.guest_ctx.hyp_regs.hugatp = (test_buf_pfn + 4) | (8 << 60);
+                    vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = (test_buf_pfn + 4) | (8 << 60);
                 }
             }
-            if ucause == 10 {
-                get_out = 1;
-            }
+            ret = vcpu.handle_vcpu_exit();
         }
             
         unsafe {
@@ -190,78 +305,6 @@ mod tests {
         assert_eq!(utval, 0);
         assert_eq!(ucause, 10);
     }
-
-    /*
-    #[test]
-    fn test_first_uret() { 
-        let mut vcpuctx = VcpuCtx::new();
-        let fd;
-        let mut res;
-        let file_path = CString::new("/dev/laputa_dev").unwrap();
-
-        let tmp_buf_pfn: u64 = 0;
-        unsafe { 
-            fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
-
-            // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn)
-            let tmp_buf_pfn_ptr = (&tmp_buf_pfn) as *const u64;
-            libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, tmp_buf_pfn_ptr);
-            println!("IOCTL_LAPUTA_GET_API_VERSION -  tmp_buf_pfn : {:x}", tmp_buf_pfn);
-
-            // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
-            // delegate guest page fault
-            let edeleg = ((1 << INST_GUEST_PAGE_FAULT) | (1 << LOAD_GUEST_ACCESS_FAULT) 
-                | (1 << STORE_GUEST_AMO_ACCESS_FAULT)) as libc::c_ulong;
-            let ideleg = (1 << S_SOFT) as libc::c_ulong;
-            let deleg = [edeleg,ideleg];
-            let deleg_ptr = (&deleg) as *const u64;
-            res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
-            println!("IOCTL_LAPUTA_REQUEST_DELEG : {}", res);
-
-            res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
-            println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
-        }
-
-        let uepc: u64;
-        let utval: u64;
-        let ucause: u64;
-
-        let ptr = &vcpuctx as *const VcpuCtx;
-        println!("the ptr is {}", ptr as u64);
-        let ptr_u64 = ptr as u64;
-        unsafe {
-            let pt_hpa = tmp_buf_pfn | (1 << 63);
-
-            set_hugatp(pt_hpa);
-            println!("HUGATP : {:x}", pt_hpa);
-
-            set_utvec();
-            
-            vcpuctx.guest_ctx.hyp_regs.uepc = vm_code as u64;
-
-            //hustatus.SPP=1 .SPVP=1 uret to VS mode
-            vcpuctx.guest_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT) 
-                | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
-
-            enter_guest(ptr_u64);
-
-            uepc = vcpuctx.guest_ctx.hyp_regs.uepc;
-            utval = vcpuctx.guest_ctx.hyp_regs.utval;
-            ucause = vcpuctx.guest_ctx.hyp_regs.ucause;
-
-            println!("guest hyp uepc 0x{:x}", uepc);
-            println!("guest hyp utval 0x{:x}", utval);
-            println!("guest hyp ucause 0x{:x}", ucause);
-            
-            res = libc::ioctl(fd, IOCTL_LAPUTA_UNREGISTER_VCPU);
-            println!("IOCTL_LAPUTA_UNREGISTER_VCPU : {}", res);
-        }
-
-        // vm should trap(20) at vm_code
-        assert_eq!(uepc, utval);
-        assert_eq!(20, ucause);
-    }
-    */
 
     // Check the correctness of vcpu new()
     #[test]
@@ -375,5 +418,46 @@ mod tests {
          */
         let result = vm.vm_state.lock().unwrap().vm_id;
         assert_eq!(result, vcpu_num * 100);
+    }
+    
+    // Check the correctness of vcpu_exit_handler
+    #[test]
+    fn test_vcpu_exit_handler() { 
+        let vcpu_id = 20;
+        let vm_state = virtualmachine::VmSharedState::new();
+        let vm_mutex = Arc::new(Mutex::new(vm_state));
+        let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+        let mut res;
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_IRQ_MASK | 0x1;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 1);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_SUPERVISOR_SYSCALL;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, -1);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0x8048000;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xf0;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_INST_GUEST_PAGE_FAULT;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 0);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0x7ff000;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xf;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_LOAD_GUEST_PAGE_FAULT;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 0);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xa001;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_VIRTUAL_INST_FAULT;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 0);
+
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0xdead0000;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xfff;
+        vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_STORE_GUEST_PAGE_FAULT;
+        res = vcpu.handle_vcpu_exit();
+        assert_eq!(res, 0);
     }
 }
