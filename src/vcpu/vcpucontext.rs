@@ -11,6 +11,7 @@ impl GpRegs {
     }
 }
 
+// SysReg for Guest
 #[repr(C)]
 pub struct SysRegs { //scounteren?
     pub huvsstatus: u64,
