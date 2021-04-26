@@ -65,6 +65,7 @@ impl VirtualMachine {
         unsafe {
             ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
         }
+        println!("ioctl_fd: {}", ioctl_fd);
 
         // Set fd of /dev/laputa_dev
         self.vm_state.lock().unwrap().ioctl_fd = Some(ioctl_fd);
@@ -132,10 +133,11 @@ mod tests {
             let nr_vcpu = 1;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
             vm.vm_init();
-            //vm.vm_run();
-            //vm.vm_destroy();
+            vm.vm_run();
+            vm.vm_destroy();
         }
 
+        /*
         #[test]
         fn test_vm_new() { 
             let vcpu_num = 4;
@@ -157,5 +159,6 @@ mod tests {
 
             assert_eq!(sum, 6); // 0 + 1 + 2 + 3
         }
+        */
     }
 }

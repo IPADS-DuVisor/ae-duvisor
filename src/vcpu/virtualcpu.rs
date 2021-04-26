@@ -129,7 +129,7 @@ impl VirtualCpu {
                     gsmmu.gpa_region_add(fault_addr, len);
                 if res.is_ok() {
                     // map new region to VM if the region exists
-                    let hpa = res.unwrap();
+                    let (hva, hpa) = res.unwrap();
                     let flag: u64 = PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
                     self.vm.lock().unwrap().gsmmu.map_page(
                         fault_addr, hpa, flag);
@@ -198,7 +198,6 @@ impl VirtualCpu {
     }
 
     pub fn thread_vcpu_run(&mut self) -> i32 {
-        //let gsmmu = &self.vm.lock().unwrap().gsmmu;
         self.vcpu_ctx.host_ctx.hyp_regs.hugatp = 
             (self.vm.lock().unwrap().gsmmu.page_table.vaddr >> 12) | 
             (8 << 60);
@@ -236,6 +235,7 @@ mod tests {
     use csr_constants::*;
 
     rusty_fork_test! {
+        /*
         #[test]
         fn test_stage2_page_fault() { 
             let vcpu_id = 0;
@@ -509,6 +509,7 @@ mod tests {
            res = vcpu.handle_vcpu_exit();
            assert_eq!(res, 0);
         } */
+        */
     }
 }
 
