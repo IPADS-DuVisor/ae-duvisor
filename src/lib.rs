@@ -21,6 +21,6 @@ pub fn run(config: &cmdline::VMConfig) {
     let mut vm = VirtualMachine::new(vcpu_num);
     vm.vm_init();
     vm.vm_run();
-    vm.vm_destory();
+    vm.vm_destroy();
     println!("Finish vm running...");
 }

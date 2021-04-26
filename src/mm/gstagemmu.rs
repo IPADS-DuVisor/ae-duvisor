@@ -24,7 +24,7 @@ pub use gsmmu_constants::*;
 
 pub struct Pte {
     // The offset of this pte from the top of the root table (page_table.region.hpm_vptr)
-    // Access the pte by (page_table.region.hpm_vptr + offset) as *mut u64
+    // Access the pte by (page_table.region.hpm_vptr + offset) as u64
     pub offset: u64,
     pub value: u64,
     pub level: u32,
@@ -54,7 +54,7 @@ impl PageTableRegion {
         }
     }
 
-    pub fn page_table_create(&mut self, level: u64) -> *mut u64 {
+    pub fn page_table_create(&mut self, level: u64) -> u64 {
         let mut size: u64 = PAGE_SIZE;
 
         // root page table takes 4 pages in SV39x4 & SV48x4
@@ -67,7 +67,7 @@ impl PageTableRegion {
     }
 
     // alloc page table from &self.region: HpmRegion
-    pub fn page_table_alloc(&mut self, length: u64) -> *mut u64 {
+    pub fn page_table_alloc(&mut self, length: u64) -> u64 {
         let u64_size: usize = mem::size_of::<u64>();
         assert_eq!(length % u64_size as u64, 0);
 
@@ -77,7 +77,7 @@ impl PageTableRegion {
         }
 
         let offset = self.free_offset;
-        let ret_ptr = unsafe { self.region.hpm_vptr.add(offset as usize/ u64_size) };
+        let ret_ptr = unsafe { (self.region.hpm_vptr as *mut u64).add(offset as usize/ u64_size) };
 
 
         // clear the new page table
@@ -87,7 +87,7 @@ impl PageTableRegion {
         // offset update
         self.free_offset += length;
 
-        ret_ptr
+        ret_ptr as u64
     }
 }
 
@@ -431,7 +431,7 @@ mod tests {
         assert_eq!(free_offset, 0x4000);
 
         // Check the root table has been cleared
-        let mut root_ptr = gsmmu.page_table.region.hpm_vptr;
+        let mut root_ptr = gsmmu.page_table.region.hpm_vptr as *mut u64;
         unsafe {
             root_ptr = root_ptr.add(10);
         }
@@ -472,7 +472,7 @@ mod tests {
         assert_eq!(free_offset, 0x4000 + 0x1000);
 
         // Check the page table has been cleared
-        let root_ptr = gsmmu.page_table.region.hpm_vptr;
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as *mut u64;
         let ptr: *mut u64;
         unsafe {
             ptr = root_ptr.add(512+10);
@@ -490,7 +490,7 @@ mod tests {
         gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_EXECUTE);
 
         // Check the pte
-        let root_ptr = gsmmu.page_table.region.hpm_vptr;
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as *mut u64;
         let ptr: *mut u64;
         unsafe {
             ptr = root_ptr.add(512*6+1);
@@ -506,7 +506,7 @@ mod tests {
     #[test]
     fn test_map_page_index() {
         let mut gsmmu = GStageMmu::new();
-        let root_ptr = gsmmu.page_table.region.hpm_vptr;
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as *mut u64;
         let mut ptr: *mut u64;
         let mut pte: u64;
         let gpa = 0x1000;
@@ -564,7 +564,7 @@ mod tests {
         gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
 
         // Check the pte
-        let root_ptr = gsmmu.page_table.region.hpm_vptr;
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as *mut u64;
         let mut ptr: *mut u64;
         let mut pte: u64;
         unsafe {
@@ -590,7 +590,7 @@ mod tests {
     #[test]
     fn test_map_range_index() {
         let mut gsmmu = GStageMmu::new();
-        let root_ptr = gsmmu.page_table.region.hpm_vptr;
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as *mut u64;
         let mut ptr: *mut u64;
         let mut pte: u64;
 
@@ -628,8 +628,8 @@ mod tests {
         gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
 
         // Check the pte
-        let root_ptr = gsmmu.page_table.region.hpm_vptr;
-        let ptr: *mut u64;
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as *mut u64;
+        let mut ptr: *mut u64;
         unsafe {
             ptr = root_ptr.add(512*6+1);
         }
@@ -804,7 +804,7 @@ mod tests {
         gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
 
         // Check the pte
-        let root_ptr = gsmmu.page_table.region.hpm_vptr;
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as *mut u64;
         let mut ptr: *mut u64;
         let mut pte: u64;
         unsafe {
@@ -911,7 +911,7 @@ mod tests {
     #[test]
     fn test_map_protect() {
         let mut gsmmu = GStageMmu::new();
-        let root_ptr = gsmmu.page_table.region.hpm_vptr;
+        let root_ptr = gsmmu.page_table.region.hpm_vptr as *mut u64;
         let ptr: *mut u64;
         let mut pte: u64;
 

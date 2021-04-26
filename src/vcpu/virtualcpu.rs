@@ -80,7 +80,7 @@ impl VirtualCpu {
     }
 
     // For test case: test_vm_run
-    fn test_change_guest_ctx(&mut self) -> u32 {
+    pub fn test_change_guest_ctx(&mut self) -> u32 {
         // Change guest context
         self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] += 10;
         self.vcpu_ctx.guest_ctx.sys_regs.huvsscratch += 11;
@@ -138,7 +138,7 @@ impl VirtualCpu {
         println!("supervisor_ecall: funcID = {:x}, arg1 = {:x}, arg7 = {:x}",
             a0, a1, a7);
         // for test
-        ret = -1;
+        ret = 0xdead;
         
         ret
     }
@@ -175,10 +175,29 @@ impl VirtualCpu {
         ret
     }
 
-    pub fn thread_vcpu_run(&mut self) -> u32 {
-        self.test_change_guest_ctx();
+    pub fn thread_vcpu_run(&mut self) -> i32 {
+        //let gsmmu = &self.vm.lock().unwrap().gsmmu;
+        self.vcpu_ctx.host_ctx.hyp_regs.hugatp = 
+            (self.vm.lock().unwrap().gsmmu.page_table.region.base_address >> 12) | 
+            (8 << 60);
+        unsafe {
+            set_hugatp(self.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+            set_utvec();
+        }
+        
+        let vcpu_ctx_ptr = &self.vcpu_ctx as *const VcpuCtx;
+        let vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
+        
+        let mut ret: i32 = 0;
+        while ret == 0 {
+            unsafe {
+                enter_guest(vcpu_ctx_ptr_u64);
+            }
 
-        0
+            ret = self.handle_vcpu_exit();
+        } 
+
+        ret
     }
 }
 
@@ -388,7 +407,7 @@ mod tests {
             // Start vcpu threads!
             handle = thread::spawn(move || {
                 // TODO: thread_vcpu_run
-                vcpu_mutex.lock().unwrap().thread_vcpu_run();
+                vcpu_mutex.lock().unwrap().test_change_guest_ctx();
             });
 
             vcpu_handle.push(handle);
@@ -435,7 +454,7 @@ mod tests {
 
         vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_SUPERVISOR_SYSCALL;
         res = vcpu.handle_vcpu_exit();
-        assert_eq!(res, -1);
+        assert_eq!(res, 0xdead);
 
         vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0x8048000;
         vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xf0;

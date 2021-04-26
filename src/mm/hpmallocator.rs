@@ -1,12 +1,12 @@
 #[derive(Clone)]
 pub struct HpmRegion {
-    pub hpm_vptr: *mut u64, // VA
+    pub hpm_vptr: u64, // VA
     pub base_address: u64, // HPA
     pub length: u64,
 }
 
 impl HpmRegion {
-    pub fn new(hpm_vptr: *mut u64, base_address: u64, length: u64) -> Self {
+    pub fn new(hpm_vptr: u64, base_address: u64, length: u64) -> Self {
         Self {
             hpm_vptr,
             base_address,
@@ -63,7 +63,7 @@ impl HpmAllocator {
     // Use malloc for now
     pub fn hpm_alloc(&mut self, length: u64) -> HpmRegion {
         let ptr = unsafe { libc::malloc(length as usize) };
-        let hpm_vptr = ptr as *mut u64;
+        let hpm_vptr = ptr as u64;
 
         // --- Just for now ---
         let mut base_address = 0x10000;
@@ -92,7 +92,7 @@ mod tests {
         let hpa: u64 = 0x3000;
         let va: u64 = 0x5000;
         let length: u64 = 0x1000;
-        let hpm_vptr = va as *mut u64;
+        let hpm_vptr = va as u64;
         let hpm_region = HpmRegion::new(hpm_vptr, hpa, length);
 
         assert_eq!(hpm_region.hpm_vptr as u64, va);

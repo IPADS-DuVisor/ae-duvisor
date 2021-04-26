@@ -12,6 +12,7 @@ use delegation_constants::*;
 pub struct VmSharedState {
     pub vm_id: u32,
     pub ioctl_fd: Option<i32>,
+    pub gsmmu: gstagemmu::GStageMmu,
 }
 
 impl VmSharedState {
@@ -19,6 +20,7 @@ impl VmSharedState {
         Self {
             vm_id: 0,
             ioctl_fd: None,
+            gsmmu: gstagemmu::GStageMmu::new(),
         }
     }
 }
@@ -27,7 +29,6 @@ pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
-    pub gsmmu: gstagemmu::GStageMmu,
 }
 
 impl VirtualMachine {
@@ -36,14 +37,12 @@ impl VirtualMachine {
         let vm_state = VmSharedState::new();
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
-        let gsmmu = gstagemmu::GStageMmu::new();
 
         // Create vm struct instance
         let mut vm = Self {
             vcpus,
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
-            gsmmu,
         };
 
         // Create vcpu struct instance
@@ -80,7 +79,7 @@ impl VirtualMachine {
         let mut vcpu_mutex;
 
         // For debug
-        self.gsmmu.gsmmu_test();
+        //self.gsmmu.gsmmu_test();
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
@@ -98,7 +97,7 @@ impl VirtualMachine {
         }
     }
 
-    pub fn vm_destory(&mut self) {
+    pub fn vm_destroy(&mut self) {
         unsafe {
             libc::close(self.vm_state.lock().unwrap().ioctl_fd.unwrap());
         }
@@ -124,6 +123,16 @@ impl VirtualMachine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::vm::*;
+
+    #[test]
+    fn test_tiny_up_vm() { 
+        let nr_vcpu = 1;
+        let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+        vm.vm_init();
+        //vm.vm_run();
+        //vm.vm_destroy();
+    }
 
     #[test]
     fn test_vm_new() { 
