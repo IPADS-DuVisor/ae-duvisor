@@ -176,7 +176,7 @@ mod tests {
     use super::*;
     
     rusty_fork_test! {
-        /*
+        
         #[test]
         fn test_hpm_region_new() {
             let hpa: u64 = 0x3000;
@@ -210,9 +210,16 @@ mod tests {
         // Check hpa_to_va when hpa is out of bound
         #[test]
         fn test_hpa_to_va_oob_invalid() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             // Valid HPA: [base_addr, base_addr + 0x2000)
             let length = 0x2000;
-            let mut allocator = HpmAllocator::new();
+            let mut allocator = HpmAllocator::new(ioctl_fd);
 
             allocator.hpm_alloc(length);
 
@@ -232,20 +239,32 @@ mod tests {
         // Check hpa_to_va when hpa is equal to the upper boundary
         #[test]
         fn test_hpa_to_va_oob_invalid_eq() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             // Valid HPA: [base_addr, base_addr + 0x2000)
             let length = 0x2000;
-            let mut allocator = HpmAllocator::new();
+            let mut allocator = HpmAllocator::new(ioctl_fd);
 
-            allocator.hpm_alloc(length);
+            let result_wrap = allocator.hpm_alloc(length);
+            assert!(result_wrap.is_some());
 
-            let mut result;
+            let result = result_wrap.unwrap();
+            let result_length = result.len();
+            assert_eq!(1, result_length);
+
             let mut invalid_hpa;
+            let mut res;
 
-            for i in allocator.hpm_region_list {
+            for i in result {
                 invalid_hpa = i.base_address;
                 invalid_hpa += i.length;
-                result = i.hpa_to_va(invalid_hpa);
-                if result.is_some() {
+                res = i.hpa_to_va(invalid_hpa);
+                if res.is_some() {
                     panic!("HPA {:x} should be out of bound", invalid_hpa);
                 }
             }
@@ -254,20 +273,32 @@ mod tests {
         // Check hpa_to_va when hpa is valid
         #[test]
         fn test_hpa_to_va_oob_valid() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             // Valid HPA: [base_addr, base_addr + 0x2000)
             let length = 0x2000;
-            let mut allocator = HpmAllocator::new();
+            let mut allocator = HpmAllocator::new(ioctl_fd);
 
-            allocator.hpm_alloc(length);
+            let result_wrap = allocator.hpm_alloc(length);
+            assert!(result_wrap.is_some());
 
-            let mut result;
+            let result = result_wrap.unwrap();
+            let result_length = result.len();
+            assert_eq!(1, result_length);
+
             let mut valid_hpa;
+            let mut res;
 
-            for i in allocator.hpm_region_list {
+            for i in result {
                 valid_hpa = i.base_address;
-                valid_hpa += i.length / 2; 
-                result = i.hpa_to_va(valid_hpa);
-                if result.is_none() {
+                valid_hpa += i.length / 2;
+                res = i.hpa_to_va(valid_hpa);
+                if res.is_none() {
                     panic!("HPA {:x} should be valid", valid_hpa);
                 }
             }
@@ -276,79 +307,127 @@ mod tests {
         // Check hpa_to_va when hpa is equal to the lower bound
         #[test]
         fn test_hpa_to_va_oob_valid_eq() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             // Valid HPA: [base_addr, base_addr + 0x2000)
             let length = 0x2000;
-            let mut allocator = HpmAllocator::new();
+            let mut allocator = HpmAllocator::new(ioctl_fd);
 
-            allocator.hpm_alloc(length);
+            let result_wrap = allocator.hpm_alloc(length);
+            assert!(result_wrap.is_some());
 
-            let mut result;
+            let result = result_wrap.unwrap();
+            let result_length = result.len();
+            assert_eq!(1, result_length);
+
             let mut valid_hpa;
+            let mut res;
 
-            for i in allocator.hpm_region_list {
+            for i in result {
                 valid_hpa = i.base_address;
-                result = i.hpa_to_va(valid_hpa);
-                if result.is_none() {
+                res = i.hpa_to_va(valid_hpa);
+                if res.is_none() {
                     panic!("HPA {:x} should be valid", valid_hpa);
                 }
             }
         }
 
         // Check va_to_hpa when va is out of bound
-        /* #[test]
-           fn test_va_to_hpa_oob_invalid() {
-           let length = 0x2000;
-           let mut allocator = HpmAllocator::new();
+        #[test]
+        fn test_va_to_hpa_oob_invalid() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
 
-           allocator.hpm_alloc(length);
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
 
-           let mut result;
-           let mut invalid_va;
+            let length = 0x2000;
+            let mut allocator = HpmAllocator::new(ioctl_fd);
 
-           for i in allocator.hpm_region_list {
-           invalid_va = i.hpm_vptr + length + 0x1000;
-           result = i.va_to_hpa(invalid_va);
-           if result.is_some() {
-           panic!("VA {:x} should be out of bound", invalid_va);
-           }
-           }
-           } */
+            let result_wrap = allocator.hpm_alloc(length);
+            assert!(result_wrap.is_some());
+
+            let result = result_wrap.unwrap();
+            let result_length = result.len();
+            assert_eq!(1, result_length);
+
+            let mut invalid_va;
+            let mut res;
+
+            for i in result {
+                invalid_va = i.hpm_vptr + length + 0x1000;
+                res = i.va_to_hpa(invalid_va);
+                if res.is_some() {
+                    panic!("VA {:x} should be out of bound", invalid_va);
+                }
+            }
+        }
 
         // Check va_to_hpa when va is equal to the upper bound
-        /* #[test]
-           fn test_va_to_hpa_oob_invalid_eq() {
-           let length = 0x2000;
-           let mut allocator = HpmAllocator::new();
+        #[test]
+        fn test_va_to_hpa_oob_invalid_eq() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
 
-           allocator.hpm_alloc(length);
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
 
-           let mut result;
-           let mut invalid_va;
+            let length = 0x2000;
+            let mut allocator = HpmAllocator::new(ioctl_fd);
 
-           for i in allocator.hpm_region_list {
-           invalid_va = i.hpm_vptr + length;
-           result = i.va_to_hpa(invalid_va);
-           if result.is_some() {
-           panic!("VA {:x} should be out of bound", invalid_va);
-           }
-           }
-           } */
+            let result_wrap = allocator.hpm_alloc(length);
+            assert!(result_wrap.is_some());
+
+            let result = result_wrap.unwrap();
+            let result_length = result.len();
+            assert_eq!(1, result_length);
+
+            let mut invalid_va;
+            let mut res;
+
+            for i in result {
+                invalid_va = i.hpm_vptr + length;
+                res = i.va_to_hpa(invalid_va);
+                if res.is_some() {
+                    panic!("VA {:x} should be out of bound", invalid_va);
+                }
+            }
+        }
 
         // Check va_to_hpa when va is valid
         #[test]
         fn test_va_to_hpa_oob_valid() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let length = 0x2000;
-            let mut allocator = HpmAllocator::new();
+            let mut allocator = HpmAllocator::new(ioctl_fd);
 
-            allocator.hpm_alloc(length);
+            let result_wrap = allocator.hpm_alloc(length);
+            assert!(result_wrap.is_some());
 
-            let mut result;
+            let result = result_wrap.unwrap();
+            let result_length = result.len();
+            assert_eq!(1, result_length);
+
             let mut valid_va;
+            let mut res;
 
-            for i in allocator.hpm_region_list {
+            for i in result {
                 valid_va = i.hpm_vptr + length - 0x1000;
-                result = i.va_to_hpa(valid_va);
-                if result.is_none() {
+                res = i.va_to_hpa(valid_va);
+                if res.is_none() {
                     panic!("VA {:x} should be valid", valid_va);
                 }
             }
@@ -357,22 +436,33 @@ mod tests {
         // Check va_to_hpa when va is equal to the lower bound
         #[test]
         fn test_va_to_hpa_oob_valid_eq() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let length = 0x2000;
-            let mut allocator = HpmAllocator::new();
+            let mut allocator = HpmAllocator::new(ioctl_fd);
 
-            allocator.hpm_alloc(length);
+            let result_wrap = allocator.hpm_alloc(length);
+            assert!(result_wrap.is_some());
 
-            let mut result;
+            let result = result_wrap.unwrap();
+            let result_length = result.len();
+            assert_eq!(1, result_length);
+
             let mut valid_va;
+            let mut res;
 
-            for i in allocator.hpm_region_list {
+            for i in result {
                 valid_va = i.hpm_vptr;
-                result = i.va_to_hpa(valid_va);
-                if result.is_none() {
+                res = i.va_to_hpa(valid_va);
+                if res.is_none() {
                     panic!("VA {:x} should be valid", valid_va);
                 }
             }
-        }
-        */
+        }      
     }
 }

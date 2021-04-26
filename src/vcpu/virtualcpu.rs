@@ -235,27 +235,21 @@ mod tests {
     use csr_constants::*;
 
     rusty_fork_test! {
-        /*
+        
         #[test]
         fn test_stage2_page_fault() { 
             let vcpu_id = 0;
-            let vm_state = virtualmachine::VmSharedState::new();
-            let mut fd = vm_state.gsmmu.allocator.ioctl_fd;
-            let vm_mutex = Arc::new(Mutex::new(vm_state));
+            let vm = virtualmachine::VirtualMachine::new(1);
+            let mut fd = vm.vm_state.lock().unwrap().ioctl_fd;
+            let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let mut res;
-            let file_path = CString::new("/dev/laputa_dev").unwrap();
             let version: u64 = 0;
             let mut test_buf: u64 = 0;
             let mut test_buf_pfn: u64 = 0;
             let test_buf_size: usize = 32 << 20;
-            unsafe { 
-                //fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
-                if fd == 0 {
-                    fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
-                }
-                println!("pmp_alloc fd {}", fd);
 
+            unsafe { 
                 // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
                 let version_ptr = (&version) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
@@ -355,8 +349,8 @@ mod tests {
         #[test]
         fn test_vcpu_new() { 
             let vcpu_id = 20;
-            let vm_state = virtualmachine::VmSharedState::new();
-            let vm_mutex = Arc::new(Mutex::new(vm_state));
+            let vm = virtualmachine::VirtualMachine::new(1);
+            let vm_mutex = vm.vm_state;
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
             assert_eq!(vcpu.vcpu_id, vcpu_id);
@@ -368,8 +362,8 @@ mod tests {
         #[test]
         fn test_vcpu_ctx_init() { 
             let vcpu_id = 1;
-            let vm_state = virtualmachine::VmSharedState::new();
-            let vm_mutex = Arc::new(Mutex::new(vm_state));
+            let vm = virtualmachine::VirtualMachine::new(1);
+            let vm_mutex = vm.vm_state;
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
             let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
@@ -394,8 +388,8 @@ mod tests {
         #[test]
         fn test_vcpu_set_ctx() {  
             let vcpu_id = 1;
-            let vm_state = virtualmachine::VmSharedState::new();
-            let vm_mutex = Arc::new(Mutex::new(vm_state));
+            let vm = virtualmachine::VirtualMachine::new(1);
+            let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
             // guest ctx
@@ -469,47 +463,47 @@ mod tests {
             assert_eq!(result, vcpu_num * 100);
         }
 
-        // Check the correctness of vcpu_exit_handler
-        /* #[test]
-           fn test_vcpu_exit_handler() { 
-           let vcpu_id = 20;
-           let vm_state = virtualmachine::VmSharedState::new();
-           let vm_mutex = Arc::new(Mutex::new(vm_state));
-           let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
-           let mut res;
-
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_IRQ_MASK | 0x1;
-           res = vcpu.handle_vcpu_exit();
-           assert_eq!(res, 1);
-
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_SUPERVISOR_SYSCALL;
-           res = vcpu.handle_vcpu_exit();
-           assert_eq!(res, 0xdead);
-
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0x8048000;
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xf0;
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_INST_GUEST_PAGE_FAULT;
-           res = vcpu.handle_vcpu_exit();
-           assert_eq!(res, 0);
-
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0x7ff000;
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xf;
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_LOAD_GUEST_PAGE_FAULT;
-           res = vcpu.handle_vcpu_exit();
-           assert_eq!(res, 0);
-
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xa001;
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_VIRTUAL_INST_FAULT;
-           res = vcpu.handle_vcpu_exit();
-           assert_eq!(res, 0);
-
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0xdead0000;
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xfff;
-           vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_STORE_GUEST_PAGE_FAULT;
-           res = vcpu.handle_vcpu_exit();
-           assert_eq!(res, 0);
+        /* // Check the correctness of vcpu_exit_handler
+        #[test]
+            fn test_vcpu_exit_handler() { 
+            let vcpu_id = 20;
+            let vm = virtualmachine::VirtualMachine::new(1);
+            let vm_mutex = vm.vm_state;
+            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let mut res;
+ 
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_IRQ_MASK | 0x1;
+            res = vcpu.handle_vcpu_exit();
+            assert_eq!(res, 1);
+ 
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_SUPERVISOR_SYSCALL;
+            res = vcpu.handle_vcpu_exit();
+            assert_eq!(res, 0xdead);
+ 
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0x8048000;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xf0;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_INST_GUEST_PAGE_FAULT;
+            res = vcpu.handle_vcpu_exit();
+            assert_eq!(res, 0);
+ 
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0x7ff000;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xf;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_LOAD_GUEST_PAGE_FAULT;
+            res = vcpu.handle_vcpu_exit();
+            assert_eq!(res, 0);
+ 
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xa001;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_VIRTUAL_INST_FAULT;
+            res = vcpu.handle_vcpu_exit();
+            assert_eq!(res, 0);
+ 
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.hutval = 0xdead0000;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.utval = 0xfff;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_STORE_GUEST_PAGE_FAULT;
+            res = vcpu.handle_vcpu_exit();
+            assert_eq!(res, 0);
         } */
-        */
+        
     }
 }
 
