@@ -33,7 +33,7 @@ fn test_vcpu_add_all_gprs() {
      */
 
 
-    vm.vm_run();
+    //vm.vm_run();
 
     // TODO: use constants to specify exit reason
     // TODO: laputa::get_exit_reason(vcpu_num: u64), get exit reason of vcpu with number vcpu_num
