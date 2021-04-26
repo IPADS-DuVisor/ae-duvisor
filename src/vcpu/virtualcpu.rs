@@ -4,6 +4,7 @@ use crate::irq::vtimer;
 use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
 use vcpucontext::*;
+use crate::mm::gstagemmu::*;
 
 global_asm!(include_str!("vm_code.S"));
 
@@ -18,8 +19,9 @@ mod vm_exception_constants {
 pub use vm_exception_constants::*;
 
 mod errno_constants {
-    pub const ENOPERMIT: i32 = -1;
-    pub const ENOMAPPING: i32 = -2;
+    pub const EFAILED: i32 = -1;
+    pub const ENOPERMIT: i32 = -2;
+    pub const ENOMAPPING: i32 = -3;
 }
 pub use errno_constants::*;
 
@@ -108,20 +110,39 @@ impl VirtualCpu {
 
         let mut ret = 0;
         // map_query
+        let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
+        if query.is_some() {
+            ret = ENOPERMIT;
+        } else {
+            ret = ENOMAPPING;
+        }
         match ret {
             ENOPERMIT => {
                 self.exit_reason = ExitReason::ExitEaccess;
                 eprintln!("Query return ENOPERMIT: {}", ret);
-                ret = ENOPERMIT
             }
             ENOMAPPING => {
                 println!("Query return ENOMAPPING: {}", ret);
                 // find gpa region by fault_addr
-                // map new region to VM if the region exists
-                // handle MMIO otherwise
+                let len = 4096;
+                let res = self.vm.lock().unwrap().
+                    gsmmu.gpa_region_add(fault_addr, len);
+                if res.is_ok() {
+                    // map new region to VM if the region exists
+                    let hpa = res.unwrap();
+                    let flag: u64 = PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
+                    self.vm.lock().unwrap().gsmmu.map_page(
+                        fault_addr, hpa, flag);
+                    ret = 0;
+                } else {
+                    // handle MMIO otherwise
+                    self.exit_reason = ExitReason::ExitMmio;
+                    ret = EFAILED;
+                    eprintln!("MMIO unsupported: {}", ret);
+                }
             }
             _ => {
-                self.exit_reason = ExitReason::ExitUnknown;
+                self.exit_reason = ExitReason::ExitEaccess;
                 eprintln!("Invalid query result: {}", ret);
             }
         }
@@ -149,6 +170,7 @@ impl VirtualCpu {
         self.exit_reason = ExitReason::ExitUnknown;
 
         if (ucause & EXC_IRQ_MASK) != 0 {
+            self.exit_reason = ExitReason::ExitIntr;
             return 1;
         }
 
