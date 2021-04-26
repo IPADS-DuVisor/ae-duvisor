@@ -74,13 +74,10 @@ impl VirtualMachine {
 
     // Init vm & vcpu before vm_run()
     pub fn vm_init(&mut self) {
-
-
-        // Set fd of /dev/laputa_dev
         let ioctl_fd = self.vm_state.lock().unwrap().ioctl_fd;
 
-        // Open HU-extension via ioctl
-        VirtualMachine::open_hu_extension(ioctl_fd);
+        // Delegate traps via ioctl
+        VirtualMachine::hu_delegation(ioctl_fd);
         self.vm_state.lock().unwrap().gsmmu.allocator.set_ioctl_fd(ioctl_fd);
     }
 
@@ -88,9 +85,6 @@ impl VirtualMachine {
         let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
         let mut handle: thread::JoinHandle<()>;
         let mut vcpu_mutex;
-
-        // For debug
-        //self.gsmmu.gsmmu_test();
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
@@ -115,7 +109,7 @@ impl VirtualMachine {
     }
 
     #[allow(unused)]
-    pub fn open_hu_extension(ioctl_fd: i32) {
+    pub fn hu_delegation(ioctl_fd: i32) {
         unsafe {
             let edeleg = ((1 << INST_GUEST_PAGE_FAULT) | (1 << LOAD_GUEST_ACCESS_FAULT) 
                 | (1 << STORE_GUEST_AMO_ACCESS_FAULT)) as libc::c_ulong;
@@ -146,7 +140,6 @@ mod tests {
             vm.vm_destroy();
         } */
 
-        
         #[test]
         fn test_vm_new() { 
             let vcpu_num = 4;

@@ -108,7 +108,7 @@ impl VirtualCpu {
         let fault_addr = (hutval << 2) | (utval & 0x3);
         println!("gstage_page_fault: fault_addr = {:x}", fault_addr);
 
-        let mut ret = 0;
+        let mut ret;
         // map_query
         let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
         if query.is_some() {

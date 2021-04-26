@@ -1,5 +1,4 @@
 use crate::plat::uhe::ioctl::ioctl_constants;
-use std::ffi::CString;
 use ioctl_constants::*;
 
 #[derive(Clone)]
@@ -68,25 +67,16 @@ impl HpmAllocator {
         }
     }
 
+    // Call PMP for hpa region
     pub fn pmp_alloc(&mut self) -> Option<HpmRegion> {
-        let mut fd = self.ioctl_fd;
-        let mut test_buf: u64 = 0; // va
-        let mut test_buf_pfn: u64 = 0; // hpa
+        let fd = self.ioctl_fd;
+        let mut test_buf: u64; // va
+        let mut test_buf_pfn: u64; // hpa
         let test_buf_size: usize = 128 << 20; // 128 MB
-
-        // just for test!
-        //let file_path = CString::new("/dev/laputa_dev").unwrap();
-
         let version: u64 = 0;
 
         println!("pmp_alloc fd {}", fd);
         unsafe {
-            //if fd == 0 {
-            //    fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
-            //}
-            //println!("pmp_alloc fd {}", fd);
-
-            // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
             let version_ptr = (&version) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
             println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", version);
@@ -131,9 +121,9 @@ impl HpmAllocator {
     pub fn hpm_alloc(&mut self, length: u64) -> Option<Vec<HpmRegion>> {
         let target_hpm_region: &mut HpmRegion;
         let mut result: Vec<HpmRegion> = Vec::new();
-        let mut result_va: u64;
-        let mut result_pa: u64;
-        let mut result_length: u64;
+        let result_va: u64;
+        let result_pa: u64;
+        let result_length: u64;
 
         // get 128 MB for now
         if self.hpm_region_list.len() == 0 {
@@ -163,6 +153,7 @@ impl HpmAllocator {
         }
 
         println!("128 MB is not enough!");
+        
         None
     }
 
@@ -174,6 +165,7 @@ impl HpmAllocator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::CString;
     
     rusty_fork_test! {
         
@@ -191,21 +183,32 @@ mod tests {
         }
 
         // Check new() of GStageMmu
-        /* #[test]
-           fn test_allocator_alloc() { 
-           let length = 0x2000;
-           let mut allocator = HpmAllocator::new();
+        #[test]
+        fn test_allocator_alloc() { 
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
 
-           allocator.hpm_alloc(length);
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
 
-           let mut hpm_length: u64 = 0;
+            let length = 0x2000;
+            let mut allocator = HpmAllocator::new(ioctl_fd);
+            let result_wrap = allocator.hpm_alloc(length);
+            assert!(result_wrap.is_some());
 
-           for i in allocator.hpm_region_list {
-           hpm_length = i.length;
-           }
+            let result = result_wrap.unwrap();
+            let result_length = result.len();
+            assert_eq!(1, result_length);
 
-           assert_eq!(hpm_length, length);
-           } */
+            let mut region_length = 0;
+
+            for i in result {
+                region_length = i.length;
+            }
+
+            assert_eq!(region_length, length);
+        }
 
         // Check hpa_to_va when hpa is out of bound
         #[test]
@@ -220,17 +223,21 @@ mod tests {
             // Valid HPA: [base_addr, base_addr + 0x2000)
             let length = 0x2000;
             let mut allocator = HpmAllocator::new(ioctl_fd);
+            let result_wrap = allocator.hpm_alloc(length);
+            assert!(result_wrap.is_some());
 
-            allocator.hpm_alloc(length);
+            let result = result_wrap.unwrap();
+            let result_length = result.len();
+            assert_eq!(1, result_length);
 
-            let mut result;
             let mut invalid_hpa;
+            let mut res;
 
-            for i in allocator.hpm_region_list {
+            for i in result {
                 invalid_hpa = i.base_address;
                 invalid_hpa += i.length * 2;
-                result = i.hpa_to_va(invalid_hpa);
-                if result.is_some() {
+                res = i.hpa_to_va(invalid_hpa);
+                if res.is_some() {
                     panic!("HPA {:x} should be out of bound", invalid_hpa);
                 }
             }

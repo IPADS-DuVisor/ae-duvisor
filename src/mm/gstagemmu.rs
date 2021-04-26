@@ -1,6 +1,5 @@
 use crate::mm::hpmallocator;
 use crate::mm::gparegion;
-use std::ffi::CString;
 use core::mem;
 
 mod gsmmu_constants {
@@ -504,7 +503,7 @@ impl GStageMmu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process;
+    use std::ffi::CString;
 
     rusty_fork_test! {
         
@@ -547,7 +546,7 @@ mod tests {
             let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
             let mut gpa: u64 = 0;
-            let mut hpa: u64 = 0;
+            let hpa: u64 = 0;
             let mut length: u64 = 0;
 
             gsmmu.gpa_region_add(0x1000, 0x4000);
