@@ -1,5 +1,6 @@
 use crate::mm::hpmallocator;
 use crate::mm::gparegion;
+use std::ffi::CString;
 use core::mem;
 
 mod gsmmu_constants {
@@ -506,13 +507,19 @@ mod tests {
     use std::process;
 
     rusty_fork_test! {
-        /*
+        
         // Check new() of GStageMmu
         #[test]
-        fn test_gsmmu_new() { 
+        fn test_gsmmu_new() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
 
             let mem_size = 1 << 30;
-            let gsmmu = GStageMmu::new();
+            let gsmmu = GStageMmu::new(ioctl_fd);
 
             // Check the root table has been created
             let free_offset = gsmmu.page_table.free_offset;
@@ -530,9 +537,15 @@ mod tests {
         // Check gpa_region add
         #[test]
         fn test_gpa_region_add() { 
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
 
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
             let mut gpa: u64 = 0;
             let mut hpa: u64 = 0;
             let mut length: u64 = 0;
@@ -553,8 +566,15 @@ mod tests {
 
         #[test]
         fn test_page_table_create() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
             gsmmu.page_table.page_table_create(1);
@@ -576,8 +596,15 @@ mod tests {
         // Check the value of the L4 PTE
         #[test]
         fn test_map_page_pte() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
             gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -598,8 +625,15 @@ mod tests {
         // Check the location(index) of the new PTEs
         #[test]
         fn test_map_page_index() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let mut ptr: *mut u64;
             let mut pte: u64;
@@ -648,12 +682,19 @@ mod tests {
                 assert_eq!(pte, 0);
             }
         }
-
+        
         // Check the value of the L4 PTE created by map_range
         #[test]
         fn test_map_range_pte() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -684,8 +725,15 @@ mod tests {
         // Check the location(index) of the new PTEs created by map_range
         #[test]
         fn test_map_range_index() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let mut ptr: *mut u64;
             let mut pte: u64;
@@ -718,9 +766,15 @@ mod tests {
 
         #[test]
         fn test_unmap_page() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
 
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -749,8 +803,15 @@ mod tests {
 
         #[test]
         fn test_unmap_range() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -796,8 +857,15 @@ mod tests {
 
         #[test]
         fn test_map_query() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
             let mut pte: Pte;
             let mut pte_offset: u64 = 0;
             let mut pte_value: u64 = 0;
@@ -836,8 +904,15 @@ mod tests {
         // Check map_page by invalid hpa
         #[test]
         fn test_map_page_invalid_hpa() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
             let valid_gpa = 0x1000;
             let invalid_hpa = 0x2100;
 
@@ -851,8 +926,15 @@ mod tests {
         // Check map_page by invalid gpa
         #[test]
         fn test_map_page_invalid_gpa() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
             let valid_hpa = 0x2000;
             let invalid_gpa = 0x1100;
 
@@ -866,8 +948,15 @@ mod tests {
 
         #[test]
         fn test_map_protect() {
+            let file_path = CString::new("/dev/laputa_dev").unwrap();
+            let ioctl_fd;
+
+            unsafe {
+                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            }
+
             let mem_size = 1 << 30;
-            let mut gsmmu = GStageMmu::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let ptr: *mut u64;
             let mut pte: u64;
@@ -889,6 +978,5 @@ mod tests {
 
             assert_eq!(pte, 2059);
         }
-        */
     }
 }
