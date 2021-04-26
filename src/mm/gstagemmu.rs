@@ -183,7 +183,7 @@ impl GStageMmu {
             PTE_READ | PTE_WRITE | PTE_EXECUTE);
         self.unmap_range(0x1000, 0x2000);
         self.map_query(0x1000);
-        self.gpa_region_add(0x3000, 0x4000, 0x1000);
+        //self.gpa_region_add(0x3000, 0x4000, 0x1000);
         self.map_protect(0x1000, PTE_READ | PTE_EXECUTE);
     }
 
@@ -472,9 +472,32 @@ impl GStageMmu {
         Some(0)
     }
 
-    pub fn gpa_region_add(&mut self, gpa: u64, hpa: u64, length: u64) {
+    pub fn gpa_region_add(&mut self, gpa: u64, length: u64) -> Option<usize>{
+        let region_wrap = self.allocator.hpm_alloc(length);
+
+        if region_wrap.is_none() {
+            println!("gpa_region_add : hpm_alloc failed");
+            return None;
+        }
+
+        let region = region_wrap.unwrap();
+
+        if region.len() != 1 {
+            println!("gpa_region_add : gpa region alloc failed for length {}", region.len());
+            return None;
+        }
+
+        let mut hpa = 0;
+
+        for i in &region {
+            hpa = i.base_address;
+        }
+
         let gpa_region = gparegion::GpaRegion::new(gpa, hpa, length);
         self.gpa_regions.push(gpa_region);
+
+        let length = self.gpa_regions.len();
+        return Some(length);
     }
 }
 
@@ -510,17 +533,18 @@ mod tests {
         let mut hpa: u64 = 0;
         let mut length: u64 = 0;
 
-        gsmmu.gpa_region_add(0x1000, 0x4000, 0x2000);
+        gsmmu.gpa_region_add(0x1000, 0x4000);
+
+        let list_length = gsmmu.gpa_regions.len();
+        assert_eq!(1, list_length);
 
         for i in gsmmu.gpa_regions {
             gpa = i.gpa;
-            hpa = i.hpa;
             length = i.length;
         }
 
         assert_eq!(gpa, 0x1000);
-        assert_eq!(hpa, 0x4000);
-        assert_eq!(length, 0x2000);
+        assert_eq!(length, 0x4000);
     }
 
      #[test]
