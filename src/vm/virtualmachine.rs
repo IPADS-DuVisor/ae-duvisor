@@ -12,13 +12,17 @@ use delegation_constants::*;
 pub struct VmSharedState {
     pub vm_id: u32,
     pub ioctl_fd: Option<i32>,
+    pub gsmmu: gstagemmu::GStageMmu,
 }
 
 impl VmSharedState {
     pub fn new() -> Self {
+        let gsmmu = gstagemmu::GStageMmu::new();
+
         Self {
             vm_id: 0,
             ioctl_fd: None,
+            gsmmu,
         }
     }
 }
@@ -27,7 +31,7 @@ pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
-    pub gsmmu: gstagemmu::GStageMmu,
+    //pub gsmmu: gstagemmu::GStageMmu,
 }
 
 impl VirtualMachine {
@@ -36,14 +40,13 @@ impl VirtualMachine {
         let vm_state = VmSharedState::new();
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
-        let gsmmu = gstagemmu::GStageMmu::new();
+        //let gsmmu = gstagemmu::GStageMmu::new();
 
         // Create vm struct instance
         let mut vm = Self {
             vcpus,
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
-            gsmmu,
         };
 
         // Create vcpu struct instance
@@ -72,6 +75,7 @@ impl VirtualMachine {
 
         // Open HU-extension via ioctl
         VirtualMachine::open_hu_extension(ioctl_fd);
+        self.vm_state.lock().unwrap().gsmmu.allocator.set_ioctl_fd(ioctl_fd);
     }
 
     pub fn vm_run(&mut self) {
@@ -80,7 +84,7 @@ impl VirtualMachine {
         let mut vcpu_mutex;
 
         // For debug
-        self.gsmmu.gsmmu_test();
+        //self.gsmmu.gsmmu_test();
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
