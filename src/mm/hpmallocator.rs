@@ -57,7 +57,7 @@ impl HpmRegion {
 
 pub struct HpmAllocator {
     hpm_region_list: Vec<HpmRegion>,
-    ioctl_fd: i32,
+    pub ioctl_fd: i32,
 }
 
 impl HpmAllocator {
@@ -73,7 +73,11 @@ impl HpmAllocator {
         let mut test_buf: u64 = 0; // va
         let mut test_buf_pfn: u64 = 0; // hpa
         let test_buf_size: usize = 128 << 20; // 128 MB
+
+        // just for test!
         let file_path = CString::new("/dev/laputa_dev").unwrap();
+
+        let version: u64 = 0;
 
         println!("pmp_alloc fd {}", fd);
         unsafe {
@@ -81,6 +85,11 @@ impl HpmAllocator {
                 fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
             }
             println!("pmp_alloc fd {}", fd);
+
+            // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
+            let version_ptr = (&version) as *const u64;
+            libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
+            println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", version);
 
             // get va
             let addr = 0 as *mut libc::c_void;
@@ -99,6 +108,8 @@ impl HpmAllocator {
         let hpm_vptr = test_buf as u64;
         let base_address = test_buf_pfn;
         let length = test_buf_size as u64;
+
+        self.ioctl_fd = fd;
 
         Some(HpmRegion::new(hpm_vptr, base_address, length))
     }

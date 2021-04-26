@@ -11,7 +11,7 @@ fi
     -nographic \
     -cpu rv64,x-h=true,x-z=true \
     -smp 4 \
-    -m 2G \
+    -m 8G \
     -machine virt \
     -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.elf \
     -kernel ./linux-laputa/arch/riscv/boot/Image \

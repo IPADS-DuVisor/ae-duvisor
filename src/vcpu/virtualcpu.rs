@@ -198,18 +198,21 @@ rusty_fork_test! {
     fn test_stage2_page_fault() { 
         let vcpu_id = 0;
         let vm_state = virtualmachine::VmSharedState::new();
+        let mut fd = vm_state.gsmmu.allocator.ioctl_fd;
         let vm_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
-        let fd;
         let mut res;
         let file_path = CString::new("/dev/laputa_dev").unwrap();
-
         let version: u64 = 0;
         let mut test_buf: u64 = 0;
         let mut test_buf_pfn: u64 = 0;
         let test_buf_size: usize = 32 << 20;
         unsafe { 
-            fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
+            //fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
+            if fd == 0 {
+                fd = libc::open(file_path.as_ptr(), libc::O_RDWR); 
+            }
+            println!("pmp_alloc fd {}", fd);
 
             // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
             let version_ptr = (&version) as *const u64;
