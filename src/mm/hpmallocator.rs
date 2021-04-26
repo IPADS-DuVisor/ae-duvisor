@@ -61,10 +61,10 @@ pub struct HpmAllocator {
 }
 
 impl HpmAllocator {
-    pub fn new() -> Self {
+    pub fn new(ioctl_fd: i32) -> Self {
         Self {
             hpm_region_list: Vec::new(),
-            ioctl_fd: 0,
+            ioctl_fd,
         }
     }
 
@@ -75,7 +75,7 @@ impl HpmAllocator {
         let test_buf_size: usize = 128 << 20; // 128 MB
 
         // just for test!
-        let file_path = CString::new("/dev/laputa_dev").unwrap();
+        //let file_path = CString::new("/dev/laputa_dev").unwrap();
 
         let version: u64 = 0;
 

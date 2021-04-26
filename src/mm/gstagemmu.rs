@@ -158,9 +158,9 @@ pub struct GStageMmu {
 }
 
 impl GStageMmu {
-    pub fn new() -> Self {
+    pub fn new(ioctl_fd: i32) -> Self {
         let gpa_regions: Vec<gparegion::GpaRegion> = Vec::new();
-        let mut allocator = hpmallocator::HpmAllocator::new();
+        let mut allocator = hpmallocator::HpmAllocator::new(ioctl_fd);
         let mut page_table = PageTableRegion::new(&mut allocator);
 
         // create root table

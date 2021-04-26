@@ -11,16 +11,16 @@ use delegation_constants::*;
 // Export to vcpu
 pub struct VmSharedState {
     pub vm_id: u32,
-    pub ioctl_fd: Option<i32>,
+    pub ioctl_fd: i32,
     pub gsmmu: gstagemmu::GStageMmu,
 }
 
 impl VmSharedState {
-    pub fn new() -> Self {
+    pub fn new(ioctl_fd: i32) -> Self {
         Self {
             vm_id: 0,
-            ioctl_fd: None,
-            gsmmu: gstagemmu::GStageMmu::new(),
+            ioctl_fd,
+            gsmmu: gstagemmu::GStageMmu::new(ioctl_fd),
         }
     }
 }
@@ -32,9 +32,24 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
+    pub fn open_ioctl() -> i32 {
+        let file_path = CString::new("/dev/laputa_dev").unwrap();
+        let ioctl_fd;
+
+        unsafe {
+            ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+        }
+
+        ioctl_fd
+    }
+
     pub fn new(vcpu_num: u32) -> Self {
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
-        let vm_state = VmSharedState::new();
+
+        // get ioctl fd of "/dev/laputa_dev" 
+        let ioctl_fd = VirtualMachine::open_ioctl();
+
+        let vm_state = VmSharedState::new(ioctl_fd);
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
 
@@ -59,16 +74,10 @@ impl VirtualMachine {
 
     // Init vm & vcpu before vm_run()
     pub fn vm_init(&mut self) {
-        let file_path = CString::new("/dev/laputa_dev").unwrap();
-        let ioctl_fd;
 
-        unsafe {
-            ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
-        }
-        println!("ioctl_fd: {}", ioctl_fd);
 
         // Set fd of /dev/laputa_dev
-        self.vm_state.lock().unwrap().ioctl_fd = Some(ioctl_fd);
+        let ioctl_fd = self.vm_state.lock().unwrap().ioctl_fd;
 
         // Open HU-extension via ioctl
         VirtualMachine::open_hu_extension(ioctl_fd);
@@ -101,7 +110,7 @@ impl VirtualMachine {
 
     pub fn vm_destroy(&mut self) {
         unsafe {
-            libc::close(self.vm_state.lock().unwrap().ioctl_fd.unwrap());
+            libc::close(self.vm_state.lock().unwrap().ioctl_fd);
         }
     }
 
