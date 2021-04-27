@@ -85,6 +85,19 @@ impl VirtualCpu {
 
         0
     }
+
+    fn config_hugatp(&mut self) -> u64 {
+        let pt_pfn: u64 = self.vm.lock().unwrap().gsmmu.page_table.paddr >> 12;
+        let hugatp: u64 = pt_pfn | (9 << 60);
+
+        self.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
+
+        unsafe {
+            set_hugatp(hugatp);
+        }
+
+        hugatp
+    }
     
     fn virtual_inst_fault(&mut self) -> i32 {
         let ret = 0;
@@ -106,6 +119,8 @@ impl VirtualCpu {
         // map_query
         let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
         if query.is_some() {
+            let i = query.unwrap();
+            println!("Query PTE offset {}, value {}, level {}", i.offset, i.value, i.level);
             ret = ENOPERMIT;
         } else {
             ret = ENOMAPPING;
@@ -124,9 +139,10 @@ impl VirtualCpu {
                 if res.is_ok() {
                     // map new region to VM if the region exists
                     let (hva, hpa) = res.unwrap();
+                    println!("New hpa: {:x}", hpa);
                     unsafe {
                         let ptr = hva as *mut i32;
-                        *ptr = 0x73;
+                        *ptr = 0x73; // ecall
                     }
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
                     self.vm.lock().unwrap().gsmmu.map_page(
@@ -149,7 +165,7 @@ impl VirtualCpu {
     }
 
     fn supervisor_ecall(&mut self) -> i32 {
-        let mut ret = 0;
+        let ret;
         let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: funcID
         let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
         // ...
@@ -200,13 +216,17 @@ impl VirtualCpu {
         let mut res;
         self.vcpu_ctx.host_ctx.hyp_regs.uepc = 0x400000;
         self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
-        self.vcpu_ctx.host_ctx.hyp_regs.hugatp = 
-            (self.vm.lock().unwrap().gsmmu.page_table.paddr >> 12) | 
-            (9 << 60);
+
         unsafe {
+            // register vcpu thread to the kernel
             res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
             println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
-            set_hugatp(self.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+
+            // set hugatp
+            let hugatp = self.config_hugatp();
+            println!("Config hugatp: {:x}", hugatp);
+
+            // set trap hadnler
             set_utvec();
         }
         
@@ -244,7 +264,6 @@ mod tests {
     use csr_constants::*;
 
     rusty_fork_test! {
-        
         #[test]
         fn test_stage2_page_fault() { 
             let vcpu_id = 0;
@@ -511,8 +530,7 @@ mod tests {
             vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause = EXC_STORE_GUEST_PAGE_FAULT;
             res = vcpu.handle_vcpu_exit();
             assert_eq!(res, 0);
-        } */
-        
+        } */ 
     }
 }
 

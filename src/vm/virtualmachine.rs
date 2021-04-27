@@ -134,14 +134,15 @@ mod tests {
     use crate::vm::*;
 
     rusty_fork_test! {
-        /* #[test]
+        #[test]
         fn test_tiny_up_vm() { 
+            println!("---------start vm------------");
             let nr_vcpu = 1;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
             vm.vm_init();
             vm.vm_run();
             vm.vm_destroy();
-        } */
+        }
 
         #[test]
         fn test_vm_new() { 

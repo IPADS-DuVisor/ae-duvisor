@@ -70,8 +70,8 @@ impl HpmAllocator {
     // Call PMP for hpa region
     pub fn pmp_alloc(&mut self) -> Option<HpmRegion> {
         let fd = self.ioctl_fd;
-        let mut test_buf: u64; // va
-        let mut test_buf_pfn: u64; // hpa
+        let test_buf: u64; // va
+        let test_buf_pfn: u64; // hpa
         let test_buf_size: usize = 128 << 20; // 128 MB
         let version: u64 = 0;
 
@@ -96,7 +96,7 @@ impl HpmAllocator {
         }
 
         let hpm_vptr = test_buf as u64;
-        let base_address = test_buf_pfn;
+        let base_address = test_buf_pfn << 12;
         let length = test_buf_size as u64;
 
         self.ioctl_fd = fd;
@@ -162,13 +162,13 @@ impl HpmAllocator {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::ffi::CString;
     
-    rusty_fork_test! {
-        
+    rusty_fork_test! { 
         #[test]
         fn test_hpm_region_new() {
             let hpa: u64 = 0x3000;
@@ -472,4 +472,5 @@ mod tests {
             }
         }      
     }
+    
 }

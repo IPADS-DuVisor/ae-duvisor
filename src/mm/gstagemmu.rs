@@ -505,8 +505,7 @@ mod tests {
     use super::*;
     use std::ffi::CString;
 
-    rusty_fork_test! {
-        
+    rusty_fork_test! { 
         // Check new() of GStageMmu
         #[test]
         fn test_gsmmu_new() {
@@ -517,7 +516,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let gsmmu = GStageMmu::new(ioctl_fd);
 
             // Check the root table has been created
@@ -543,10 +541,8 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
             let mut gpa: u64 = 0;
-            let hpa: u64 = 0;
             let mut length: u64 = 0;
 
             gsmmu.gpa_region_add(0x1000, 0x4000);
@@ -572,7 +568,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
@@ -602,7 +597,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
@@ -631,7 +625,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let mut ptr: *mut u64;
@@ -692,7 +685,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
@@ -731,7 +723,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let mut ptr: *mut u64;
@@ -772,7 +763,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
@@ -809,7 +799,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
 
             // Create a page table
@@ -863,7 +852,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
             let mut pte: Pte;
             let mut pte_offset: u64 = 0;
@@ -910,7 +898,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
             let valid_gpa = 0x1000;
             let invalid_hpa = 0x2100;
@@ -932,7 +919,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
             let valid_hpa = 0x2000;
             let invalid_gpa = 0x1100;
@@ -954,7 +940,6 @@ mod tests {
                 ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mem_size = 1 << 30;
             let mut gsmmu = GStageMmu::new(ioctl_fd);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let ptr: *mut u64;
