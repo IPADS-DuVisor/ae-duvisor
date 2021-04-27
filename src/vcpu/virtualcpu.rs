@@ -159,8 +159,6 @@ impl VirtualCpu {
                         let size = end - start;
                         //let code_buf = test_buf + PAGE_TABLE_REGION_SIZE;
                         libc::memcpy(ptr as *mut c_void, vcpu_add_all_gprs as *mut c_void, size as usize);
-
-                        //*ptr = 0x73; // ecall
                     }
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
                     self.vm.lock().unwrap().gsmmu.map_page(
@@ -273,7 +271,6 @@ impl VirtualCpu {
 mod tests {
     use super::*;
     use std::thread;
-    use std::ffi::CString;
     use crate::plat::uhe::ioctl::ioctl_constants;
     use crate::plat::uhe::csr::csr_constants;
     use crate::irq::delegation::delegation_constants;
@@ -287,13 +284,13 @@ mod tests {
             let vcpu_id = 0;
             let vcpu_num = 1;
             let vm = virtualmachine::VirtualMachine::new(vcpu_num);
-            let mut fd = vm.vm_state.lock().unwrap().ioctl_fd;
+            let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let mut res;
             let version: u64 = 0;
-            let mut test_buf: u64 = 0;
-            let mut test_buf_pfn: u64 = 0;
+            let test_buf: u64;
+            let test_buf_pfn: u64;
             let test_buf_size: usize = 32 << 20;
 
             unsafe { 

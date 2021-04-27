@@ -545,7 +545,8 @@ mod tests {
             let mut gpa: u64 = 0;
             let mut length: u64 = 0;
 
-            gsmmu.gpa_region_add(0x1000, 0x4000);
+            let result = gsmmu.gpa_region_add(0x1000, 0x4000);
+            assert!(result.is_ok());
 
             let list_length = gsmmu.gpa_regions.len();
             assert_eq!(1, list_length);
