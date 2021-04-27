@@ -87,9 +87,9 @@ impl HpmAllocator {
             //println!("pmp_alloc fd {}", fd);
 
             // ioctl(fd_ioctl, IOCTL_LAPUTA_GET_API_VERSION, &tmp_buf_pfn) // 0x80086b01
-            let version_ptr = (&version) as *const u64;
-            libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
-            println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", version);
+            //let version_ptr = (&version) as *const u64;
+            //libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
+            //println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", version);
 
             // get va
             let addr = 0 as *mut libc::c_void;
