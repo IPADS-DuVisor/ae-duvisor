@@ -7,6 +7,7 @@ use vcpucontext::*;
 use crate::mm::gstagemmu::*;
 use crate::plat::uhe::ioctl::ioctl_constants::*;
 use crate::irq::delegation::delegation_constants::*;
+use core::ffi::c_void;
 
 global_asm!(include_str!("vm_code.S"));
 
@@ -150,7 +151,16 @@ impl VirtualCpu {
                     println!("New hpa: {:x}", hpa);
                     unsafe {
                         let ptr = hva as *mut i32;
-                        *ptr = 0x73; // ecall
+
+                        // test case
+                        // set test code
+                        let start = vcpu_add_all_gprs as u64;
+                        let end = vcpu_add_all_gprs_end as u64;
+                        let size = end - start;
+                        //let code_buf = test_buf + PAGE_TABLE_REGION_SIZE;
+                        libc::memcpy(ptr as *mut c_void, vcpu_add_all_gprs as *mut c_void, size as usize);
+
+                        //*ptr = 0x73; // ecall
                     }
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
                     self.vm.lock().unwrap().gsmmu.map_page(
@@ -270,7 +280,6 @@ mod tests {
     use ioctl_constants::*;
     use delegation_constants::*;
     use csr_constants::*;
-    use core::ffi::c_void;
 
     rusty_fork_test! {
 

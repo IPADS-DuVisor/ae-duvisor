@@ -138,10 +138,18 @@ mod tests {
         fn test_tiny_up_vm() { 
             println!("---------start vm------------");
             let nr_vcpu = 1;
+            let sum_ans = 10;
+            let mut sum = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
             vm.vm_init();
             vm.vm_run();
+            
+            for i in &vm.vcpus {
+                sum += i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+            }
             vm.vm_destroy();
+
+            assert_eq!(sum, sum_ans);
         }
 
         #[test]

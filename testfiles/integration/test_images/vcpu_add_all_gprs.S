@@ -2,6 +2,7 @@
 
 BEGIN_FUNC_FILE_NAME()
 	// x0 is hardwired to 0
+	li		x1, 10
 	add 	x1, x1, x2
 	add 	x1, x1, x3
 	add 	x1, x1, x4
