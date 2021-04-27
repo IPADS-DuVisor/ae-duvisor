@@ -5,6 +5,16 @@ use preparefile::*;
 extern crate cc;
 
 
+fn cc_build_filename(filename : &str){
+    let mut path: String = "testfiles/integration/test_images/".to_owned();
+    path.push_str(filename);
+    path.push_str(".S");
+    cc::Build::new()
+        .file(path)
+        .define("__FILENAME__", Some(filename))
+        .compile(filename);
+}
+
 fn main() {
     // Prepare /guestentry/asm_offset.h
     prepare_asm_offset_header();
@@ -12,4 +22,12 @@ fn main() {
     cc::Build::new()
         .file("guestentry/enter_guest.S")
         .compile("enter_guest");
+
+    let filenames = ["vcpu_add_all_gprs", "vcpu_ecall_exit", 
+                     "vmem_ld_mapping", "vmem_ld_nomapping", "vmem_ld_sd_over_loop",
+                     "vmem_W_Ro", "vmem_X_nonX"];
+    for i in 0..filenames.len() {
+        cc_build_filename(filenames[i]);
+    }    
+    
 }

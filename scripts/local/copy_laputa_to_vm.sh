@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $USER == gitlab-runner ]; then
+if [ ${USER}1 == gitlab-runner1 ]; then
     # for CI environment
     PREPARE="$HOME/prepare"
 else
