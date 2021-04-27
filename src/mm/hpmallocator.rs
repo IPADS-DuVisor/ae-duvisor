@@ -153,7 +153,7 @@ impl HpmAllocator {
         }
 
         println!("128 MB is not enough!");
-        
+
         None
     }
 

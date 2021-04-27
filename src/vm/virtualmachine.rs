@@ -111,10 +111,13 @@ impl VirtualMachine {
     #[allow(unused)]
     pub fn hu_delegation(ioctl_fd: i32) {
         unsafe {
-            let edeleg = ((1 << INST_GUEST_PAGE_FAULT) | (1 << LOAD_GUEST_ACCESS_FAULT) 
-                | (1 << STORE_GUEST_AMO_ACCESS_FAULT)) as libc::c_ulong;
-            let ideleg = (1<<0) as libc::c_ulong;
-            let deleg = [edeleg,ideleg];
+            let edeleg = ((1 << EXC_SUPERVISOR_SYSCALL) | 
+                (1 << EXC_INST_GUEST_PAGE_FAULT) | 
+                (1 << EXC_VIRTUAL_INST_FAULT) |
+                (1 << EXC_LOAD_GUEST_PAGE_FAULT) |
+                (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
+            let ideleg = (1 << IRQ_S_SOFT) as libc::c_ulong;
+            let deleg = [edeleg, ideleg];
             let deleg_ptr = (&deleg) as *const u64;
 
             // call ioctl

@@ -5,18 +5,10 @@ use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
 use vcpucontext::*;
 use crate::mm::gstagemmu::*;
+use crate::plat::uhe::ioctl::ioctl_constants::*;
+use crate::irq::delegation::delegation_constants::*;
 
 global_asm!(include_str!("vm_code.S"));
-
-mod vm_exception_constants {
-    pub const EXC_SUPERVISOR_SYSCALL: u64 = 10;
-    pub const EXC_INST_GUEST_PAGE_FAULT: u64 = 20;
-    pub const EXC_LOAD_GUEST_PAGE_FAULT: u64 = 21;
-    pub const EXC_VIRTUAL_INST_FAULT: u64 = 22;
-    pub const EXC_STORE_GUEST_PAGE_FAULT: u64 = 23;
-    pub const EXC_IRQ_MASK: u64 = 1 << 63;
-}
-pub use vm_exception_constants::*;
 
 mod errno_constants {
     pub const EFAILED: i32 = -1;
@@ -105,8 +97,10 @@ impl VirtualCpu {
     fn stage2_page_fault(&mut self) -> i32 {
         let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
         let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
-        let fault_addr = (hutval << 2) | (utval & 0x3);
-        println!("gstage_page_fault: fault_addr = {:x}", fault_addr);
+        //let fault_addr = (hutval << 2) | (utval & 0x3);
+        let fault_addr = utval;
+        println!("gstage_page_fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}", 
+            hutval, utval, fault_addr);
 
         let mut ret;
         // map_query
@@ -130,7 +124,11 @@ impl VirtualCpu {
                 if res.is_ok() {
                     // map new region to VM if the region exists
                     let (hva, hpa) = res.unwrap();
-                    let flag: u64 = PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
+                    unsafe {
+                        let ptr = hva as *mut i32;
+                        *ptr = 0x73;
+                    }
+                    let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
                     self.vm.lock().unwrap().gsmmu.map_page(
                         fault_addr, hpa, flag);
                     ret = 0;
@@ -198,10 +196,16 @@ impl VirtualCpu {
     }
 
     pub fn thread_vcpu_run(&mut self) -> i32 {
+        let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
+        let mut res;
+        self.vcpu_ctx.host_ctx.hyp_regs.uepc = 0x400000;
+        self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
         self.vcpu_ctx.host_ctx.hyp_regs.hugatp = 
-            (self.vm.lock().unwrap().gsmmu.page_table.vaddr >> 12) | 
-            (8 << 60);
+            (self.vm.lock().unwrap().gsmmu.page_table.paddr >> 12) | 
+            (9 << 60);
         unsafe {
+            res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
+            println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
             set_hugatp(self.vcpu_ctx.host_ctx.hyp_regs.hugatp);
             set_utvec();
         }
@@ -217,6 +221,11 @@ impl VirtualCpu {
 
             ret = self.handle_vcpu_exit();
         } 
+        
+        unsafe {
+            res = libc::ioctl(fd, IOCTL_LAPUTA_UNREGISTER_VCPU);
+            println!("IOCTL_LAPUTA_UNREGISTER_VCPU : {}", res);
+        }
 
         ret
     }
