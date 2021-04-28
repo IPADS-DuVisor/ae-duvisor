@@ -8,4 +8,4 @@ Cargo.lock
 /testfiles/integration/test_images/build
 /testfiles/*/*.img
 /testfiles/*.img
-/guestentry/asm_offset.h
+/src/guestentry/asm_offset.h
