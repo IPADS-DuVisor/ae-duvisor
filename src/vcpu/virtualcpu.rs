@@ -279,6 +279,7 @@ mod tests {
     use delegation_constants::*;
     use csr_constants::*;
     use gsmmu_constants::*;
+    use rusty_fork::rusty_fork_test;
 
     rusty_fork_test! {
         #[test]
@@ -534,8 +535,8 @@ mod tests {
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let mut res;
             let version: u64 = 0;
-            let mut test_buf: u64 = 0;
-            let mut test_buf_pfn: u64 = 0;
+            let test_buf: u64;
+            let test_buf_pfn: u64;
             let test_buf_size: usize = 64 << 20;
             let mut hugatp: u64;
 
@@ -596,9 +597,9 @@ mod tests {
                 println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
             }
 
-            let mut uepc: u64 = 0;
-            let mut utval: u64 = 0;
-            let mut ucause: u64 = 0;
+            let uepc: u64;
+            let utval: u64;
+            let ucause: u64;
 
             let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
             let ptr_u64 = ptr as u64;
@@ -654,9 +655,9 @@ mod tests {
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let mut res;
             let version: u64 = 0;
-            let mut test_buf: u64 = 0;
-            let mut test_buf_pfn: u64 = 0;
-            let test_buf_size: usize = 64 << 20;
+            let test_buf: u64;
+            let test_buf_pfn: u64;
+            let test_buf_size: usize = 64 << 20; // 64 MB
             let size: u64;
             let mut hugatp: u64;
 
@@ -718,14 +719,13 @@ mod tests {
                 println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
             }
 
-            let mut uepc: u64 = 0;
-            let mut utval: u64 = 0;
-            let mut ucause: u64 = 0;
+            let uepc: u64;
+            let utval: u64;
+            let ucause: u64;
 
             let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
             let ptr_u64 = ptr as u64;
             println!("the ptr is {:x}", ptr_u64);
-            let ret: i32 = 0;
 
             let target_code = ((test_buf_pfn << PAGE_SHIFT) 
                 + PAGE_TABLE_REGION_SIZE) as u64;
@@ -740,7 +740,7 @@ mod tests {
                 sum += i as u64;
             }
 
-            sum += (10 - 1);
+            sum += 10 - 1;
             println!("sum {}", sum);
 
             unsafe {

@@ -21,7 +21,7 @@ fn test_vcpu_add_all_gprs() {
     // TODO: VirtualMachine::new, there should be assert codes. When vm initialization failure,
     // such as memory allocation failure or exceeding vm number failure, occurs, 
     // VirtualMachine::new should assert ABORT, and the tests will failed.
-    let mut vm = VirtualMachine::new(vm_config.vcpu_count);
+    //let mut vm = VirtualMachine::new(vm_config.vcpu_count);
 
     // TODO: use constants to specify gpr
     // TODO: laputa::set_one_gregs(vcpu_num: u64, gpr_num: u64, val: u64)

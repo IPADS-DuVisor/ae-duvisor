@@ -167,6 +167,7 @@ impl HpmAllocator {
 mod tests {
     use super::*;
     use std::ffi::CString;
+    use rusty_fork::rusty_fork_test;
     
     rusty_fork_test! { 
         #[test]

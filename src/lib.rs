@@ -1,11 +1,11 @@
 #![feature(llvm_asm)]
 #![feature(global_asm)]
+#[allow(unused_imports)]
 
 #[macro_use]
 extern crate clap;
 
-#[macro_use]
-extern crate rusty_fork;
+
 
 pub mod vm;
 mod vcpu;

@@ -132,6 +132,7 @@ impl VirtualMachine {
 mod tests {
     use super::*;
     use crate::vm::*;
+    use rusty_fork::rusty_fork_test;
 
     rusty_fork_test! {
         #[test]
