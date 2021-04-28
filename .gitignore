@@ -5,7 +5,7 @@ Cargo.lock
 /prepare
 /.vscode
 /mnt
-/testfiles/integration/test_images/build
-/testfiles/*/*.img
-/testfiles/*.img
+/tests/integration/test_images/build
+/tests/*/*.img
+/tests/*.img
 /src/guestentry/asm_offset.h
