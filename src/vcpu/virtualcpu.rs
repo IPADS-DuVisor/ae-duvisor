@@ -250,6 +250,8 @@ impl VirtualCpu {
 
         if ret < 0 {
             eprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
+            // save the exit reason in HOST_A0 before the vcpu thread down
+            self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
         }
 
         ret

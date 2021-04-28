@@ -234,10 +234,11 @@ mod tests {
         fn test_vmem_ro() { 
             println!("---------start vm------------");
             let nr_vcpu = 1;
-            let sum_ans = 10;
-            let mut sum = 0;
+            let exit_reason_ans = 2; // g-stage page fault for no permission
+            let mut exit_reason = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
             vm.vm_init();
+            let ro_address = 0x3000;
 
             // set test code
             let start = vmem_W_Ro as u64;
@@ -245,7 +246,17 @@ mod tests {
             let length = end - start;
             let entry_point: u64 = vm.vm_img_load(start, length);
 
-            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(0x3000, PAGE_SIZE);
+            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(ro_address, PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!")
+            }
+
+            let (hva, hpa) = res.unwrap();
+
+            // read-only
+            let flag: u64 = PTE_USER | PTE_VALID | PTE_READ;
+
+            vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
 
             for i in &vm.vcpus {
                 i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
@@ -255,11 +266,11 @@ mod tests {
             vm.vm_run();
             
             for i in &vm.vcpus {
-                sum += i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
             }
             vm.vm_destroy();
 
-            assert_eq!(sum, sum_ans);
+            assert_eq!(exit_reason, exit_reason_ans);
         }
 
         #[test]
