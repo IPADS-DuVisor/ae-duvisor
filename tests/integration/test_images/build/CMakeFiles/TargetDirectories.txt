@@ -1,9 +1,0 @@
-/home/ubuntu/laputa/tests/integration/test_images/build/CMakeFiles/rebuild_cache.dir
-/home/ubuntu/laputa/tests/integration/test_images/build/CMakeFiles/vmem_ld_sd_over_loop.img.dir
-/home/ubuntu/laputa/tests/integration/test_images/build/CMakeFiles/edit_cache.dir
-/home/ubuntu/laputa/tests/integration/test_images/build/CMakeFiles/vmem_ld_nomapping.img.dir
-/home/ubuntu/laputa/tests/integration/test_images/build/CMakeFiles/vmem_ld_mapping.img.dir
-/home/ubuntu/laputa/tests/integration/test_images/build/CMakeFiles/vmem_X_nonX.img.dir
-/home/ubuntu/laputa/tests/integration/test_images/build/CMakeFiles/vmem_W_Ro.img.dir
-/home/ubuntu/laputa/tests/integration/test_images/build/CMakeFiles/vcpu_ecall_exit.img.dir
-/home/ubuntu/laputa/tests/integration/test_images/build/CMakeFiles/vcpu_add_all_gprs.img.dir
