@@ -111,7 +111,7 @@ impl VirtualMachine {
     #[allow(unused)]
     pub fn hu_delegation(ioctl_fd: i32) {
         unsafe {
-            let edeleg = ((1 << EXC_SUPERVISOR_SYSCALL) | 
+            let edeleg = ((1 << EXC_VIRTUAL_SUPERVISOR_SYSCALL) |
                 (1 << EXC_INST_GUEST_PAGE_FAULT) | 
                 (1 << EXC_VIRTUAL_INST_FAULT) |
                 (1 << EXC_LOAD_GUEST_PAGE_FAULT) |

@@ -2,9 +2,10 @@ use crate::mm::hpmallocator;
 use crate::mm::gparegion;
 use core::mem;
 
-mod gsmmu_constants {
+pub mod gsmmu_constants {
+    pub const PAGE_SIZE_SHIFT: u64 = 12;
     pub const PAGE_TABLE_REGION_SIZE: u64 = 1u64 << 25; // 32MB for now
-    pub const PAGE_SIZE: u64 = 1u64 << 12;
+    pub const PAGE_SIZE: u64 = 1u64 << PAGE_SIZE_SHIFT;
     pub const PAGE_SHIFT: u64 = 12;
     pub const PAGE_ORDER: u64 = 9;
 

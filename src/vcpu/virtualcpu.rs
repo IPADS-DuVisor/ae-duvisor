@@ -212,7 +212,7 @@ impl VirtualCpu {
                 EXC_STORE_GUEST_PAGE_FAULT => {
                 ret = self.stage2_page_fault();
             }
-            EXC_SUPERVISOR_SYSCALL => {
+            EXC_VIRTUAL_SUPERVISOR_SYSCALL => {
                 ret = self.supervisor_ecall();
             }
             _ => {
@@ -274,9 +274,11 @@ mod tests {
     use crate::plat::uhe::ioctl::ioctl_constants;
     use crate::plat::uhe::csr::csr_constants;
     use crate::irq::delegation::delegation_constants;
+    use crate::mm::gstagemmu::gsmmu_constants;
     use ioctl_constants::*;
     use delegation_constants::*;
     use csr_constants::*;
+    use gsmmu_constants::*;
 
     rusty_fork_test! {
         #[test]
@@ -292,35 +294,45 @@ mod tests {
             let test_buf: u64;
             let test_buf_pfn: u64;
             let test_buf_size: usize = 32 << 20;
+            let mut hugatp: u64;
 
             unsafe { 
                 let version_ptr = (&version) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
-                println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", version);
+                println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", 
+                    version);
 
                 let addr = 0 as *mut libc::c_void;
                 let mmap_ptr = libc::mmap(addr, test_buf_size, 
-                    libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, fd, 0);
+                    libc::PROT_READ | libc::PROT_WRITE, 
+                    libc::MAP_SHARED, fd, 0);
                 assert_ne!(mmap_ptr, libc::MAP_FAILED);
 
                 test_buf = mmap_ptr as u64;
                 test_buf_pfn = test_buf;
                 let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
-                println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", test_buf_pfn);
+                println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
+                    test_buf_pfn);
 
                 let mut test_buf_ptr = test_buf as *mut i32;
-                *test_buf_ptr = 0x73;
+                *test_buf_ptr = 0x73; // ecall
                 test_buf_ptr = (test_buf + 4) as *mut i32;
-                *test_buf_ptr = 0xa001;
+                *test_buf_ptr = 0xa001; // loop
 
-                let hugatp = test_buf + 4096 * 4;
-                let pte_ptr = (hugatp + 8 * ((test_buf_pfn << 12) >> 30)) as *mut u64;
-                *pte_ptr = (((test_buf_pfn << 12) >> 30) << 28) | 0x1f; // 512G 1-level direct mapping
+                // 512G 1-level direct mapping
+                hugatp = test_buf + 4096 * 4;
+                let pte_ptr = (hugatp + 8 * ((test_buf_pfn << PAGE_SIZE_SHIFT)
+                     >> 30)) as *mut u64;
+                *pte_ptr = (((test_buf_pfn << PAGE_SIZE_SHIFT) >> 30) << 28) | 
+                    0x1f;
                 println!("PTE : {:x}", *pte_ptr);
 
-                // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
-                let edeleg = ((1<<10)) | ((1<<20) | (1<<21) | (1<<23)) as libc::c_ulong; // guest page fault(sedeleg)
+                // delegate vs-ecall and guest page fault
+                let edeleg = ((1<<EXC_VIRTUAL_SUPERVISOR_SYSCALL)) 
+                    | ((1 << EXC_INST_GUEST_PAGE_FAULT) 
+                    | (1 << EXC_LOAD_GUEST_PAGE_FAULT) 
+                    | (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong; 
                 let ideleg = (1<<0) as libc::c_ulong;
                 let deleg = [edeleg,ideleg];
                 let deleg_ptr = (&deleg) as *const u64;
@@ -337,23 +349,27 @@ mod tests {
 
             let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
             let ptr_u64 = ptr as u64;
-            println!("the ptr is {:x}", ptr_u64);
+            println!("test_stage2_page_fault - ptr_u64: {:x}", ptr_u64);
             let mut ret: i32 = 0;
 
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = (test_buf_pfn << 12) as u64;
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = (test_buf_pfn + 2) | (8 << 60);
+            let target_code = (test_buf_pfn << PAGE_SIZE_SHIFT) as u64;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
+
+            hugatp = (test_buf_pfn + 2) | (8 << 60);
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
 
             while ret == 0 {
                 unsafe {
-                    set_hugatp(vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
-                    println!("HUGATP : {:x}", vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                    set_hugatp(hugatp);
+                    println!("HUGATP : {:x}", hugatp);
 
                     //hustatus.SPP=1 .SPVP=1 uret to VS mode
-                    vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
+                    vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+                        ((1 << HUSTATUS_SPV_SHIFT) 
+                        | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
                     set_utvec();
 
-                    //enter_guest_inline(ptr_u64);
                     enter_guest(ptr_u64);
 
                     uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
@@ -365,7 +381,8 @@ mod tests {
                     println!("guest hyp ucause 0x{:x}", ucause);
 
                     if ucause == 20 {
-                        vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = (test_buf_pfn + 4) | (8 << 60);
+                        vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = 
+                            (test_buf_pfn + 4) | HUGATP_MODE_SV39;
                     }
                 }
                 ret = vcpu.handle_vcpu_exit();
@@ -380,7 +397,8 @@ mod tests {
 
                 let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_RELEASE_PFN, test_buf_pfn_ptr);
-                println!("IOCTL_LAPUTA_RELEASE_PFN -  test_buf_pfn : {:x}", test_buf_pfn);
+                println!("IOCTL_LAPUTA_RELEASE_PFN - test_buf_pfn : {:x}", 
+                    test_buf_pfn);
             }
 
             assert_eq!(uepc, test_buf_pfn << 12);
@@ -432,28 +450,29 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(1);
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let ans = 17;
 
             // guest ctx
-            vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = 17;
+            vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = ans;
             let tmp = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
-            assert_eq!(tmp, 17);
+            assert_eq!(tmp, ans);
 
-            vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp = 17;
+            vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp = ans;
             let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
-            assert_eq!(tmp, 17);
+            assert_eq!(tmp, ans);
 
-            vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst = 17;
+            vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst = ans;
             let tmp = vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst;
-            assert_eq!(tmp, 17);
+            assert_eq!(tmp, ans);
 
             // host ctx
-            vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10] = 17;
+            vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10] = ans;
             let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
-            assert_eq!(tmp, 17);
+            assert_eq!(tmp, ans);
 
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hutinst = 17;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.hutinst = ans;
             let tmp = vcpu.vcpu_ctx.host_ctx.hyp_regs.hutinst;
-            assert_eq!(tmp, 17);
+            assert_eq!(tmp, ans);
         }
 
         // Check the Arc<Mutex<>> data access.
@@ -489,7 +508,8 @@ mod tests {
             let mut hypreg;
             for i in &vm.vcpus {
                 gpreg = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
-                sysreg = i.lock().unwrap().vcpu_ctx.guest_ctx.sys_regs.huvsscratch;
+                sysreg = 
+                    i.lock().unwrap().vcpu_ctx.guest_ctx.sys_regs.huvsscratch;
                 hypreg = i.lock().unwrap().vcpu_ctx.guest_ctx.hyp_regs.hutinst;
                 assert_eq!(gpreg, 10);
                 assert_eq!(sysreg, 11);
@@ -509,7 +529,7 @@ mod tests {
             let vcpu_id = 0;
             let vcpu_num = 1;
             let vm = virtualmachine::VirtualMachine::new(vcpu_num);
-            let mut fd = vm.vm_state.lock().unwrap().ioctl_fd;
+            let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let mut res;
@@ -517,6 +537,7 @@ mod tests {
             let mut test_buf: u64 = 0;
             let mut test_buf_pfn: u64 = 0;
             let test_buf_size: usize = 64 << 20;
+            let mut hugatp: u64;
 
             println!("---test_vcpu_ecall_exit---");
 
@@ -524,38 +545,48 @@ mod tests {
                 // ioctl
                 let version_ptr = (&version) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
-                println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", version);
+                println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", 
+                    version);
 
                 let addr = 0 as *mut libc::c_void;
                 let mmap_ptr = libc::mmap(addr, test_buf_size, 
-                    libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, fd, 0);
+                    libc::PROT_READ | libc::PROT_WRITE, 
+                    libc::MAP_SHARED, fd, 0);
                 assert_ne!(mmap_ptr, libc::MAP_FAILED);
                 
                 test_buf = mmap_ptr as u64; // va
                 test_buf_pfn = test_buf; // pa.pfn
                 let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
-                println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", test_buf_pfn);
+                println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
+                    test_buf_pfn);
                 
                 // set test code
                 let start = vcpu_ecall_exit as u64;
                 let end = vcpu_ecall_exit_end as u64;
                 let code_buf = test_buf + PAGE_TABLE_REGION_SIZE;
-                libc::memcpy(code_buf as *mut c_void, vcpu_ecall_exit as *mut c_void, (end - start) as usize);
+                libc::memcpy(code_buf as *mut c_void, 
+                    vcpu_ecall_exit as *mut c_void, (end - start) as usize);
 
                 // set hugatp
-                let hugatp = test_buf;
-                let pte_ptr = (hugatp + 8 * (((test_buf_pfn << 12) + PAGE_TABLE_REGION_SIZE) >> 30)) as *mut u64;
+                hugatp = test_buf;
+                let pte_ptr = (hugatp + 8 * (((test_buf_pfn << PAGE_SIZE_SHIFT)
+                     + PAGE_TABLE_REGION_SIZE) >> 30)) as *mut u64;
 
                 let pte_ptr_value = pte_ptr as u64;
                 println!("pte_ptr_value {}", pte_ptr_value);
 
-                *pte_ptr = (((test_buf_pfn << 12) >> 30) << 28) | 0x1f; // 512G 1-level direct mapping
+                // 512G 1-level direct mapping
+                *pte_ptr = (((test_buf_pfn << PAGE_SIZE_SHIFT) >> 30) << 28)
+                    | 0x1f;
                 println!("PTE : {:x}", *pte_ptr);
 
-                // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
-                let edeleg = ((1<<10)) | ((1<<20) | (1<<21) | (1<<23)) as libc::c_ulong; // guest page fault(sedeleg)
-                let ideleg = (1<<0) as libc::c_ulong;
+                // delegate vs-ecall and guest page fault
+                let edeleg = ((1<<EXC_VIRTUAL_SUPERVISOR_SYSCALL)) 
+                    | ((1 << EXC_INST_GUEST_PAGE_FAULT) 
+                    | (1 << EXC_LOAD_GUEST_PAGE_FAULT) 
+                    | (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
+                let ideleg = (1 << 0) as libc::c_ulong;
                 let deleg = [edeleg,ideleg];
                 let deleg_ptr = (&deleg) as *const u64;
                 res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
@@ -572,18 +603,24 @@ mod tests {
             let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
             let ptr_u64 = ptr as u64;
             println!("the ptr is {:x}", ptr_u64);
-            let mut ret: i32 = 0;
 
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = ((test_buf_pfn << 12) + PAGE_TABLE_REGION_SIZE) as u64;
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = (test_buf_pfn) | (8 << 60);
+            let target_code = ((test_buf_pfn << PAGE_SHIFT) 
+                + PAGE_TABLE_REGION_SIZE) as u64;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
+                
+
+            hugatp = (test_buf_pfn + 2) | (8 << 60);
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
 
             unsafe {
                 // set hugatp
-                set_hugatp(vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
-                println!("HUGATP : 0x{:x}", vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                set_hugatp(hugatp);
+                println!("HUGATP : 0x{:x}", hugatp);
 
                 //hustatus.SPP=1 .SPVP=1 uret to VS mode
-                vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
+                vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+                    ((1 << HUSTATUS_SPV_SHIFT)
+                    | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
                 // set utvec to trap handler
                 set_utvec();
@@ -612,7 +649,7 @@ mod tests {
             let vcpu_id = 0;
             let vcpu_num = 1;
             let vm = virtualmachine::VirtualMachine::new(vcpu_num);
-            let mut fd = vm.vm_state.lock().unwrap().ioctl_fd;
+            let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let mut res;
@@ -621,6 +658,7 @@ mod tests {
             let mut test_buf_pfn: u64 = 0;
             let test_buf_size: usize = 64 << 20;
             let size: u64;
+            let mut hugatp: u64;
 
             println!("---test_vcpu_add_all_gprs---");
 
@@ -628,38 +666,48 @@ mod tests {
                 // ioctl
                 let version_ptr = (&version) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
-                println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", version);
+                println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}",
+                    version);
 
                 let addr = 0 as *mut libc::c_void;
                 let mmap_ptr = libc::mmap(addr, test_buf_size, 
-                    libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, fd, 0);
+                    libc::PROT_READ | libc::PROT_WRITE, 
+                    libc::MAP_SHARED, fd, 0);
                 assert_ne!(mmap_ptr, libc::MAP_FAILED);
                 
                 test_buf = mmap_ptr as u64; // va
                 test_buf_pfn = test_buf; // pa.pfn
                 let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
-                println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", test_buf_pfn);
+                println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}",
+                    test_buf_pfn);
                 
                 // set test code
                 let start = vcpu_add_all_gprs as u64;
                 let end = vcpu_add_all_gprs_end as u64;
                 size = end - start;
                 let code_buf = test_buf + PAGE_TABLE_REGION_SIZE;
-                libc::memcpy(code_buf as *mut c_void, vcpu_add_all_gprs as *mut c_void, size as usize);
+                libc::memcpy(code_buf as *mut c_void,
+                    vcpu_add_all_gprs as *mut c_void, size as usize);
 
                 // set hugatp
-                let hugatp = test_buf;
-                let pte_ptr = (hugatp + 8 * (((test_buf_pfn << 12) + PAGE_TABLE_REGION_SIZE) >> 30)) as *mut u64;
+                hugatp = test_buf;
+                let pte_ptr = (hugatp + 8 * (((test_buf_pfn << PAGE_SIZE_SHIFT)
+                    + PAGE_TABLE_REGION_SIZE) >> 30)) as *mut u64;
 
                 let pte_ptr_value = pte_ptr as u64;
                 println!("pte_ptr_value {}", pte_ptr_value);
 
-                *pte_ptr = (((test_buf_pfn << 12) >> 30) << 28) | 0x1f; // 512G 1-level direct mapping
+                // 512G 1-level direct mapping
+                *pte_ptr = (((test_buf_pfn << PAGE_SIZE_SHIFT) >> 30) << 28)
+                    | 0x1f;
                 println!("PTE : {:x}", *pte_ptr);
 
-                // ioctl(fd_ioctl, IOCTL_LAPUTA_REQUEST_DELEG, deleg_info)
-                let edeleg = ((1<<10)) | ((1<<20) | (1<<21) | (1<<23)) as libc::c_ulong; // guest page fault(sedeleg)
+                // delegate vs-ecall and guest page fault
+                let edeleg = ((1<<EXC_VIRTUAL_SUPERVISOR_SYSCALL))
+                    | ((1 << EXC_INST_GUEST_PAGE_FAULT)
+                    | (1 << EXC_LOAD_GUEST_PAGE_FAULT)
+                    | (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
                 let ideleg = (1<<0) as libc::c_ulong;
                 let deleg = [edeleg,ideleg];
                 let deleg_ptr = (&deleg) as *const u64;
@@ -677,10 +725,14 @@ mod tests {
             let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
             let ptr_u64 = ptr as u64;
             println!("the ptr is {:x}", ptr_u64);
-            let mut ret: i32 = 0;
+            let ret: i32 = 0;
 
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = ((test_buf_pfn << 12) + PAGE_TABLE_REGION_SIZE) as u64;
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = (test_buf_pfn) | (8 << 60);
+            let target_code = ((test_buf_pfn << PAGE_SHIFT) 
+                + PAGE_TABLE_REGION_SIZE) as u64;
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
+
+            hugatp = (test_buf_pfn + 2) | (8 << 60);
+            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
 
             let mut sum = 0; 
             for i in 0..vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg.len() {
@@ -693,11 +745,13 @@ mod tests {
 
             unsafe {
                 // set hugatp
-                set_hugatp(vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
-                println!("HUGATP : 0x{:x}", vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                set_hugatp(hugatp);
+                println!("HUGATP : 0x{:x}", hugatp);
 
                 //hustatus.SPP=1 .SPVP=1 uret to VS mode
-                vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
+                vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+                    ((1 << HUSTATUS_SPV_SHIFT) 
+                    | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
                 // set utvec to trap handler
                 set_utvec();
@@ -717,7 +771,8 @@ mod tests {
             }
 
             assert_eq!(sum, vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]);
-            assert_eq!(uepc, ((test_buf_pfn << 12) + PAGE_TABLE_REGION_SIZE) + size - 4);
+            assert_eq!(uepc, ((test_buf_pfn << 12) + PAGE_TABLE_REGION_SIZE) 
+                + size - 4);
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
         }
