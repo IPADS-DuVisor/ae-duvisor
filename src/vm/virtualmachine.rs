@@ -7,6 +7,22 @@ use std::sync::{Arc, Mutex};
 use std::ffi::CString;
 use ioctl_constants::*;
 use delegation_constants::*;
+use core::ffi::c_void;
+
+#[allow(unused)]
+extern "C"
+{
+    fn vcpu_ecall_exit();
+    fn vcpu_ecall_exit_end();
+    fn vcpu_add_all_gprs();
+    fn vcpu_add_all_gprs_end();
+    fn vmem_ld_mapping();
+    fn vmem_ld_mapping_end();
+    fn vmem_W_Ro();
+    fn vmem_W_Ro_end();
+    fn vmem_X_nonX();
+    fn vmem_X_nonX_end();
+}
 
 // Export to vcpu
 pub struct VmSharedState {
@@ -84,6 +100,32 @@ impl VirtualMachine {
         self.vm_state.lock().unwrap().gsmmu.allocator.set_ioctl_fd(ioctl_fd);
     }
 
+    pub fn vm_img_load(&mut self, gpa_start: u64, length: u64) -> u64{
+        let res = self.vm_state.lock().unwrap().
+            gsmmu.gpa_region_add(gpa_start, length);
+        if !res.is_ok() {
+            panic!("vm_img_load failed");
+        }
+
+        let (hva, hpa) = res.unwrap();
+        println!("New hpa: {:x}", hpa);
+        
+        unsafe {
+            let ptr = hva as *mut i32;
+
+            // set vm img code
+            libc::memcpy(ptr as *mut c_void, gpa_start as *mut c_void,
+                length as usize);
+
+            println!("memcpy ptr {:x}", ptr as u64);
+            println!("memcpy length {:x}", length);
+        }
+
+        println!("memcpy hva {:x}", hva);
+
+        gpa_start
+    }
+
     pub fn vm_run(&mut self) {
         let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
         let mut handle: thread::JoinHandle<()>;
@@ -137,9 +179,29 @@ mod tests {
     use super::*;
     use crate::vm::*;
     use rusty_fork::rusty_fork_test;
+    use crate::mm::gstagemmu::gsmmu_constants;
+    use gsmmu_constants::*;
 
     rusty_fork_test! {
-        #[test]
+//        #[test]
+//        fn test_vm_add_all_gprs() { 
+//            println!("---------start vm------------");
+//            let nr_vcpu = 1;
+//            let sum_ans = 10;
+//            let mut sum = 0;
+//            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+//            vm.vm_init();
+//            vm.vm_run();
+//            
+//            for i in &vm.vcpus {
+//                sum += i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+//            }
+//            vm.vm_destroy();
+//
+//            assert_eq!(sum, sum_ans);
+//        }
+
+        /* #[test]
         fn test_vm_add_all_gprs() { 
             println!("---------start vm------------");
             let nr_vcpu = 1;
@@ -147,6 +209,49 @@ mod tests {
             let mut sum = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
             vm.vm_init();
+
+            // set test code
+            let start = vcpu_add_all_gprs as u64;
+            let end = vcpu_add_all_gprs_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                sum += i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+            }
+            vm.vm_destroy();
+
+            assert_eq!(sum, sum_ans);
+        } */
+
+        #[test]
+        fn test_vmem_ro() { 
+            println!("---------start vm------------");
+            let nr_vcpu = 1;
+            let sum_ans = 10;
+            let mut sum = 0;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            vm.vm_init();
+
+            // set test code
+            let start = vmem_W_Ro as u64;
+            let end = vmem_W_Ro_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(0x3000, PAGE_SIZE);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+            }
+            
+
             vm.vm_run();
             
             for i in &vm.vcpus {

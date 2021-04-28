@@ -20,7 +20,7 @@ mod tests {
 
     // Check new() of GStageMmu
     #[test]
-    fn test_gpa_region_new() { 
+    fn test_gpa_region_new() {
         let gpa = 0x4000;
         let hpa = 0x5000;
         let length = 0x1000;

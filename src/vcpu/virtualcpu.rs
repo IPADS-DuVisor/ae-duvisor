@@ -49,6 +49,10 @@ extern "C"
     fn vcpu_add_all_gprs_end();
     fn vmem_ld_mapping();
     fn vmem_ld_mapping_end();
+    fn vmem_W_Ro();
+    fn vmem_W_Ro_end();
+    fn vmem_X_nonX();
+    fn vmem_X_nonX_end();
 }
 
 pub struct VirtualCpu {
@@ -103,6 +107,8 @@ impl VirtualCpu {
             set_hugatp(hugatp);
         }
 
+        println!("set hugatp {:x}", hugatp);
+
         hugatp
     }
     
@@ -118,9 +124,16 @@ impl VirtualCpu {
         let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
         let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
         //let fault_addr = (hutval << 2) | (utval & 0x3);
-        let fault_addr = utval;
+        let mut fault_addr = utval;
         println!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
+        fault_addr &= !(0xfff as u64);
+        
+
+        let check = self.vm.lock().unwrap().gsmmu.check_gpa(fault_addr);
+        if !check {
+            panic!("illegal gpa!");
+        }
 
         let mut ret;
         // map_query
@@ -129,7 +142,13 @@ impl VirtualCpu {
             let i = query.unwrap();
             println!("Query PTE offset {}, value {}, level {}", i.offset, 
                 i.value, i.level);
-            ret = ENOPERMIT;
+            if i.is_leaf() {
+                ret = ENOPERMIT;
+            } else {
+                println!("QUERY is some but ENOMAPPING");
+                //ret = ENOPERMIT;
+                ret = ENOMAPPING;
+            }
         } else {
             ret = ENOMAPPING;
         }
@@ -140,35 +159,43 @@ impl VirtualCpu {
             }
             ENOMAPPING => {
                 println!("Query return ENOMAPPING: {}", ret);
-                // find gpa region by fault_addr
-                let len = PAGE_SIZE;
-                let res = self.vm.lock().unwrap().
-                    gsmmu.gpa_region_add(fault_addr, len);
-                if res.is_ok() {
-                    // map new region to VM if the region exists
-                    let (hva, hpa) = res.unwrap();
-                    println!("New hpa: {:x}", hpa);
-                    unsafe {
-                        let ptr = hva as *mut i32;
+                // find hpa by fault_addr
+                let fault_hpa_query = self.vm.lock().unwrap().gsmmu
+                    .gpa_region_query(fault_addr);
 
-                        // FIXME: set test code for now
-                        let start = vcpu_add_all_gprs as u64;
-                        let end = vcpu_add_all_gprs_end as u64;
-                        let size = end - start;
-                        libc::memcpy(ptr as *mut c_void,
-                            vcpu_add_all_gprs as *mut c_void,
-                            size as usize);
-                    }
+                if fault_hpa_query.is_some() {
+                    // fault gpa is already in a gpa_region and it is valid
+                    println!("fault gpa {:x} is already in a gpa_region and it is valid", fault_addr);
+                    let fault_hpa = fault_hpa_query.unwrap();
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
                         | PTE_EXECUTE;
+                    println!("map gpa: {:x} to hpa: {:x}", fault_addr, fault_hpa);
                     self.vm.lock().unwrap().gsmmu.map_page(
-                        fault_addr, hpa, flag);
+                        fault_addr, fault_hpa, flag);
                     ret = 0;
+                    //if fault_addr == 0x3000 { panic!("flag 4"); }
                 } else {
-                    // handle MMIO otherwise
-                    self.exit_reason = ExitReason::ExitMmio;
-                    ret = EFAILED;
-                    eprintln!("MMIO unsupported: {}", ret);
+                    // fault gpa is not in a gpa_region and it is valid
+                    println!("fault gpa {:x} is not in a gpa_region and it is valid", fault_addr);
+                    let len = PAGE_SIZE;
+                    let res = self.vm.lock().unwrap().gsmmu
+                        .gpa_region_add(fault_addr, len);
+                    if res.is_ok() {
+                        // map new page to VM if the region exists
+                        let (hva, hpa) = res.unwrap();
+
+                        let flag: u64 = PTE_USER | PTE_VALID | PTE_READ 
+                            | PTE_WRITE | PTE_EXECUTE;
+                        self.vm.lock().unwrap().gsmmu.map_page(
+                            fault_addr, hpa, flag);
+                        ret = 0;
+                    } else {
+                        // handle MMIO otherwise
+                        self.exit_reason = ExitReason::ExitMmio;
+                        ret = EFAILED;
+                        eprintln!("MMIO unsupported: {}", ret);
+                    }
+                    //if fault_addr == 0x3000 { panic!("flag 5"); }
                 }
             }
             _ => {
@@ -233,7 +260,7 @@ impl VirtualCpu {
         let mut res;
 
         // FIXME: uepc should be set to the entry point of vm img
-        self.vcpu_ctx.host_ctx.hyp_regs.uepc = 0x400000; // for test
+        //self.vcpu_ctx.host_ctx.hyp_regs.uepc = 0x400000; // for test
         self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
             | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
@@ -284,7 +311,7 @@ mod tests {
     use rusty_fork::rusty_fork_test;
 
     rusty_fork_test! {
-        #[test]
+        /* #[test]
         fn test_stage2_page_fault() { 
             let vcpu_id = 0;
             let vcpu_num = 1;
@@ -400,7 +427,7 @@ mod tests {
             assert_eq!(uepc, test_buf_pfn << PAGE_SIZE_SHIFT);
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
-        }
+        } */
 
         // Check the correctness of vcpu new()
         #[test]
@@ -631,6 +658,27 @@ mod tests {
             assert_eq!(ucause, 10);
         }
 
+//        #[test]
+//        fn test_vmem_ro() { 
+//            let vcpu_id = 0;
+//            let vcpu_num = 1;
+//            let vm = virtualmachine::VirtualMachine::new(vcpu_num);
+//            let fd = vm.vm_state.lock().unwrap().ioctl_fd;
+//            let vm_mutex = vm.vm_state;
+//            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+//            let res;
+//            let version: u64 = 0;
+//            let test_buf: u64;
+//            let test_buf_pfn: u64;
+//            let test_buf_size: usize = 64 << 20; // 64 MB
+//            let mut hugatp: u64;
+//
+//            
+//
+//
+//
+//        }
+//
         #[test]
         fn test_vcpu_add_all_gprs() { 
             let vcpu_id = 0;

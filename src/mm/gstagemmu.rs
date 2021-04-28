@@ -23,6 +23,18 @@ pub mod gsmmu_constants {
 }
 pub use gsmmu_constants::*;
 
+pub fn page_size_round_up(length: u64) -> u64 {
+    println!("length 0x{:x}", length);
+    if length & 0xfff == 0 {
+        return length;
+    }
+
+    let result: u64 = (length & !(0xfff as u64)) + PAGE_SIZE;
+    println!("result 0x{:x}", result);
+
+    result
+}
+
 pub struct Pte {
     // The offset of this pte from the top of the root table (page_table.region.hpm_vptr)
     // Access the pte by (page_table.region.hpm_vptr + offset) as u64
@@ -38,6 +50,14 @@ impl Pte {
             value,
             level,
         }
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        if self.value & 0x1 == 0 || self.value & 0xE == 0 {
+            return false;
+        }
+
+        true
     }
 }
 
@@ -174,6 +194,33 @@ impl GStageMmu {
         }
     }
 
+    // TODO: add mem_size in gsmmu and check gpa
+    pub fn check_gpa(&mut self, gpa: u64) -> bool {
+        return true;
+    }
+
+    pub fn gpa_region_query(&mut self, gpa: u64) -> Option<u64> {
+        let mut start: u64 = 0;
+        let mut end: u64 = 0;
+        let mut hpa: u64 = 0;
+
+        println!("gpa_region_query gpa: {:x}", gpa);
+
+        for i in &self.gpa_regions {
+            start = i.gpa;
+            end = start + i.length;
+            println!("gpa_region_query gpa: {:x}, hpa: {:x}, length: {:x}", i.gpa, i.hpa, i.length);
+            if gpa >= start &&  gpa < end {
+                println!("find a gpa region: gpa: {:x}, hpa: {:x}, length: {:x}", i.gpa, i.hpa, i.length);
+                hpa = i.hpa + gpa - start;
+                println!("gpa_region_query hpa: {:x}", hpa);
+                return Some(hpa);
+            }
+        }
+
+        return None;
+    }
+
     // For debug
     pub fn gsmmu_test(&mut self)  {
         self.map_page(0x1000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -256,7 +303,7 @@ impl GStageMmu {
                 pte = (page_table_hpa >> PAGE_SHIFT) << PTE_PPN_SHIFT;
                 pte = GStageMmu::set_pte_flag(pte, level, 0);
                 unsafe {
-                    *(pte_addr_va as *mut u64) = pte;         
+                    *(pte_addr_va as *mut u64) = pte;
                 }
             } else {
                 page_table_hpa = (pte >> PTE_PPN_SHIFT) << PAGE_SHIFT;
@@ -350,6 +397,7 @@ impl GStageMmu {
 
     // SV48x4
     pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> Option<u32> {
+        println!("enter map_page with gpa: {:x}, hpa: {:x}, flag: {:x}", gpa, hpa, flag);
         let offsets_wrap = self.gpa_to_ptregion_offset(gpa);
         if offsets_wrap.is_none() {
             return None;
@@ -361,10 +409,12 @@ impl GStageMmu {
         if (hpa & 0xfff) != 0 {
             return None;
         }
+        println!("map_page 1");
 
         if (gpa & 0xfff) != 0 {
             return None;
         }
+        println!("map_page 2");
 
         let mut pte = hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
         pte = GStageMmu::set_pte_flag(pte, 3, flag);
@@ -373,6 +423,7 @@ impl GStageMmu {
         unsafe {
             *pte_addr_ptr = pte;
         }
+        println!("map_page 3");
 
         Some(0)
     }
@@ -470,7 +521,10 @@ impl GStageMmu {
         Some(0)
     }
 
-    pub fn gpa_region_add(&mut self, gpa: u64, length: u64) -> Result<(u64, u64), u64>{
+    pub fn gpa_region_add(&mut self, gpa: u64, mut length: u64) -> Result<(u64, u64), u64> {
+        // gpa region should always be aligned to PAGE_SIZE
+        length = page_size_round_up(length);
+
         let region_wrap = self.allocator.hpm_alloc(length);
 
         if region_wrap.is_none() {
