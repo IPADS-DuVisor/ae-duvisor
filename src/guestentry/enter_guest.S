@@ -14,18 +14,22 @@ enter_guest:
 
     /* save a0-vcpu-ctx in CSR_USCRATCH & save USCRATCH */ 
     csrrw t3, CSR_USCRATCH, a0
-    sd t3, (HOST_HYP_USCRATCH)(a0)
+    sd t3, HOST_HYP_USCRATCH(a0)
 
-    ld t0, (HOST_HYP_HUSTATUS)(a0)
+    ld t0, HOST_HYP_HUSTATUS(a0)
     csrw CSR_HUSTATUS, t0
-    ld t0, (HOST_HYP_HUCOUNTEREN)(a0)
+
+    ld t0, HOST_HYP_HUCOUNTEREN(a0)
     csrw CSR_HUCOUNTEREN, t0
-    /* Save UEPC & UCAUSE & UTVAL for trap hadnler */
-    ld t0, (HOST_HYP_UEPC)(a0)
+
+    /* Restore UEPC & UCAUSE & UTVAL for trap hadnler */
+    ld t0, HOST_HYP_UEPC(a0)
     csrw CSR_UEPC, t0
-    ld t0, (HOST_HYP_UCAUSE)(a0)
+
+    ld t0, HOST_HYP_UCAUSE(a0)
     csrw CSR_UCAUSE, t0
-    ld t0, (HOST_HYP_UTVAL)(a0)
+
+    ld t0, HOST_HYP_UTVAL(a0)
     csrw CSR_UTVAL, t0
 
     /* hufence */
@@ -35,7 +39,7 @@ enter_guest:
     RESTORE_GUEST_CTX a0
     
     /* restore guest A0 */
-    ld x10, (GUEST_GP_X10)(a0)
+    ld x10, GUEST_GP_X10(a0)
 
     /* huret */
     uret
@@ -50,19 +54,23 @@ exit_guest:
 
     /* save guest A0 with USCRATCH */
     csrr t1, CSR_USCRATCH
-    sd t1, (GUEST_GP_X10)(a0)
+    sd t1, GUEST_GP_X10(a0)
 
     csrr t0, CSR_HUSTATUS
-    sd t0, (HOST_HYP_HUSTATUS)(a0)
+    sd t0, HOST_HYP_HUSTATUS(a0)
+
     csrr t0, CSR_HUCOUNTEREN
-    sd t0, (HOST_HYP_HUCOUNTEREN)(a0)
+    sd t0, HOST_HYP_HUCOUNTEREN(a0)
+
     /* Save UEPC & UCAUSE & UTVAL for trap hadnler */
     csrr t0, CSR_UEPC
-    sd t0, (HOST_HYP_UEPC)(a0)
+    sd t0, HOST_HYP_UEPC(a0)
+
     csrr t0, CSR_UCAUSE
-    sd t0, (HOST_HYP_UCAUSE)(a0)
+    sd t0, HOST_HYP_UCAUSE(a0)
+
     csrr t0, CSR_UTVAL
-    sd t0, (HOST_HYP_UTVAL)(a0)
+    sd t0, HOST_HYP_UTVAL(a0)
 
     /* restore host gp with a0=ctx, except t0-t6 and zero-x0 */
     RESTORE_HOST_CTX a0

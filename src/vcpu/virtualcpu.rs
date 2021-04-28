@@ -11,8 +11,6 @@ use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
 use core::ffi::c_void;
 
-global_asm!(include_str!("vm_code.S"));
-
 mod errno_constants {
     pub const EFAILED: i32 = -1;
     pub const ENOPERMIT: i32 = -2;
@@ -49,11 +47,8 @@ extern "C"
     fn vcpu_ecall_exit_end();
     fn vcpu_add_all_gprs();
     fn vcpu_add_all_gprs_end();
-
     fn vmem_ld_mapping();
     fn vmem_ld_mapping_end();
-
-    fn vm_code();
 }
 
 pub struct VirtualCpu {

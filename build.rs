@@ -29,5 +29,4 @@ fn main() {
     for i in 0..filenames.len() {
         cc_build_filename(filenames[i]);
     }    
-    
 }
