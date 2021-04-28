@@ -141,7 +141,7 @@ impl VirtualCpu {
             ENOMAPPING => {
                 println!("Query return ENOMAPPING: {}", ret);
                 // find gpa region by fault_addr
-                let len = 4096;
+                let len = PAGE_SIZE;
                 let res = self.vm.lock().unwrap().
                     gsmmu.gpa_region_add(fault_addr, len);
                 if res.is_ok() {
@@ -151,12 +151,10 @@ impl VirtualCpu {
                     unsafe {
                         let ptr = hva as *mut i32;
 
-                        // test case
-                        // set test code
+                        // FIXME: set test code for now
                         let start = vcpu_add_all_gprs as u64;
                         let end = vcpu_add_all_gprs_end as u64;
                         let size = end - start;
-                        //let code_buf = test_buf + PAGE_TABLE_REGION_SIZE;
                         libc::memcpy(ptr as *mut c_void,
                             vcpu_add_all_gprs as *mut c_void,
                             size as usize);
@@ -233,7 +231,9 @@ impl VirtualCpu {
     pub fn thread_vcpu_run(&mut self) -> i32 {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
         let mut res;
-        self.vcpu_ctx.host_ctx.hyp_regs.uepc = 0x400000;
+
+        // FIXME: uepc should be set to the entry point of vm img
+        self.vcpu_ctx.host_ctx.hyp_regs.uepc = 0x400000; // for test
         self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
             | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
@@ -324,7 +324,7 @@ mod tests {
                 *test_buf_ptr = 0xa001; // loop
 
                 // 512G 1-level direct mapping
-                hugatp = test_buf + 4096 * 4;
+                hugatp = test_buf + PAGE_SIZE * 4;
                 let pte_ptr = (hugatp + 8 * ((test_buf_pfn << PAGE_SIZE_SHIFT)
                      >> 30)) as *mut u64;
                 *pte_ptr = (((test_buf_pfn << PAGE_SIZE_SHIFT) >> 30) << 28) | 

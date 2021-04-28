@@ -182,7 +182,6 @@ impl GStageMmu {
             PTE_READ | PTE_WRITE | PTE_EXECUTE);
         self.unmap_range(0x1000, 0x2000);
         self.map_query(0x1000);
-        //self.gpa_region_add(0x3000, 0x4000, 0x1000);
         self.map_protect(0x1000, PTE_READ | PTE_EXECUTE);
     }
 

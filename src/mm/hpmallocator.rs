@@ -72,7 +72,7 @@ impl HpmAllocator {
         let fd = self.ioctl_fd;
         let test_buf: u64; // va
         let test_buf_pfn: u64; // hpa
-        let test_buf_size: usize = 128 << 20; // 128 MB
+        let test_buf_size: usize = 128 << 20; // 128 MB for now
         let version: u64 = 0;
 
         println!("pmp_alloc fd {}", fd);

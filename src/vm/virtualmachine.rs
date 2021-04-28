@@ -38,6 +38,9 @@ impl VirtualMachine {
 
         unsafe {
             ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            if ioctl_fd == -1 {
+                panic!("Open /dev/laputa_dev failed");
+            }
         }
 
         ioctl_fd
