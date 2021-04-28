@@ -1,10 +1,12 @@
+rusty-tags.vi
 /target
 **/*.rs.bk
 Cargo.lock
 /prepare
 /.vscode
 /mnt
-/testfiles/integration/test_images/build
-/testfiles/*/*.img
-/testfiles/*.img
-/guestentry/asm_offset.h
+/tests/integration/test_images/build/*
+/testsfiles/integration/test_images/build/*
+/tests/*/*.img
+/tests/*.img
+/src/vcpu/asm_offset.h

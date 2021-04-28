@@ -1,7 +1,11 @@
 #![feature(llvm_asm)]
 #![feature(global_asm)]
+#[allow(unused_imports)]
+
 #[macro_use]
 extern crate clap;
+
+
 
 pub mod vm;
 mod vcpu;
@@ -21,6 +25,6 @@ pub fn run(config: &cmdline::VMConfig) {
     let mut vm = VirtualMachine::new(vcpu_num);
     vm.vm_init();
     vm.vm_run();
-    vm.vm_destory();
+    vm.vm_destroy();
     println!("Finish vm running...");
 }

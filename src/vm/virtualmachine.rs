@@ -11,14 +11,16 @@ use delegation_constants::*;
 // Export to vcpu
 pub struct VmSharedState {
     pub vm_id: u32,
-    pub ioctl_fd: Option<i32>,
+    pub ioctl_fd: i32,
+    pub gsmmu: gstagemmu::GStageMmu,
 }
 
 impl VmSharedState {
-    pub fn new() -> Self {
+    pub fn new(ioctl_fd: i32) -> Self {
         Self {
             vm_id: 0,
-            ioctl_fd: None,
+            ioctl_fd,
+            gsmmu: gstagemmu::GStageMmu::new(ioctl_fd),
         }
     }
 }
@@ -27,23 +29,38 @@ pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
-    pub gsmmu: gstagemmu::GStageMmu,
 }
 
 impl VirtualMachine {
+    pub fn open_ioctl() -> i32 {
+        let file_path = CString::new("/dev/laputa_dev").unwrap();
+        let ioctl_fd;
+
+        unsafe {
+            ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            if ioctl_fd == -1 {
+                panic!("Open /dev/laputa_dev failed");
+            }
+        }
+
+        ioctl_fd
+    }
+
     pub fn new(vcpu_num: u32) -> Self {
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
-        let vm_state = VmSharedState::new();
+
+        // get ioctl fd of "/dev/laputa_dev" 
+        let ioctl_fd = VirtualMachine::open_ioctl();
+
+        let vm_state = VmSharedState::new(ioctl_fd);
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
-        let gsmmu = gstagemmu::GStageMmu::new();
 
         // Create vm struct instance
         let mut vm = Self {
             vcpus,
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
-            gsmmu,
         };
 
         // Create vcpu struct instance
@@ -60,27 +77,17 @@ impl VirtualMachine {
 
     // Init vm & vcpu before vm_run()
     pub fn vm_init(&mut self) {
-        let file_path = CString::new("/dev/laputa_dev").unwrap();
-        let ioctl_fd;
+        let ioctl_fd = self.vm_state.lock().unwrap().ioctl_fd;
 
-        unsafe {
-            ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
-        }
-
-        // Set fd of /dev/laputa_dev
-        self.vm_state.lock().unwrap().ioctl_fd = Some(ioctl_fd);
-
-        // Open HU-extension via ioctl
-        VirtualMachine::open_hu_extension(ioctl_fd);
+        // Delegate traps via ioctl
+        VirtualMachine::hu_delegation(ioctl_fd);
+        self.vm_state.lock().unwrap().gsmmu.allocator.set_ioctl_fd(ioctl_fd);
     }
 
     pub fn vm_run(&mut self) {
         let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
         let mut handle: thread::JoinHandle<()>;
         let mut vcpu_mutex;
-
-        // For debug
-        self.gsmmu.gsmmu_test();
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
@@ -98,23 +105,27 @@ impl VirtualMachine {
         }
     }
 
-    pub fn vm_destory(&mut self) {
+    pub fn vm_destroy(&mut self) {
         unsafe {
-            libc::close(self.vm_state.lock().unwrap().ioctl_fd.unwrap());
+            libc::close(self.vm_state.lock().unwrap().ioctl_fd);
         }
     }
 
     #[allow(unused)]
-    pub fn open_hu_extension(ioctl_fd: i32) {
+    pub fn hu_delegation(ioctl_fd: i32) {
         unsafe {
-            let edeleg = ((1 << INST_GUEST_PAGE_FAULT) | (1 << LOAD_GUEST_ACCESS_FAULT) 
-                | (1 << STORE_GUEST_AMO_ACCESS_FAULT)) as libc::c_ulong;
-            let ideleg = (1<<0) as libc::c_ulong;
-            let deleg = [edeleg,ideleg];
+            let edeleg = ((1 << EXC_VIRTUAL_SUPERVISOR_SYSCALL) |
+                (1 << EXC_INST_GUEST_PAGE_FAULT) | 
+                (1 << EXC_VIRTUAL_INST_FAULT) |
+                (1 << EXC_LOAD_GUEST_PAGE_FAULT) |
+                (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
+            let ideleg = (1 << IRQ_S_SOFT) as libc::c_ulong;
+            let deleg = [edeleg, ideleg];
             let deleg_ptr = (&deleg) as *const u64;
 
             // call ioctl
-            let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
+            let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG,
+                deleg_ptr);
             println!("ioctl result: {}", res);
         }
     }
@@ -124,26 +135,48 @@ impl VirtualMachine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::vm::*;
+    use rusty_fork::rusty_fork_test;
 
-    #[test]
-    fn test_vm_new() { 
-        let vcpu_num = 4;
-        let vm = VirtualMachine::new(vcpu_num);
+    rusty_fork_test! {
+        #[test]
+        fn test_vm_add_all_gprs() { 
+            println!("---------start vm------------");
+            let nr_vcpu = 1;
+            let sum_ans = 10;
+            let mut sum = 0;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            vm.vm_init();
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                sum += i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+            }
+            vm.vm_destroy();
 
-        assert_eq!(vm.vcpu_num, vcpu_num);
-    }
+            assert_eq!(sum, sum_ans);
+        }
 
-    // Check the num of the vcpu created 
-    #[test]
-    fn test_vm_new_vcpu() {   
-        let vcpu_num = 4;
-        let vm = VirtualMachine::new(vcpu_num);
-        let mut sum = 0;
+        #[test]
+        fn test_vm_new() { 
+            let vcpu_num = 4;
+            let vm = VirtualMachine::new(vcpu_num);
 
-        for i in &vm.vcpus {
-            sum = sum + i.lock().unwrap().vcpu_id;
-        } 
+            assert_eq!(vm.vcpu_num, vcpu_num);
+        }
 
-        assert_eq!(sum, 6); // 0 + 1 + 2 + 3
+        // Check the num of the vcpu created 
+        #[test]
+        fn test_vm_new_vcpu() {   
+            let vcpu_num = 4;
+            let vm = VirtualMachine::new(vcpu_num);
+            let mut sum = 0;
+
+            for i in &vm.vcpus {
+                sum = sum + i.lock().unwrap().vcpu_id;
+            } 
+
+            assert_eq!(sum, 6); // 0 + 1 + 2 + 3
+        }
     }
 }
