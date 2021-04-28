@@ -6,7 +6,7 @@ extern crate cc;
 
 
 fn cc_build_filename(filename : &str){
-    let mut path: String = "testfiles/integration/test_images/".to_owned();
+    let mut path: String = "tests/integration/test_images/".to_owned();
     path.push_str(filename);
     path.push_str(".S");
     cc::Build::new()

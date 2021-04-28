@@ -11,7 +11,7 @@ fn test_vcpu_add_all_gprs() {
         vcpu_count: 1,
         mem_size: 1024,
         machine_type: String::from("test_type"),
-        kernel_img_path: String::from("testfiles/integration/vcpu_add_all_gprs.img"),
+        kernel_img_path: String::from("tests/integration/vcpu_add_all_gprs.img"),
         initrd_path: String::from(""),
         dtb_path: String::from(""),
     };
@@ -54,5 +54,5 @@ fn test_vcpu_add_all_gprs() {
 
 #[test]
 fn test_generated_images_existence() {
-    assert!(Path::new("testfiles/integration/vcpu_add_all_gprs.img").is_file());
+    assert!(Path::new("tests/integration/vcpu_add_all_gprs.img").is_file());
 }
