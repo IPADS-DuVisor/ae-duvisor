@@ -16,11 +16,11 @@ fn cc_build_filename(filename : &str){
 }
 
 fn main() {
-    // Prepare /guestentry/asm_offset.h
+    // Prepare src/guestentry/asm_offset.h
     prepare_asm_offset_header();
 
     cc::Build::new()
-        .file("guestentry/enter_guest.S")
+        .file("src/guestentry/enter_guest.S")
         .compile("enter_guest");
 
     let filenames = ["vcpu_add_all_gprs", "vcpu_ecall_exit", 
