@@ -409,7 +409,7 @@ mod tests {
                     test_buf_pfn);
             }
 
-            assert_eq!(uepc, test_buf_pfn << 12);
+            assert_eq!(uepc, test_buf_pfn << PAGE_SIZE_SHIFT);
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
         }
@@ -647,7 +647,8 @@ mod tests {
                 println!("guest hyp a7 0x{:x}", a7);
             }
 
-            assert_eq!(uepc, ((test_buf_pfn << 12) + PAGE_TABLE_REGION_SIZE) + 2);
+            assert_eq!(uepc, ((test_buf_pfn << PAGE_SIZE_SHIFT)
+                + PAGE_TABLE_REGION_SIZE) + 2);
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
         }
@@ -778,8 +779,8 @@ mod tests {
             }
 
             assert_eq!(sum, vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]);
-            assert_eq!(uepc, ((test_buf_pfn << 12) + PAGE_TABLE_REGION_SIZE) 
-                + size - 4);
+            assert_eq!(uepc, ((test_buf_pfn << PAGE_SIZE_SHIFT)
+                + PAGE_TABLE_REGION_SIZE) + size - 4);
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
         }
