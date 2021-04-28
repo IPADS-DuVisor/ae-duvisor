@@ -1,5 +1,5 @@
 #include "csr.h"
-#include "asm_offset.h"
+#include "../vcpu/asm_offset.h"
 #include "save_restore.S"
 
 .align 2
