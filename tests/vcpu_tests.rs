@@ -4,7 +4,6 @@
  */
 use std::path::Path;
 use laputa::init::cmdline;
-use laputa::vm::VirtualMachine;
 
 #[test]
 fn test_vcpu_add_all_gprs() {

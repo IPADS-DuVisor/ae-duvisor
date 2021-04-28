@@ -7,6 +7,8 @@ use vcpucontext::*;
 use crate::mm::gstagemmu::*;
 use crate::plat::uhe::ioctl::ioctl_constants::*;
 use crate::irq::delegation::delegation_constants::*;
+use crate::plat::uhe::csr::csr_constants;
+use csr_constants::*;
 use core::ffi::c_void;
 
 global_asm!(include_str!("vm_code.S"));
@@ -279,12 +281,10 @@ mod tests {
     use super::*;
     use std::thread;
     use crate::plat::uhe::ioctl::ioctl_constants;
-    use crate::plat::uhe::csr::csr_constants;
     use crate::irq::delegation::delegation_constants;
     use crate::mm::gstagemmu::gsmmu_constants;
     use ioctl_constants::*;
     use delegation_constants::*;
-    use csr_constants::*;
     use gsmmu_constants::*;
     use rusty_fork::rusty_fork_test;
 
@@ -337,15 +337,7 @@ mod tests {
                 println!("PTE : {:x}", *pte_ptr);
 
                 // delegate vs-ecall and guest page fault
-                let edeleg = ((1<<EXC_VIRTUAL_SUPERVISOR_SYSCALL)) 
-                    | ((1 << EXC_INST_GUEST_PAGE_FAULT) 
-                    | (1 << EXC_LOAD_GUEST_PAGE_FAULT) 
-                    | (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong; 
-                let ideleg = (1<<0) as libc::c_ulong;
-                let deleg = [edeleg,ideleg];
-                let deleg_ptr = (&deleg) as *const u64;
-                res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
-                println!("IOCTL_LAPUTA_REQUEST_DELEG : {}", res);
+                virtualmachine::VirtualMachine::hu_delegation(fd);
 
                 res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
                 println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
@@ -540,7 +532,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
-            let mut res;
+            let res;
             let version: u64 = 0;
             let test_buf: u64;
             let test_buf_pfn: u64;
@@ -590,15 +582,7 @@ mod tests {
                 println!("PTE : {:x}", *pte_ptr);
 
                 // delegate vs-ecall and guest page fault
-                let edeleg = ((1<<EXC_VIRTUAL_SUPERVISOR_SYSCALL)) 
-                    | ((1 << EXC_INST_GUEST_PAGE_FAULT) 
-                    | (1 << EXC_LOAD_GUEST_PAGE_FAULT) 
-                    | (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
-                let ideleg = (1 << 0) as libc::c_ulong;
-                let deleg = [edeleg,ideleg];
-                let deleg_ptr = (&deleg) as *const u64;
-                res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
-                println!("IOCTL_LAPUTA_REQUEST_DELEG : {}", res);
+                virtualmachine::VirtualMachine::hu_delegation(fd);
 
                 res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
                 println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
@@ -661,7 +645,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
-            let mut res;
+            let res;
             let version: u64 = 0;
             let test_buf: u64;
             let test_buf_pfn: u64;
@@ -713,15 +697,7 @@ mod tests {
                 println!("PTE : {:x}", *pte_ptr);
 
                 // delegate vs-ecall and guest page fault
-                let edeleg = ((1<<EXC_VIRTUAL_SUPERVISOR_SYSCALL))
-                    | ((1 << EXC_INST_GUEST_PAGE_FAULT)
-                    | (1 << EXC_LOAD_GUEST_PAGE_FAULT)
-                    | (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
-                let ideleg = (1<<0) as libc::c_ulong;
-                let deleg = [edeleg,ideleg];
-                let deleg_ptr = (&deleg) as *const u64;
-                res = libc::ioctl(fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
-                println!("IOCTL_LAPUTA_REQUEST_DELEG : {}", res);
+                virtualmachine::VirtualMachine::hu_delegation(fd);
 
                 res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
                 println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
