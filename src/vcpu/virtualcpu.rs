@@ -601,7 +601,7 @@ mod tests {
             vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
                 
 
-            hugatp = (test_buf_pfn + 2) | (8 << 60);
+            hugatp = (test_buf_pfn) | (8 << 60);
             vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
 
             unsafe {
