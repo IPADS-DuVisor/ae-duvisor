@@ -360,8 +360,9 @@ mod tests {
 
             while ret == 0 {
                 unsafe {
-                    set_hugatp(hugatp);
-                    println!("HUGATP : {:x}", hugatp);
+                    set_hugatp(vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                    println!("HUGATP : {:x}", 
+                        vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
 
                     //hustatus.SPP=1 .SPVP=1 uret to VS mode
                     vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
@@ -405,9 +406,7 @@ mod tests {
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
         }
-    
-        
-    
+
         // Check the correctness of vcpu new()
         #[test]
         fn test_vcpu_new() { 
