@@ -121,7 +121,8 @@ impl VirtualMachine {
             let deleg_ptr = (&deleg) as *const u64;
 
             // call ioctl
-            let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
+            let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG,
+                deleg_ptr);
             println!("ioctl result: {}", res);
         }
     }
@@ -136,7 +137,7 @@ mod tests {
 
     rusty_fork_test! {
         #[test]
-        fn test_tiny_up_vm() { 
+        fn test_vm_add_all_gprs() { 
             println!("---------start vm------------");
             let nr_vcpu = 1;
             let sum_ans = 10;

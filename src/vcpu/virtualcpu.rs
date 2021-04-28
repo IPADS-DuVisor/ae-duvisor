@@ -96,8 +96,9 @@ impl VirtualCpu {
     }
 
     fn config_hugatp(&mut self) -> u64 {
-        let pt_pfn: u64 = self.vm.lock().unwrap().gsmmu.page_table.paddr >> 12;
-        let hugatp: u64 = pt_pfn | (9 << 60);
+        let pt_pfn: u64 = 
+            self.vm.lock().unwrap().gsmmu.page_table.paddr >> PAGE_SIZE_SHIFT;
+        let hugatp: u64 = pt_pfn | HUGATP_MODE_SV48;
 
         self.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
 
@@ -121,7 +122,7 @@ impl VirtualCpu {
         let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
         //let fault_addr = (hutval << 2) | (utval & 0x3);
         let fault_addr = utval;
-        println!("gstage_page_fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}", 
+        println!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
 
         let mut ret;
@@ -129,7 +130,8 @@ impl VirtualCpu {
         let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
         if query.is_some() {
             let i = query.unwrap();
-            println!("Query PTE offset {}, value {}, level {}", i.offset, i.value, i.level);
+            println!("Query PTE offset {}, value {}, level {}", i.offset, 
+                i.value, i.level);
             ret = ENOPERMIT;
         } else {
             ret = ENOMAPPING;
@@ -158,9 +160,12 @@ impl VirtualCpu {
                         let end = vcpu_add_all_gprs_end as u64;
                         let size = end - start;
                         //let code_buf = test_buf + PAGE_TABLE_REGION_SIZE;
-                        libc::memcpy(ptr as *mut c_void, vcpu_add_all_gprs as *mut c_void, size as usize);
+                        libc::memcpy(ptr as *mut c_void,
+                            vcpu_add_all_gprs as *mut c_void,
+                            size as usize);
                     }
-                    let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
+                    let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
+                        | PTE_EXECUTE;
                     self.vm.lock().unwrap().gsmmu.map_page(
                         fault_addr, hpa, flag);
                     ret = 0;
@@ -188,6 +193,7 @@ impl VirtualCpu {
         let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: 7th arg
         println!("supervisor_ecall: funcID = {:x}, arg1 = {:x}, arg7 = {:x}",
             a0, a1, a7);
+
         // for test
         ret = 0xdead;
         
@@ -231,7 +237,8 @@ impl VirtualCpu {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
         let mut res;
         self.vcpu_ctx.host_ctx.hyp_regs.uepc = 0x400000;
-        self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << 8) | (1 << 7)) as u64;
+        self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
+            | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
         unsafe {
             // register vcpu thread to the kernel

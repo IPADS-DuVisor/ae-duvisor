@@ -79,7 +79,8 @@ impl HpmAllocator {
         unsafe {
             let version_ptr = (&version) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
-            println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", version);
+            println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", 
+                version);
 
             // get va
             let addr = 0 as *mut libc::c_void;
@@ -92,7 +93,8 @@ impl HpmAllocator {
             test_buf_pfn = test_buf;
             let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
-            println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", test_buf_pfn);
+            println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
+                test_buf_pfn);
         }
 
         let hpm_vptr = test_buf as u64;
@@ -104,7 +106,8 @@ impl HpmAllocator {
         Some(HpmRegion::new(hpm_vptr, base_address, length))
     }
 
-    pub fn find_hpm_region_by_length(&mut self, length: u64) -> Option<&mut HpmRegion> {
+    pub fn find_hpm_region_by_length(&mut self, length: u64) 
+        -> Option<&mut HpmRegion> {
         let mut rest: u64;
 
         for i in &mut self.hpm_region_list {
@@ -147,7 +150,8 @@ impl HpmAllocator {
             // increase the offset
             target_hpm_region.offset += length;
 
-            println!("target_hpm_region - offset: {}", target_hpm_region.offset);
+            println!("target_hpm_region - offset: {}", 
+                target_hpm_region.offset);
 
             return Some(result);
         }
@@ -190,7 +194,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let length = 0x2000;
@@ -218,7 +223,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             // Valid HPA: [base_addr, base_addr + 0x2000)
@@ -251,7 +257,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             // Valid HPA: [base_addr, base_addr + 0x2000)
@@ -285,7 +292,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             // Valid HPA: [base_addr, base_addr + 0x2000)
@@ -319,7 +327,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             // Valid HPA: [base_addr, base_addr + 0x2000)
@@ -352,7 +361,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let length = 0x2000;
@@ -384,7 +394,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let length = 0x2000;
@@ -416,7 +427,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let length = 0x2000;
@@ -448,7 +460,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let length = 0x2000;
