@@ -1,6 +1,5 @@
 #include "asm.h"
 
-.align 12
 BEGIN_FUNC_FILE_NAME()
 	li 	t1, 0x3000
 	ld 	t1, (t1)

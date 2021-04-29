@@ -29,6 +29,7 @@
 #define BEGIN_FUNC_FILE_NAME()        \
 	.global __FILENAME__;           \
 	.type __FILENAME__, % function; \
+	.align 12;          			\
 	__FILENAME__:
 
 

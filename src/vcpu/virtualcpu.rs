@@ -217,12 +217,12 @@ impl VirtualCpu {
 
     fn supervisor_ecall(&mut self) -> i32 {
         let ret;
-        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: funcID
+        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: 0th arg
         let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
         // ...
-        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: 7th arg
-        println!("supervisor_ecall: funcID = {:x}, arg1 = {:x}, arg7 = {:x}",
-            a0, a1, a7);
+        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: funcID
+        println!("supervisor_ecall: funcID = {:x}, arg0 = {:x}, arg1 = {:x}",
+            a7, a0, a1);
 
         // FIXME: for test cases
         ret = 0xdead;

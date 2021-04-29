@@ -1,6 +1,5 @@
 #include "asm.h"
 
-.align 12
 BEGIN_FUNC_FILE_NAME()
 	// x0 is hardwired to 0
 	li x1, 10
