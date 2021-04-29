@@ -216,7 +216,6 @@ impl VirtualCpu {
 
     fn supervisor_ecall(&mut self) -> i32 {
         let ret;
-        //panic!("flag 6");
         let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: funcID
         let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
         // ...
@@ -262,7 +261,7 @@ impl VirtualCpu {
         if ret < 0 {
             eprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
 
-            // FIXME: save the exit reason in HOST_A0 before the vcpu thread down
+            // FIXME: save the exit reason in HOST_A0 before the vcpu down
             self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
         }
 

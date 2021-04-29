@@ -281,7 +281,8 @@ impl GStageMmu {
             let mut pte = unsafe { *(pte_addr_va as *mut u64) };
 
             if pte & PTE_VALID == 0 {
-                page_table_va = self.page_table.page_table_create(level + 1) as u64;
+                page_table_va = 
+                    self.page_table.page_table_create(level + 1) as u64;
                 page_table_hpa_wrap = self.page_table.va_to_hpa(page_table_va);
                 if page_table_hpa_wrap.is_none() {
                     return None;
@@ -300,7 +301,8 @@ impl GStageMmu {
                 }
                 page_table_va = page_table_va_wrap.unwrap();
             }
-            offsets[level as usize] = pte_addr_va - (self.page_table.vaddr as u64);
+            offsets[level as usize] = pte_addr_va 
+                - (self.page_table.vaddr as u64);
         }
 
         index = ((gpa >> 12) & 0x1ff) * 8;
@@ -384,7 +386,8 @@ impl GStageMmu {
 
     // SV48x4
     pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> Option<u32> {
-        println!("enter map_page with gpa: {:x}, hpa: {:x}, flag: {:x}", gpa, hpa, flag);
+        println!("enter map_page - gpa: {:x}, hpa: {:x}, flag: {:x}", 
+            gpa, hpa, flag);
         let offsets_wrap = self.gpa_to_ptregion_offset(gpa);
         if offsets_wrap.is_none() {
             return None;
@@ -396,12 +399,10 @@ impl GStageMmu {
         if (hpa & 0xfff) != 0 {
             return None;
         }
-        println!("map_page 1");
 
         if (gpa & 0xfff) != 0 {
             return None;
         }
-        println!("map_page 2");
 
         let mut pte = hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
         pte = GStageMmu::set_pte_flag(pte, 3, flag);
@@ -410,12 +411,12 @@ impl GStageMmu {
         unsafe {
             *pte_addr_ptr = pte;
         }
-        println!("map_page 3");
 
         Some(0)
     }
 
-    pub fn map_range(&mut self, gpa: u64, hpa: u64, length: u64, flag: u64) -> Option<u32> {
+    pub fn map_range(&mut self, gpa: u64, hpa: u64, length: u64, flag: u64)
+        -> Option<u32> {
         if (hpa & 0xfff) != 0 {
             return None;
         }
@@ -508,7 +509,8 @@ impl GStageMmu {
         Some(0)
     }
 
-    pub fn gpa_region_add(&mut self, gpa: u64, mut length: u64) -> Result<(u64, u64), u64> {
+    pub fn gpa_region_add(&mut self, gpa: u64, mut length: u64)
+        -> Result<(u64, u64), u64> {
         // gpa region should always be aligned to PAGE_SIZE
         length = page_size_round_up(length);
 
@@ -522,7 +524,8 @@ impl GStageMmu {
         let region = region_wrap.unwrap();
 
         if region.len() != 1 {
-            println!("gpa_region_add : gpa region alloc failed for length {}", region.len());
+            println!("gpa_region_add : gpa region alloc failed for length {}",
+                region.len());
             return Err(0);
         }
 
@@ -555,7 +558,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let gsmmu = GStageMmu::new(ioctl_fd);
@@ -580,7 +584,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -608,7 +613,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -637,7 +643,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -665,7 +672,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -695,7 +703,8 @@ mod tests {
             // HPA = 0x15000 + 0x1000 -> l2_pte: 0b0101 10|00 0000 0001 = 22529
             // HPA = 0x2000 -> l3_pte: 0b0000 10|00 0000 1111 = 2063
             let pte_index_ans = 
-                vec![(0, l0_pte), (512*4, l1_pte), (512*5, l2_pte), (512*6+1, l3_pte)];
+                vec![(0, l0_pte), (512*4, l1_pte), (512*5, l2_pte), 
+                    (512*6+1, l3_pte)];
 
             // 4 PTEs should be set
             for (i, j) in &pte_index_ans {
@@ -725,7 +734,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -763,7 +773,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -803,7 +814,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -839,7 +851,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -892,7 +905,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -938,7 +952,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -946,7 +961,8 @@ mod tests {
             let invalid_hpa = 0x2100;
 
             // Create a page table
-            let result = gsmmu.map_page(valid_gpa, invalid_hpa, PTE_READ | PTE_EXECUTE);
+            let result =
+                gsmmu.map_page(valid_gpa, invalid_hpa, PTE_READ | PTE_EXECUTE);
             if result.is_some() {
                 panic!("HPA: {:x} should be invalid", invalid_hpa);
             }
@@ -959,7 +975,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -967,7 +984,8 @@ mod tests {
             let invalid_gpa = 0x1100;
 
             // Create a page table
-            let result = gsmmu.map_page(invalid_gpa, valid_hpa, PTE_READ | PTE_EXECUTE);
+            let result =
+                gsmmu.map_page(invalid_gpa, valid_hpa, PTE_READ | PTE_EXECUTE);
             if result.is_some() {
                 panic!("GPA: {:x} should be invalid", invalid_gpa);
             }
@@ -980,7 +998,8 @@ mod tests {
             let ioctl_fd;
 
             unsafe {
-                ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+                ioctl_fd =
+                    (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
             let mut gsmmu = GStageMmu::new(ioctl_fd);
@@ -989,7 +1008,8 @@ mod tests {
             let mut pte: u64;
 
             // pte = 2063
-            gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_WRITE | PTE_EXECUTE); 
+            gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_WRITE 
+                | PTE_EXECUTE); 
 
             unsafe {
                 ptr = root_ptr.add(512*6+1);
