@@ -1,14 +1,9 @@
 use crate::mm::hpmallocator;
 use crate::mm::gparegion;
 use core::mem;
+use crate::mm::utils::*;
 
 pub mod gsmmu_constants {
-    pub const PAGE_SIZE_SHIFT: u64 = 12;
-    pub const PAGE_TABLE_REGION_SIZE: u64 = 1u64 << 25; // 32MB for now
-    pub const PAGE_SIZE: u64 = 1u64 << PAGE_SIZE_SHIFT;
-    pub const PAGE_SHIFT: u64 = 12;
-    pub const PAGE_ORDER: u64 = 9;
-
     // pte bit
     pub const PTE_VALID: u64 = 1u64 << 0;
     pub const PTE_READ: u64 = 1u64 << 1;
@@ -23,17 +18,7 @@ pub mod gsmmu_constants {
 }
 pub use gsmmu_constants::*;
 
-pub fn page_size_round_up(length: u64) -> u64 {
-    println!("length 0x{:x}", length);
-    if length & 0xfff == 0 {
-        return length;
-    }
 
-    let result: u64 = (length & !(0xfff as u64)) + PAGE_SIZE;
-    println!("result 0x{:x}", result);
-
-    result
-}
 
 pub struct Pte {
     // The offset of this pte from the top of the root table (page_table.region.hpm_vptr)
@@ -195,23 +180,25 @@ impl GStageMmu {
     }
 
     // TODO: add mem_size in gsmmu and check gpa
-    pub fn check_gpa(&mut self, gpa: u64) -> bool {
+    pub fn check_gpa(&mut self, _gpa: u64) -> bool {
         return true;
     }
 
     pub fn gpa_region_query(&mut self, gpa: u64) -> Option<u64> {
-        let mut start: u64 = 0;
-        let mut end: u64 = 0;
-        let mut hpa: u64 = 0;
+        let mut start: u64;
+        let mut end: u64;
+        let hpa: u64;
 
         println!("gpa_region_query gpa: {:x}", gpa);
 
         for i in &self.gpa_regions {
             start = i.gpa;
             end = start + i.length;
-            println!("gpa_region_query gpa: {:x}, hpa: {:x}, length: {:x}", i.gpa, i.hpa, i.length);
+            println!("gpa_region_query gpa: {:x}, hpa: {:x}, length: {:x}",
+                i.gpa, i.hpa, i.length);
             if gpa >= start &&  gpa < end {
-                println!("find a gpa region: gpa: {:x}, hpa: {:x}, length: {:x}", i.gpa, i.hpa, i.length);
+                println!("find a gpa region: gpa: {:x}, hpa: {:x}, length: {:x}",
+                    i.gpa, i.hpa, i.length);
                 hpa = i.hpa + gpa - start;
                 println!("gpa_region_query hpa: {:x}", hpa);
                 return Some(hpa);

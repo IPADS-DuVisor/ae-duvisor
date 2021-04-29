@@ -4,12 +4,12 @@ use crate::irq::vtimer;
 use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
 use vcpucontext::*;
+use crate::mm::utils::*;
 use crate::mm::gstagemmu::*;
 use crate::plat::uhe::ioctl::ioctl_constants::*;
 use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
-use core::ffi::c_void;
 
 mod errno_constants {
     pub const EFAILED: i32 = -1;
@@ -125,30 +125,33 @@ impl VirtualCpu {
     fn stage2_page_fault(&mut self) -> i32 {
         let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
         let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
-        //let fault_addr = (hutval << 2) | (utval & 0x3);
         let mut fault_addr = utval;
+
         println!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
-        fault_addr &= !(0xfff as u64);
-        
 
+        fault_addr &= !PAGE_SIZE_MASK;
+        
         let check = self.vm.lock().unwrap().gsmmu.check_gpa(fault_addr);
         if !check {
             panic!("illegal gpa!");
         }
 
         let mut ret;
+
         // map_query
         let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
         if query.is_some() {
             let i = query.unwrap();
+
             println!("Query PTE offset {}, value {}, level {}", i.offset, 
                 i.value, i.level);
+
             if i.is_leaf() {
                 ret = ENOPERMIT;
             } else {
                 println!("QUERY is some but ENOMAPPING");
-                //ret = ENOPERMIT;
+
                 ret = ENOMAPPING;
             }
         } else {
@@ -167,37 +170,39 @@ impl VirtualCpu {
 
                 if fault_hpa_query.is_some() {
                     // fault gpa is already in a gpa_region and it is valid
-                    println!("fault gpa {:x} is already in a gpa_region and it is valid", fault_addr);
                     let fault_hpa = fault_hpa_query.unwrap();
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
                         | PTE_EXECUTE;
+                        
                     println!("map gpa: {:x} to hpa: {:x}", fault_addr, fault_hpa);
                     self.vm.lock().unwrap().gsmmu.map_page(
                         fault_addr, fault_hpa, flag);
+
                     ret = 0;
-                    //if fault_addr == 0x3000 { panic!("flag 4"); }
                 } else {
                     // fault gpa is not in a gpa_region and it is valid
-                    println!("fault gpa {:x} is not in a gpa_region and it is valid", fault_addr);
                     let len = PAGE_SIZE;
                     let res = self.vm.lock().unwrap().gsmmu
                         .gpa_region_add(fault_addr, len);
+
                     if res.is_ok() {
                         // map new page to VM if the region exists
-                        let (hva, hpa) = res.unwrap();
-
+                        let (_hva, hpa) = res.unwrap();
                         let flag: u64 = PTE_USER | PTE_VALID | PTE_READ 
                             | PTE_WRITE | PTE_EXECUTE;
+
                         self.vm.lock().unwrap().gsmmu.map_page(
                             fault_addr, hpa, flag);
+
                         ret = 0;
                     } else {
                         // handle MMIO otherwise
                         self.exit_reason = ExitReason::ExitMmio;
+
                         ret = EFAILED;
+
                         eprintln!("MMIO unsupported: {}", ret);
                     }
-                    //if fault_addr == 0x3000 { panic!("flag 5"); }
                 }
             }
             _ => {
@@ -219,9 +224,10 @@ impl VirtualCpu {
         println!("supervisor_ecall: funcID = {:x}, arg1 = {:x}, arg7 = {:x}",
             a0, a1, a7);
 
-        // for test
+        // FIXME: for test cases
         ret = 0xdead;
 
+        // FIXME: for test cases
         self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret;
         
         ret as i32
@@ -255,7 +261,8 @@ impl VirtualCpu {
 
         if ret < 0 {
             eprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
-            // save the exit reason in HOST_A0 before the vcpu thread down
+
+            // FIXME: save the exit reason in HOST_A0 before the vcpu thread down
             self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
         }
 
@@ -266,8 +273,6 @@ impl VirtualCpu {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
         let mut res;
 
-        // FIXME: uepc should be set to the entry point of vm img
-        //self.vcpu_ctx.host_ctx.hyp_regs.uepc = 0x400000; // for test
         self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
             | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
@@ -309,13 +314,8 @@ impl VirtualCpu {
 mod tests {
     use super::*;
     use std::thread;
-    use crate::plat::uhe::ioctl::ioctl_constants;
-    use crate::irq::delegation::delegation_constants;
-    use crate::mm::gstagemmu::gsmmu_constants;
-    use ioctl_constants::*;
-    use delegation_constants::*;
-    use gsmmu_constants::*;
     use rusty_fork::rusty_fork_test;
+    use core::ffi::c_void;
 
     rusty_fork_test! {
         #[test]
@@ -665,27 +665,6 @@ mod tests {
             assert_eq!(ucause, 10);
         }
 
-//        #[test]
-//        fn test_vmem_ro() { 
-//            let vcpu_id = 0;
-//            let vcpu_num = 1;
-//            let vm = virtualmachine::VirtualMachine::new(vcpu_num);
-//            let fd = vm.vm_state.lock().unwrap().ioctl_fd;
-//            let vm_mutex = vm.vm_state;
-//            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
-//            let res;
-//            let version: u64 = 0;
-//            let test_buf: u64;
-//            let test_buf_pfn: u64;
-//            let test_buf_size: usize = 64 << 20; // 64 MB
-//            let mut hugatp: u64;
-//
-//            
-//
-//
-//
-//        }
-//
         #[test]
         fn test_vcpu_add_all_gprs() { 
             let vcpu_id = 0;

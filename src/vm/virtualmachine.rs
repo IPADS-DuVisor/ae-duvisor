@@ -7,6 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::ffi::CString;
 use ioctl_constants::*;
 use delegation_constants::*;
+#[allow(unused_imports)]
+use crate::mm::utils;
 use core::ffi::c_void;
 
 #[allow(unused)]
@@ -229,12 +231,12 @@ mod tests {
             let length = end - start;
             let entry_point: u64 = vm.vm_img_load(start, length);
 
-            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(ro_address, PAGE_SIZE);
+            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(ro_address, utils::PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
 
-            let (hva, hpa) = res.unwrap();
+            let (_hva, hpa) = res.unwrap();
             let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
 
             vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
@@ -247,7 +249,6 @@ mod tests {
                 i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
             }
             
-
             vm.vm_run();
             
             for i in &vm.vcpus {
@@ -273,12 +274,12 @@ mod tests {
             let length = end - start;
             let entry_point: u64 = vm.vm_img_load(start, length);
 
-            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(nx_address, PAGE_SIZE);
+            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(nx_address, utils::PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
 
-            let (hva, hpa) = res.unwrap();
+            let (_hva, hpa) = res.unwrap();
             let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
 
             vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
@@ -291,7 +292,6 @@ mod tests {
                 i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
             }
             
-
             vm.vm_run();
             
             for i in &vm.vcpus {
@@ -309,7 +309,6 @@ mod tests {
             let mut exit_reason = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
             vm.vm_init();
-            //let nx_address = 0x3000;
 
             // set test code
             let start = vmem_ld_mapping as u64;
@@ -334,7 +333,7 @@ mod tests {
 
         #[test]
         fn test_vm_huge_mapping() { 
-            println!("---------start vm------------");
+            println!("---------start test_vm_huge_mapping------------");
             let nr_vcpu = 1;
             let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
@@ -370,7 +369,7 @@ mod tests {
             assert_eq!(vm.vcpu_num, vcpu_num);
         }
 
-        // Check the num of the vcpu created 
+        // Check the num of the vcpu created
         #[test]
         fn test_vm_new_vcpu() {   
             let vcpu_num = 4;
