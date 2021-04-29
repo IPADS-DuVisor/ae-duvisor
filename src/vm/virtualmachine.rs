@@ -26,6 +26,8 @@ extern "C"
     fn vmem_X_nonX_end();
     fn vmem_ld_sd_over_loop();
     fn vmem_ld_sd_over_loop_end();
+    fn vmem_ld_sd_sum();
+    fn vmem_ld_sd_sum_end();
 }
 
 // Export to vcpu
@@ -372,6 +374,43 @@ mod tests {
             vm.vm_destroy();
 
             assert_eq!(exit_reason_ans, exit_reason);
+        }
+
+        #[test]
+        fn test_vm_ld_sd_sum() { 
+            println!("---------start test_vm_huge_mapping------------");
+            let nr_vcpu = 1;
+            let mut sum_ans = 0;
+            let mut sum = 0;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+
+            for i in 0..100 {
+                sum_ans += i;
+            }
+            sum_ans *= 2;
+
+            vm.vm_init();
+
+            // set test code
+            let start = vmem_ld_sd_sum as u64;
+            let end = vmem_ld_sd_sum_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                sum = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[29];
+                println!("sum {}", sum);
+            }
+            vm.vm_destroy();
+
+            assert_eq!(sum_ans, sum);
         }
 
         #[test]
