@@ -53,6 +53,8 @@ extern "C"
     fn vmem_W_Ro_end();
     fn vmem_X_nonX();
     fn vmem_X_nonX_end();
+    fn vmem_ld_sd_over_loop();
+    fn vmem_ld_sd_over_loop_end();
 }
 
 pub struct VirtualCpu {

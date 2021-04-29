@@ -22,6 +22,8 @@ extern "C"
     fn vmem_W_Ro_end();
     fn vmem_X_nonX();
     fn vmem_X_nonX_end();
+    fn vmem_ld_sd_over_loop();
+    fn vmem_ld_sd_over_loop_end();
 }
 
 // Export to vcpu
@@ -303,7 +305,7 @@ mod tests {
         #[test]
         fn test_vmem_mapping() { 
             let nr_vcpu = 1;
-            let exit_reason_ans = 0xdead; // g-stage page fault for no permission
+            let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
             vm.vm_init();
@@ -328,6 +330,36 @@ mod tests {
             vm.vm_destroy();
 
             assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        #[test]
+        fn test_vm_huge_mapping() { 
+            println!("---------start vm------------");
+            let nr_vcpu = 1;
+            let exit_reason_ans = 0xdead;
+            let mut exit_reason = 0;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            vm.vm_init();
+
+            // set test code
+            let start = vmem_ld_sd_over_loop as u64;
+            let end = vmem_ld_sd_over_loop_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                println!("exit reason {:x}", exit_reason);
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason_ans, exit_reason);
         }
 
         #[test]
