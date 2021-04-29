@@ -183,25 +183,7 @@ mod tests {
     use gsmmu_constants::*;
 
     rusty_fork_test! {
-//        #[test]
-//        fn test_vm_add_all_gprs() { 
-//            println!("---------start vm------------");
-//            let nr_vcpu = 1;
-//            let sum_ans = 10;
-//            let mut sum = 0;
-//            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
-//            vm.vm_init();
-//            vm.vm_run();
-//            
-//            for i in &vm.vcpus {
-//                sum += i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
-//            }
-//            vm.vm_destroy();
-//
-//            assert_eq!(sum, sum_ans);
-//        }
-
-        /* #[test]
+        #[test]
         fn test_vm_add_all_gprs() { 
             println!("---------start vm------------");
             let nr_vcpu = 1;
@@ -228,7 +210,7 @@ mod tests {
             vm.vm_destroy();
 
             assert_eq!(sum, sum_ans);
-        } */
+        }
 
         #[test]
         fn test_vmem_ro() { 
@@ -308,6 +290,49 @@ mod tests {
             
             for i in &vm.vcpus {
                 exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        #[test]
+        fn test_vmem_mapping() { 
+            let nr_vcpu = 1;
+            let exit_reason_ans = 0xdead; // g-stage page fault for no permission
+            let mut exit_reason = 0;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            vm.vm_init();
+            //let nx_address = 0x3000;
+
+            // set test code
+            let start = vmem_ld_mapping as u64;
+            let end = vmem_ld_mapping_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            //let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(nx_address, PAGE_SIZE);
+            //if !res.is_ok() {
+            //    panic!("gpa region add failed!")
+            //}
+//
+            //let (hva, hpa) = res.unwrap();
+
+            // non-execute
+            //let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
+
+            //vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+            }
+            
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                println!("exit reason {:x}", exit_reason);
             }
             vm.vm_destroy();
 

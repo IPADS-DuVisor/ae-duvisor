@@ -209,6 +209,7 @@ impl VirtualCpu {
 
     fn supervisor_ecall(&mut self) -> i32 {
         let ret;
+        //panic!("flag 6");
         let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: funcID
         let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
         // ...
@@ -218,8 +219,10 @@ impl VirtualCpu {
 
         // for test
         ret = 0xdead;
+
+        self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret;
         
-        ret
+        ret as i32
     }
 
     fn handle_vcpu_exit(&mut self) -> i32 {
@@ -313,7 +316,7 @@ mod tests {
     use rusty_fork::rusty_fork_test;
 
     rusty_fork_test! {
-        /* #[test]
+        #[test]
         fn test_stage2_page_fault() { 
             let vcpu_id = 0;
             let vcpu_num = 1;
@@ -429,7 +432,7 @@ mod tests {
             assert_eq!(uepc, test_buf_pfn << PAGE_SIZE_SHIFT);
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
-        } */
+        }
 
         // Check the correctness of vcpu new()
         #[test]
