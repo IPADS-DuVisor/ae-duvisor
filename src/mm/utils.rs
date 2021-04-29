@@ -17,5 +17,3 @@ pub fn page_size_round_up(length: u64) -> u64 {
 
     result
 }
-
-

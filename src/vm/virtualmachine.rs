@@ -358,7 +358,8 @@ mod tests {
             let entry_point: u64 = vm.vm_img_load(start, length);
 
             for i in &vm.vcpus {
-                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
             }
 
             vm.vm_run();

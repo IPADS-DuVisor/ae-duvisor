@@ -174,7 +174,8 @@ impl VirtualCpu {
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
                         | PTE_EXECUTE;
                         
-                    println!("map gpa: {:x} to hpa: {:x}", fault_addr, fault_hpa);
+                    println!("map gpa: {:x} to hpa: {:x}",
+                        fault_addr, fault_hpa);
                     self.vm.lock().unwrap().gsmmu.map_page(
                         fault_addr, fault_hpa, flag);
 
