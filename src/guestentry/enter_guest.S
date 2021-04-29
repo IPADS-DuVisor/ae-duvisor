@@ -32,9 +32,6 @@ enter_guest:
     ld t0, HOST_HYP_UTVAL(a0)
     csrw CSR_UTVAL, t0
 
-    /* hufence */
-    //.word INS_HUFENCE_GVMA
-
     /* restore guest GP except A0 & X0 */
     RESTORE_GUEST_CTX a0
     
