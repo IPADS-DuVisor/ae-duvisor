@@ -232,7 +232,6 @@ mod tests {
 
         #[test]
         fn test_vmem_ro() { 
-            println!("---------start vm------------");
             let nr_vcpu = 1;
             let exit_reason_ans = 2; // g-stage page fault for no permission
             let mut exit_reason = 0;
@@ -257,6 +256,48 @@ mod tests {
             let flag: u64 = PTE_USER | PTE_VALID | PTE_READ;
 
             vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+            }
+            
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        #[test]
+        fn test_vmem_nx() { 
+            let nr_vcpu = 1;
+            let exit_reason_ans = 2; // g-stage page fault for no permission
+            let mut exit_reason = 0;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            vm.vm_init();
+            let nx_address = 0x3000;
+
+            // set test code
+            let start = vmem_X_nonX as u64;
+            let end = vmem_X_nonX_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(nx_address, PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!")
+            }
+
+            let (hva, hpa) = res.unwrap();
+
+            // non-execute
+            let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
+
+            vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
 
             for i in &vm.vcpus {
                 i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
