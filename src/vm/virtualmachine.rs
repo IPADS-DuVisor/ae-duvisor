@@ -233,11 +233,13 @@ mod tests {
             }
 
             let (hva, hpa) = res.unwrap();
-
-            // read-only
-            let flag: u64 = PTE_USER | PTE_VALID | PTE_READ;
+            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
 
             vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
+
+            // read-only
+            flag = PTE_USER | PTE_VALID | PTE_READ;
+            vm.vm_state.lock().unwrap().gsmmu.map_protect(ro_address, flag);
 
             for i in &vm.vcpus {
                 i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
@@ -275,11 +277,13 @@ mod tests {
             }
 
             let (hva, hpa) = res.unwrap();
-
-            // non-execute
-            let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
+            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
 
             vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
+
+            // non-execute
+            flag = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
+            vm.vm_state.lock().unwrap().gsmmu.map_protect(nx_address, flag);
 
             for i in &vm.vcpus {
                 i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
@@ -311,22 +315,9 @@ mod tests {
             let length = end - start;
             let entry_point: u64 = vm.vm_img_load(start, length);
 
-            //let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(nx_address, PAGE_SIZE);
-            //if !res.is_ok() {
-            //    panic!("gpa region add failed!")
-            //}
-//
-            //let (hva, hpa) = res.unwrap();
-
-            // non-execute
-            //let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
-
-            //vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
-
             for i in &vm.vcpus {
                 i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
             }
-            
 
             vm.vm_run();
             
