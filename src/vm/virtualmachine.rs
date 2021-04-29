@@ -203,7 +203,8 @@ mod tests {
             let entry_point: u64 = vm.vm_img_load(start, length);
 
             for i in &vm.vcpus {
-                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
             }
 
             vm.vm_run();
@@ -231,13 +232,15 @@ mod tests {
             let length = end - start;
             let entry_point: u64 = vm.vm_img_load(start, length);
 
-            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(ro_address, utils::PAGE_SIZE);
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_region_add(ro_address, utils::PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
 
             let (_hva, hpa) = res.unwrap();
-            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
+            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
+                | PTE_EXECUTE;
 
             vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
 
@@ -246,13 +249,15 @@ mod tests {
             vm.vm_state.lock().unwrap().gsmmu.map_protect(ro_address, flag);
 
             for i in &vm.vcpus {
-                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
             }
             
             vm.vm_run();
             
             for i in &vm.vcpus {
-                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs
+                    .x_reg[0];
             }
             vm.vm_destroy();
 
@@ -274,13 +279,15 @@ mod tests {
             let length = end - start;
             let entry_point: u64 = vm.vm_img_load(start, length);
 
-            let res = vm.vm_state.lock().unwrap().gsmmu.gpa_region_add(nx_address, utils::PAGE_SIZE);
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_region_add(nx_address, utils::PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
 
             let (_hva, hpa) = res.unwrap();
-            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
+            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
+                | PTE_EXECUTE;
 
             vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
 
@@ -289,13 +296,15 @@ mod tests {
             vm.vm_state.lock().unwrap().gsmmu.map_protect(nx_address, flag);
 
             for i in &vm.vcpus {
-                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
             }
             
             vm.vm_run();
             
             for i in &vm.vcpus {
-                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                exit_reason =
+                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
             }
             vm.vm_destroy();
 
@@ -317,13 +326,15 @@ mod tests {
             let entry_point: u64 = vm.vm_img_load(start, length);
 
             for i in &vm.vcpus {
-                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc = entry_point;
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
             }
 
             vm.vm_run();
             
             for i in &vm.vcpus {
-                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                exit_reason =
+                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
                 println!("exit reason {:x}", exit_reason);
             }
             vm.vm_destroy();
@@ -353,7 +364,8 @@ mod tests {
             vm.vm_run();
             
             for i in &vm.vcpus {
-                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                exit_reason =
+                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
                 println!("exit reason {:x}", exit_reason);
             }
             vm.vm_destroy();
