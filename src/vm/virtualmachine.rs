@@ -196,6 +196,7 @@ mod tests {
             let sum_ans = 10;
             let mut sum = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            
             vm.vm_init();
 
             // set test code
@@ -225,7 +226,9 @@ mod tests {
             let exit_reason_ans = 2; // g-stage page fault for no permission
             let mut exit_reason = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+
             vm.vm_init();
+
             let ro_address = 0x3000;
 
             // set test code
@@ -272,7 +275,9 @@ mod tests {
             let exit_reason_ans = 2; // g-stage page fault for no permission
             let mut exit_reason = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+
             vm.vm_init();
+
             let nx_address = 0x3000;
 
             // set test code
@@ -319,6 +324,7 @@ mod tests {
             let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+
             vm.vm_init();
 
             // set test code
@@ -351,6 +357,7 @@ mod tests {
             let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+
             vm.vm_init();
 
             // set test code
