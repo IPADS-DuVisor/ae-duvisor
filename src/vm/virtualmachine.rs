@@ -28,6 +28,8 @@ extern "C"
     fn vmem_ld_sd_over_loop_end();
     fn vmem_ld_sd_sum();
     fn vmem_ld_sd_sum_end();
+    fn vmem_ld_data();
+    fn vmem_ld_data_end();
 }
 
 // Export to vcpu
@@ -321,6 +323,63 @@ mod tests {
             vm.vm_destroy();
 
             assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        /* check the correctness of loading data from specific gpa */
+        #[test]
+        fn test_vmem_ld_data() { 
+            let nr_vcpu = 1;
+            let mut load_value = 0;
+            let mem_size = 1 << 40;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
+
+            /* Answer will be saved at 0x3000(gpa) */
+            let answer: u64 = 0x1213141516171819;
+
+            vm.vm_init();
+
+            let target_address = 0x3000;
+
+            // set test code
+            let start = vmem_ld_data as u64;
+            let end = vmem_ld_data_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_block_add(target_address, utils::PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!")
+            }
+
+            let (hva, hpa) = res.unwrap();
+            println!("hva {:x}, hpa {:x}", hva, hpa);
+
+            unsafe {
+                *(hva as *mut u64) = answer;
+            }
+
+            let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
+                | PTE_EXECUTE;
+
+            vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, flag);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+            
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                load_value =
+                    i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
+            }
+            vm.vm_destroy();
+
+            println!("load value {:x}", load_value);
+
+            assert_eq!(load_value, answer);
         }
 
         #[test]
