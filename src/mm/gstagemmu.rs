@@ -163,7 +163,7 @@ pub struct GStageMmu {
     pub gpa_blocks: Vec<gparegion::GpaBlock>, // gpa block list
     pub allocator: hpmallocator::HpmAllocator,
     pub mmio_manager: mmio::MmioManager,
-    pub gpa_regions: Vec<gparegion::GpaRegion>,
+    pub mem_gpa_regions: Vec<gparegion::GpaRegion>,
 }
 
 impl GStageMmu {
@@ -174,7 +174,7 @@ impl GStageMmu {
         let mmio_manager = mmio::MmioManager::new();
 
         // TODO: init mmio_manager by vm config
-        let gpa_regions = GStageMmu::init_gpa_regions(mem_size, &mmio_manager);
+        let mem_gpa_regions = GStageMmu::init_gpa_regions(mem_size, &mmio_manager);
 
         // create root table
         page_table.page_table_create(0);
@@ -184,7 +184,7 @@ impl GStageMmu {
             gpa_blocks,
             allocator,
             mmio_manager,
-            gpa_regions,
+            mem_gpa_regions,
         }
     }
 
@@ -222,7 +222,7 @@ impl GStageMmu {
     }
 
     pub fn check_gpa(&mut self, gpa: u64) -> bool {
-        for i in &self.gpa_regions {
+        for i in &self.mem_gpa_regions {
             let gpa_start = i.gpa;
             let gpa_end = gpa_start + i.length;
 

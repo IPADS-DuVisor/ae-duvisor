@@ -183,7 +183,7 @@ impl VirtualCpu {
                     .gpa_block_query(fault_addr);
 
                 if fault_hpa_query.is_some() {
-                    // fault gpa is already in a gpa_region and it is valid
+                    // fault gpa is already in a gpa_block and it is valid
                     let fault_hpa = fault_hpa_query.unwrap();
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
                         | PTE_EXECUTE;
@@ -295,7 +295,7 @@ impl VirtualCpu {
             let _hugatp = self.config_hugatp();
             dbgprintln!("Config hugatp: {:x}", _hugatp);
 
-            // set trap hadnler
+            // set trap handler
             set_utvec();
         }
         
