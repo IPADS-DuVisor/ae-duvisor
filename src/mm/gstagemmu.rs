@@ -222,8 +222,19 @@ impl GStageMmu {
     }
 
     // TODO: add mem_size in gsmmu and check gpa
-    pub fn check_gpa(&mut self, _gpa: u64) -> bool {
-        return true;
+    pub fn check_gpa(&mut self, gpa: u64) -> bool {
+        for i in &self.gpa_regions {
+            let gpa_start = i.gpa;
+            let gpa_end = gpa_start + i.length;
+
+            println!("fault addr {:x}, gpa_start {:x}, gpa_end {:x}", gpa, gpa_start, gpa_end);
+
+            if gpa >= gpa_start && gpa < gpa_end {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     pub fn gpa_block_query(&mut self, gpa: u64) -> Option<u64> {

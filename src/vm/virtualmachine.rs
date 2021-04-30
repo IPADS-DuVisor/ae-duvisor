@@ -197,7 +197,7 @@ mod tests {
             let nr_vcpu = 1;
             let sum_ans = 10;
             let mut sum = 0;
-            let mem_size = 1 << 30;
+            let mem_size = 1 << 40;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
             
             vm.vm_init();
@@ -228,7 +228,7 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 2; // g-stage page fault for no permission
             let mut exit_reason = 0;
-            let mem_size = 1 << 30;
+            let mem_size = 1 << 40;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
@@ -278,7 +278,7 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 2; // g-stage page fault for no permission
             let mut exit_reason = 0;
-            let mem_size = 1 << 30;
+            let mem_size = 1 << 40;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
@@ -328,7 +328,7 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
-            let mem_size = 1 << 30;
+            let mem_size = 1 << 40;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
@@ -362,7 +362,7 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
-            let mem_size = 1 << 30;
+            let mem_size = 1 << 40;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
@@ -396,7 +396,7 @@ mod tests {
             let nr_vcpu = 1;
             let mut sum_ans = 0;
             let mut sum = 0;
-            let mem_size = 1 << 30;
+            let mem_size = 1 << 40;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             for i in 0..100 {
@@ -431,7 +431,7 @@ mod tests {
         #[test]
         fn test_vm_new() { 
             let vcpu_num = 4;
-            let mem_size = 1 << 30;
+            let mem_size = 1 << 48;
             let vm = VirtualMachine::new(vcpu_num, mem_size);
 
             assert_eq!(vm.vcpu_num, vcpu_num);
@@ -441,7 +441,7 @@ mod tests {
         #[test]
         fn test_vm_new_vcpu() {   
             let vcpu_num = 4;
-            let mem_size = 1 << 30;
+            let mem_size = 1 << 40;
             let vm = VirtualMachine::new(vcpu_num, mem_size);
             let mut sum = 0;
 

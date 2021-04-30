@@ -114,15 +114,15 @@ impl VirtualCpu {
         hugatp
     }
     
-    fn virtual_inst_fault(&mut self) -> i32 {
+    fn handle_virtual_inst_fault(&mut self) -> i32 {
         let ret = 0;
         let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
-        println!("virtual_inst_fault: insn = {:x}", utval);
+        println!("handle_virtual_inst_fault: insn = {:x}", utval);
         
         ret
     }
 
-    fn stage2_page_fault(&mut self) -> i32 {
+    fn handle_stage2_page_fault(&mut self) -> i32 {
         let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
         let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
         let mut fault_addr = utval;
@@ -181,7 +181,7 @@ impl VirtualCpu {
 
                     ret = 0;
                 } else {
-                    // fault gpa is not in a gpa_region and it is valid
+                    // fault gpa is not in a gpa_block and it is valid
                     let len = PAGE_SIZE;
                     let res = self.vm.lock().unwrap().gsmmu
                         .gpa_block_add(fault_addr, len);
@@ -197,12 +197,15 @@ impl VirtualCpu {
 
                         ret = 0;
                     } else {
+                        panic!("Create gpa_block for fault addr {:x} failed!",
+                            fault_addr);
+
                         // handle MMIO otherwise
-                        self.exit_reason = ExitReason::ExitMmio;
-
-                        ret = EFAILED;
-
-                        eprintln!("MMIO unsupported: {}", ret);
+//                        self.exit_reason = ExitReason::ExitMmio;
+//
+//                        ret = EFAILED;
+//
+//                        eprintln!("MMIO unsupported: {}", ret);
                     }
                 }
             }
@@ -215,13 +218,13 @@ impl VirtualCpu {
         ret
     }
 
-    fn supervisor_ecall(&mut self) -> i32 {
+    fn handle_supervisor_ecall(&mut self) -> i32 {
         let ret;
         let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: 0th arg
         let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
         // ...
         let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: funcID
-        println!("supervisor_ecall: funcID = {:x}, arg0 = {:x}, arg1 = {:x}",
+        println!("handle_supervisor_ecall: funcID = {:x}, arg0 = {:x}, arg1 = {:x}",
             a7, a0, a1);
 
         // FIXME: for test cases
@@ -245,14 +248,14 @@ impl VirtualCpu {
 
         match ucause {
             EXC_VIRTUAL_INST_FAULT => {
-                ret = self.virtual_inst_fault();
+                ret = self.handle_virtual_inst_fault();
             }
             EXC_INST_GUEST_PAGE_FAULT | EXC_LOAD_GUEST_PAGE_FAULT |
                 EXC_STORE_GUEST_PAGE_FAULT => {
-                ret = self.stage2_page_fault();
+                ret = self.handle_stage2_page_fault();
             }
             EXC_VIRTUAL_SUPERVISOR_SYSCALL => {
-                ret = self.supervisor_ecall();
+                ret = self.handle_supervisor_ecall();
             }
             _ => {
                 eprintln!("Invalid ucause: {}", ucause);
@@ -319,10 +322,10 @@ mod tests {
 
     rusty_fork_test! {
         #[test]
-        fn test_stage2_page_fault() { 
+        fn test_handle_stage2_page_fault() { 
             let vcpu_id = 0;
             let vcpu_num = 1;
-            let mem_size = 1 << 30;
+            let mem_size = 1 << 38;
             let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
@@ -379,7 +382,7 @@ mod tests {
 
             let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
             let ptr_u64 = ptr as u64;
-            println!("test_stage2_page_fault - ptr_u64: {:x}", ptr_u64);
+            println!("test_handle_stage2_page_fault - ptr_u64: {:x}", ptr_u64);
             let mut ret: i32 = 0;
 
             let target_code = (test_buf_pfn << PAGE_SIZE_SHIFT) as u64;
