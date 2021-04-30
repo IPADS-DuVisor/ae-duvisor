@@ -108,7 +108,7 @@ impl VirtualMachine {
 
     pub fn vm_img_load(&mut self, gpa_start: u64, length: u64) -> u64{
         let res = self.vm_state.lock().unwrap().
-            gsmmu.gpa_region_add(gpa_start, length);
+            gsmmu.gpa_block_add(gpa_start, length);
         if !res.is_ok() {
             panic!("vm_img_load failed");
         }
@@ -238,7 +238,7 @@ mod tests {
             let entry_point: u64 = vm.vm_img_load(start, length);
 
             let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_region_add(ro_address, utils::PAGE_SIZE);
+                .gsmmu.gpa_block_add(ro_address, utils::PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
@@ -287,7 +287,7 @@ mod tests {
             let entry_point: u64 = vm.vm_img_load(start, length);
 
             let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_region_add(nx_address, utils::PAGE_SIZE);
+                .gsmmu.gpa_block_add(nx_address, utils::PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }

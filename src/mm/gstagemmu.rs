@@ -1,5 +1,6 @@
 use crate::mm::hpmallocator;
 use crate::mm::gparegion;
+use crate::mm::mmio;
 use core::mem;
 use crate::mm::utils::*;
 
@@ -159,23 +160,26 @@ impl PageTableRegion {
 #[allow(unused)]
 pub struct GStageMmu {
     pub page_table: PageTableRegion,
-    pub gpa_regions: Vec<gparegion::GpaRegion>, // gpa region list
+    pub gpa_blocks: Vec<gparegion::GpaBlock>, // gpa block list
     pub allocator: hpmallocator::HpmAllocator,
+    //pub mmio_manager : mmio::MmioManager,
 }
 
 impl GStageMmu {
     pub fn new(ioctl_fd: i32) -> Self {
-        let gpa_regions: Vec<gparegion::GpaRegion> = Vec::new();
+        let gpa_blocks: Vec<gparegion::GpaBlock> = Vec::new();
         let mut allocator = hpmallocator::HpmAllocator::new(ioctl_fd);
         let mut page_table = PageTableRegion::new(&mut allocator);
+        //let mmio_manager = mmio::MmioManager::new();
 
         // create root table
         page_table.page_table_create(0);
 
         Self {
             page_table,
-            gpa_regions,
+            gpa_blocks,
             allocator,
+            //mmio_manager,
         }
     }
 
@@ -184,23 +188,23 @@ impl GStageMmu {
         return true;
     }
 
-    pub fn gpa_region_query(&mut self, gpa: u64) -> Option<u64> {
+    pub fn gpa_block_query(&mut self, gpa: u64) -> Option<u64> {
         let mut start: u64;
         let mut end: u64;
         let hpa: u64;
 
-        println!("gpa_region_query gpa: {:x}", gpa);
+        println!("gpa_block_query gpa: {:x}", gpa);
 
-        for i in &self.gpa_regions {
+        for i in &self.gpa_blocks {
             start = i.gpa;
             end = start + i.length;
-            println!("gpa_region_query gpa: {:x}, hpa: {:x}, length: {:x}",
+            println!("gpa_block_query gpa: {:x}, hpa: {:x}, length: {:x}",
                 i.gpa, i.hpa, i.length);
             if gpa >= start &&  gpa < end {
-                println!("find a gpa region: gpa: {:x}, hpa: {:x}, length: {:x}",
+                println!("find a gpa block: gpa: {:x}, hpa: {:x}, length: {:x}",
                     i.gpa, i.hpa, i.length);
                 hpa = i.hpa + gpa - start;
-                println!("gpa_region_query hpa: {:x}", hpa);
+                println!("gpa_block_query hpa: {:x}", hpa);
                 return Some(hpa);
             }
         }
@@ -509,22 +513,22 @@ impl GStageMmu {
         Some(0)
     }
 
-    pub fn gpa_region_add(&mut self, gpa: u64, mut length: u64)
+    pub fn gpa_block_add(&mut self, gpa: u64, mut length: u64)
         -> Result<(u64, u64), u64> {
-        // gpa region should always be aligned to PAGE_SIZE
+        // gpa block should always be aligned to PAGE_SIZE
         length = page_size_round_up(length);
 
         let region_wrap = self.allocator.hpm_alloc(length);
 
         if region_wrap.is_none() {
-            println!("gpa_region_add : hpm_alloc failed");
+            println!("gpa_block_add : hpm_alloc failed");
             return Err(0);
         }
 
         let region = region_wrap.unwrap();
 
         if region.len() != 1 {
-            println!("gpa_region_add : gpa region alloc failed for length {}",
+            println!("gpa_block_add : gpa block alloc failed for length {}",
                 region.len());
             return Err(0);
         }
@@ -537,8 +541,8 @@ impl GStageMmu {
             hva = i.hpm_vptr;
         }
 
-        let gpa_region = gparegion::GpaRegion::new(gpa, hpa, length);
-        self.gpa_regions.push(gpa_region);
+        let gpa_block = gparegion::GpaBlock::new(gpa, hpa, length);
+        self.gpa_blocks.push(gpa_block);
 
         return Ok((hva, hpa));
     }
@@ -577,9 +581,9 @@ mod tests {
             assert_eq!(pte, 0);
         }
 
-        // Check gpa_region add
+        // Check gpa_block_add
         #[test]
-        fn test_gpa_region_add() { 
+        fn test_gpa_block_add() { 
             let file_path = CString::new("/dev/laputa_dev").unwrap();
             let ioctl_fd;
 
@@ -592,13 +596,13 @@ mod tests {
             let mut gpa: u64 = 0;
             let mut length: u64 = 0;
 
-            let result = gsmmu.gpa_region_add(0x1000, 0x4000);
+            let result = gsmmu.gpa_block_add(0x1000, 0x4000);
             assert!(result.is_ok());
 
-            let list_length = gsmmu.gpa_regions.len();
+            let list_length = gsmmu.gpa_blocks.len();
             assert_eq!(1, list_length);
 
-            for i in gsmmu.gpa_regions {
+            for i in gsmmu.gpa_blocks {
                 gpa = i.gpa;
                 length = i.length;
             }

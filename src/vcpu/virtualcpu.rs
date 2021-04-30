@@ -166,7 +166,7 @@ impl VirtualCpu {
                 println!("Query return ENOMAPPING: {}", ret);
                 // find hpa by fault_addr
                 let fault_hpa_query = self.vm.lock().unwrap().gsmmu
-                    .gpa_region_query(fault_addr);
+                    .gpa_block_query(fault_addr);
 
                 if fault_hpa_query.is_some() {
                     // fault gpa is already in a gpa_region and it is valid
@@ -184,7 +184,7 @@ impl VirtualCpu {
                     // fault gpa is not in a gpa_region and it is valid
                     let len = PAGE_SIZE;
                     let res = self.vm.lock().unwrap().gsmmu
-                        .gpa_region_add(fault_addr, len);
+                        .gpa_block_add(fault_addr, len);
 
                     if res.is_ok() {
                         // map new page to VM if the region exists
