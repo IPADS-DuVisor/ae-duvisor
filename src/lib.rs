@@ -1,5 +1,6 @@
 #![feature(llvm_asm)]
 #![feature(global_asm)]
+#![feature(pub_macro_rules)]
 #[allow(unused_imports)]
 
 #[macro_use]

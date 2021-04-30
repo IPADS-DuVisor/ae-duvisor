@@ -7,8 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::ffi::CString;
 use ioctl_constants::*;
 use delegation_constants::*;
-#[allow(unused_imports)]
-use crate::mm::utils;
+use crate::mm::utils::*;
 use core::ffi::c_void;
 
 #[allow(unused)]
@@ -117,8 +116,8 @@ impl VirtualMachine {
             panic!("vm_img_load failed");
         }
 
-        let (hva, hpa) = res.unwrap();
-        dbg!("New hpa: {:x}", hpa);
+        let (hva, _hpa) = res.unwrap();
+        dbgprintln!("New hpa: {:x}", _hpa);
         
         unsafe {
             let ptr = hva as *mut i32;
@@ -127,11 +126,11 @@ impl VirtualMachine {
             libc::memcpy(ptr as *mut c_void, gpa_start as *mut c_void,
                 length as usize);
 
-                dbg!("memcpy ptr {:x}", ptr as u64);
-                dbg!("memcpy length {:x}", length);
+                println!("memcpy ptr {:x}", ptr as u64);
+                dbgprintln!("memcpy length {:x}", length);
         }
 
-        dbg!("memcpy hva {:x}", hva);
+        dbgprintln!("memcpy hva {:x}", hva);
 
         gpa_start
     }
@@ -178,7 +177,7 @@ impl VirtualMachine {
             // call ioctl
             let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG,
                 deleg_ptr);
-            dbg!("ioctl result: {}", res);
+            dbgprintln!("ioctl result: {}", res);
         }
     }
 }
@@ -199,7 +198,7 @@ mod tests {
             let nr_vcpu = 1;
             let sum_ans = 10;
             let mut sum = 0;
-            let mem_size = 1 << 40;
+            let mem_size = 1 << TB_SHIFT;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
             
             vm.vm_init();
@@ -230,7 +229,7 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 2; // g-stage page fault for no permission
             let mut exit_reason = 0;
-            let mem_size = 1 << 40;
+            let mem_size = 1 << TB_SHIFT;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
@@ -244,7 +243,7 @@ mod tests {
             let entry_point: u64 = vm.vm_img_load(start, length);
 
             let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_block_add(ro_address, utils::PAGE_SIZE);
+                .gsmmu.gpa_block_add(ro_address, PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
@@ -280,7 +279,7 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 2; // g-stage page fault for no permission
             let mut exit_reason = 0;
-            let mem_size = 1 << 40;
+            let mem_size = 1 << TB_SHIFT;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
@@ -294,7 +293,7 @@ mod tests {
             let entry_point: u64 = vm.vm_img_load(start, length);
 
             let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_block_add(nx_address, utils::PAGE_SIZE);
+                .gsmmu.gpa_block_add(nx_address, PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
@@ -330,7 +329,7 @@ mod tests {
         fn test_vmem_ld_data() { 
             let nr_vcpu = 1;
             let mut load_value = 0;
-            let mem_size = 1 << 40;
+            let mem_size = 1 << TB_SHIFT;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             /* Answer will be saved at 0x3000(gpa) */
@@ -347,7 +346,7 @@ mod tests {
             let entry_point: u64 = vm.vm_img_load(start, length);
 
             let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_block_add(target_address, utils::PAGE_SIZE);
+                .gsmmu.gpa_block_add(target_address, PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
@@ -387,7 +386,7 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
-            let mem_size = 1 << 40;
+            let mem_size = 1 << TB_SHIFT;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
@@ -421,7 +420,7 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
-            let mem_size = 1 << 40;
+            let mem_size = 1 << TB_SHIFT;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
@@ -455,9 +454,10 @@ mod tests {
             let nr_vcpu = 1;
             let mut sum_ans = 0;
             let mut sum = 0;
-            let mem_size = 1 << 40;
+            let mem_size = 1 << TB_SHIFT;
             let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
+            /* sum up 0..100 twice */
             for i in 0..100 {
                 sum_ans += i;
             }
@@ -490,7 +490,7 @@ mod tests {
         #[test]
         fn test_vm_new() { 
             let vcpu_num = 4;
-            let mem_size = 1 << 48;
+            let mem_size = 1 << TB_SHIFT;
             let vm = VirtualMachine::new(vcpu_num, mem_size);
 
             assert_eq!(vm.vcpu_num, vcpu_num);
@@ -500,7 +500,7 @@ mod tests {
         #[test]
         fn test_vm_new_vcpu() {   
             let vcpu_num = 4;
-            let mem_size = 1 << 40;
+            let mem_size = 1 << TB_SHIFT;
             let vm = VirtualMachine::new(vcpu_num, mem_size);
             let mut sum = 0;
 

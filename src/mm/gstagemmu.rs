@@ -226,7 +226,7 @@ impl GStageMmu {
             let gpa_start = i.gpa;
             let gpa_end = gpa_start + i.length;
 
-            dbg!("check_gpa() - gpa {:x}, gpa_start {:x}, gpa_end {:x}",
+            dbgprintln!("check_gpa() - gpa {:x}, gpa_start {:x}, gpa_end {:x}",
                 gpa, gpa_start, gpa_end);
 
             if gpa >= gpa_start && gpa < gpa_end {
@@ -242,7 +242,7 @@ impl GStageMmu {
             let gpa_start = i.gpa;
             let gpa_end = gpa_start + i.length;
 
-            dbg!("check_mmio() - gpa {:x}, gpa_start {:x}, gpa_end {:x}",
+            dbgprintln!("check_mmio() - gpa {:x}, gpa_start {:x}, gpa_end {:x}",
                 gpa, gpa_start, gpa_end);
 
             if gpa >= gpa_start && gpa < gpa_end {
@@ -258,18 +258,18 @@ impl GStageMmu {
         let mut end: u64;
         let hpa: u64;
 
-        dbg!("gpa_block_query gpa: {:x}", gpa);
+        dbgprintln!("gpa_block_query gpa: {:x}", gpa);
 
         for i in &self.gpa_blocks {
             start = i.gpa;
             end = start + i.length;
-            dbg!("gpa_block_query gpa: {:x}, hpa: {:x}, length: {:x}",
+            dbgprintln!("gpa_block_query gpa: {:x}, hpa: {:x}, length: {:x}",
                 i.gpa, i.hpa, i.length);
             if gpa >= start &&  gpa < end {
-                dbg!("find a gpa block: gpa: {:x}, hpa: {:x}, length: {:x}",
+                dbgprintln!("find a gpa block: gpa: {:x}, hpa: {:x}, length: {:x}",
                     i.gpa, i.hpa, i.length);
                 hpa = i.hpa + gpa - start;
-                dbg!("gpa_block_query hpa: {:x}", hpa);
+                dbgprintln!("gpa_block_query hpa: {:x}", hpa);
                 return Some(hpa);
             }
         }
@@ -455,7 +455,7 @@ impl GStageMmu {
 
     // SV48x4
     pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> Option<u32> {
-        dbg!("enter map_page - gpa: {:x}, hpa: {:x}, flag: {:x}", 
+        dbgprintln!("enter map_page - gpa: {:x}, hpa: {:x}, flag: {:x}", 
             gpa, hpa, flag);
         let offsets_wrap = self.gpa_to_ptregion_offset(gpa);
         if offsets_wrap.is_none() {
