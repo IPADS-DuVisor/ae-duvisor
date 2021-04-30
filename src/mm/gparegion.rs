@@ -14,7 +14,7 @@ impl GpaBlock {
     }
 }
 
-/* pub struct GpaRegion {
+pub struct GpaRegion {
     pub gpa: u64,
     pub length: u64,
 }
@@ -26,7 +26,7 @@ impl GpaRegion {
             length,
         }
     }
-} */
+}
 
 #[cfg(test)]
 mod tests {
@@ -45,13 +45,13 @@ mod tests {
         assert_eq!(gpa_block.length, length);
     }
 
-/*     #[test]
+    #[test]
     fn test_gpa_region_new() {
         let gpa = 0x8000;
         let length = 0x2000;
-        let gpa_region = GpaBlock::new(gpa, length);
+        let gpa_region = GpaRegion::new(gpa, length);
 
         assert_eq!(gpa_region.gpa, gpa);
         assert_eq!(gpa_region.length, length);
-    } */
+    }
 }

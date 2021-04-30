@@ -1,4 +1,4 @@
-/* use crate::mm::gparegion;
+use crate::mm::gparegion;
 
 pub struct MmioManager {
     pub gpa_regions: Vec<gparegion::GpaRegion>,
@@ -27,16 +27,16 @@ mod tests {
     // Check new() of GpaBlock
     #[test]
     fn test_mmio_add() {
-        let mut gpa: u64;
-        let mut length: u64;
+        let mut gpa: u64 = 0;
+        let mut length: u64 = 0;
         let gpa_ans = 0x4000;
         let length_ans = 0x1000;
-        let mmio_manager = MmioManager::new();
+        let mut mmio_manager = MmioManager::new();
 
         mmio_manager.mmio_add(gpa_ans, length_ans);
 
-        let length = mmio_manager.gpa_regions.len();
-        assert_eq!(length, 1);
+        let len = mmio_manager.gpa_regions.len();
+        assert_eq!(len, 1);
 
         for i in mmio_manager.gpa_regions {
             gpa = i.gpa;
@@ -46,4 +46,4 @@ mod tests {
         assert_eq!(gpa_ans, gpa);
         assert_eq!(length_ans, length);
     }
-} */
+}

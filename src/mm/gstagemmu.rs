@@ -162,7 +162,7 @@ pub struct GStageMmu {
     pub page_table: PageTableRegion,
     pub gpa_blocks: Vec<gparegion::GpaBlock>, // gpa block list
     pub allocator: hpmallocator::HpmAllocator,
-    //pub mmio_manager : mmio::MmioManager,
+    pub mmio_manager : mmio::MmioManager,
 }
 
 impl GStageMmu {
@@ -170,7 +170,7 @@ impl GStageMmu {
         let gpa_blocks: Vec<gparegion::GpaBlock> = Vec::new();
         let mut allocator = hpmallocator::HpmAllocator::new(ioctl_fd);
         let mut page_table = PageTableRegion::new(&mut allocator);
-        //let mmio_manager = mmio::MmioManager::new();
+        let mmio_manager = mmio::MmioManager::new();
 
         // create root table
         page_table.page_table_create(0);
@@ -179,7 +179,7 @@ impl GStageMmu {
             page_table,
             gpa_blocks,
             allocator,
-            //mmio_manager,
+            mmio_manager,
         }
     }
 
