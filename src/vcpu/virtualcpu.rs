@@ -322,7 +322,8 @@ mod tests {
         fn test_stage2_page_fault() { 
             let vcpu_id = 0;
             let vcpu_num = 1;
-            let vm = virtualmachine::VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
@@ -440,7 +441,9 @@ mod tests {
         #[test]
         fn test_vcpu_new() { 
             let vcpu_id = 20;
-            let vm = virtualmachine::VirtualMachine::new(1);
+            let vcpu_num = 1;
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let vm_mutex = vm.vm_state;
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
@@ -451,7 +454,9 @@ mod tests {
         #[test]
         fn test_vcpu_ctx_init() { 
             let vcpu_id = 1;
-            let vm = virtualmachine::VirtualMachine::new(1);
+            let vcpu_num = 1;
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let vm_mutex = vm.vm_state;
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
@@ -475,7 +480,9 @@ mod tests {
         #[test]
         fn test_vcpu_set_ctx() {  
             let vcpu_id = 1;
-            let vm = virtualmachine::VirtualMachine::new(1);
+            let vcpu_num = 1;
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let ans = 17;
@@ -507,7 +514,8 @@ mod tests {
         #[test]
         fn test_vcpu_run() {
             let vcpu_num = 4;
-            let mut vm = virtualmachine::VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << 30;
+            let mut vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
             let mut handle: thread::JoinHandle<()>;
             let mut vcpu_mutex;
@@ -556,7 +564,8 @@ mod tests {
         fn test_vcpu_ecall_exit() { 
             let vcpu_id = 0;
             let vcpu_num = 1;
-            let vm = virtualmachine::VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
@@ -669,7 +678,8 @@ mod tests {
         fn test_vcpu_add_all_gprs() { 
             let vcpu_id = 0;
             let vcpu_num = 1;
-            let vm = virtualmachine::VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);

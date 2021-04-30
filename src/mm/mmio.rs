@@ -18,6 +18,11 @@ impl MmioManager {
 
         self.gpa_regions.push(gpa_region);
     }
+
+    // TODO: check mmio region list and reorder them
+    pub fn check_valid(&self) -> bool {
+        return true;
+    }
 }
 
 #[cfg(test)]

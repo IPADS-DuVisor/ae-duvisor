@@ -38,11 +38,11 @@ pub struct VmSharedState {
 }
 
 impl VmSharedState {
-    pub fn new(ioctl_fd: i32) -> Self {
+    pub fn new(ioctl_fd: i32, mem_size: u64) -> Self {
         Self {
             vm_id: 0,
             ioctl_fd,
-            gsmmu: gstagemmu::GStageMmu::new(ioctl_fd),
+            gsmmu: gstagemmu::GStageMmu::new(ioctl_fd, mem_size),
         }
     }
 }
@@ -51,6 +51,7 @@ pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
+    pub mem_size: u64,
 }
 
 impl VirtualMachine {
@@ -68,13 +69,13 @@ impl VirtualMachine {
         ioctl_fd
     }
 
-    pub fn new(vcpu_num: u32) -> Self {
+    pub fn new(vcpu_num: u32, mem_size: u64) -> Self {
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
 
         // get ioctl fd of "/dev/laputa_dev" 
         let ioctl_fd = VirtualMachine::open_ioctl();
 
-        let vm_state = VmSharedState::new(ioctl_fd);
+        let vm_state = VmSharedState::new(ioctl_fd, mem_size);
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
 
@@ -83,6 +84,7 @@ impl VirtualMachine {
             vcpus,
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
+            mem_size,
         };
 
         // Create vcpu struct instance
@@ -195,7 +197,8 @@ mod tests {
             let nr_vcpu = 1;
             let sum_ans = 10;
             let mut sum = 0;
-            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            let mem_size = 1 << 30;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
             
             vm.vm_init();
 
@@ -225,7 +228,8 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 2; // g-stage page fault for no permission
             let mut exit_reason = 0;
-            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            let mem_size = 1 << 30;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
 
@@ -274,7 +278,8 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 2; // g-stage page fault for no permission
             let mut exit_reason = 0;
-            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            let mem_size = 1 << 30;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
 
@@ -323,7 +328,8 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
-            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            let mem_size = 1 << 30;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
 
@@ -356,7 +362,8 @@ mod tests {
             let nr_vcpu = 1;
             let exit_reason_ans = 0xdead;
             let mut exit_reason = 0;
-            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            let mem_size = 1 << 30;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             vm.vm_init();
 
@@ -389,7 +396,8 @@ mod tests {
             let nr_vcpu = 1;
             let mut sum_ans = 0;
             let mut sum = 0;
-            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            let mem_size = 1 << 30;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
 
             for i in 0..100 {
                 sum_ans += i;
@@ -423,7 +431,8 @@ mod tests {
         #[test]
         fn test_vm_new() { 
             let vcpu_num = 4;
-            let vm = VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << 30;
+            let vm = VirtualMachine::new(vcpu_num, mem_size);
 
             assert_eq!(vm.vcpu_num, vcpu_num);
         }
@@ -432,7 +441,8 @@ mod tests {
         #[test]
         fn test_vm_new_vcpu() {   
             let vcpu_num = 4;
-            let vm = VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << 30;
+            let vm = VirtualMachine::new(vcpu_num, mem_size);
             let mut sum = 0;
 
             for i in &vm.vcpus {
