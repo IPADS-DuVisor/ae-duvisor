@@ -213,13 +213,6 @@ impl VirtualCpu {
                     } else {
                         panic!("Create gpa_block for fault addr {:x} failed!",
                             fault_addr);
-
-                        // handle MMIO otherwise
-//                        self.exit_reason = ExitReason::ExitMmio;
-//
-//                        ret = EFAILED;
-//
-//                        eprintln!("MMIO unsupported: {}", ret);
                     }
                 }
             }
