@@ -11,6 +11,7 @@ use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
 
+#[allow(unused)]
 mod errno_constants {
     pub const EFAILED: i32 = -1;
     pub const ENOPERMIT: i32 = -2;
@@ -109,7 +110,7 @@ impl VirtualCpu {
             set_hugatp(hugatp);
         }
 
-        println!("set hugatp {:x}", hugatp);
+        dbg!("set hugatp {:x}", hugatp);
 
         hugatp
     }
@@ -117,40 +118,53 @@ impl VirtualCpu {
     fn handle_virtual_inst_fault(&mut self) -> i32 {
         let ret = 0;
         let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
-        println!("handle_virtual_inst_fault: insn = {:x}", utval);
+        dbg!("handle_virtual_inst_fault: insn = {:x}", utval);
         
         ret
+    }
+
+    fn handle_mmio(&mut self, fault_addr: u64) -> i32 {
+        dbg!("MMIO has not been finished yet! {:x}", fault_addr);
+        return 0;
     }
 
     fn handle_stage2_page_fault(&mut self) -> i32 {
         let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
         let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
         let mut fault_addr = utval;
+        let mut ret;
 
-        println!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
+        dbg!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
 
         fault_addr &= !PAGE_SIZE_MASK;
         
-        let check = self.vm.lock().unwrap().gsmmu.check_gpa(fault_addr);
-        if !check {
-            panic!("illegal gpa!");
-        }
+        let gpa_check = self.vm.lock().unwrap().gsmmu.check_gpa(fault_addr);
+        if !gpa_check {
+            // Maybe mmio or illegal gpa
+            let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
 
-        let mut ret;
+            if !mmio_check {
+                panic!("Invalid gpa!");
+            }
+
+            ret = self.handle_mmio(fault_addr);
+
+            return ret;
+        }
 
         // map_query
         let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
         if query.is_some() {
             let i = query.unwrap();
 
-            println!("Query PTE offset {}, value {}, level {}", i.offset, 
+            dbg!("Query PTE offset {}, value {}, level {}", i.offset, 
                 i.value, i.level);
 
             if i.is_leaf() {
                 ret = ENOPERMIT;
             } else {
-                println!("QUERY is some but ENOMAPPING");
+                dbg!("QUERY is some but ENOMAPPING");
 
                 ret = ENOMAPPING;
             }
@@ -160,10 +174,10 @@ impl VirtualCpu {
         match ret {
             ENOPERMIT => {
                 self.exit_reason = ExitReason::ExitEaccess;
-                eprintln!("Query return ENOPERMIT: {}", ret);
+                dbg!("Query return ENOPERMIT: {}", ret);
             }
             ENOMAPPING => {
-                println!("Query return ENOMAPPING: {}", ret);
+                dbg!("Query return ENOMAPPING: {}", ret);
                 // find hpa by fault_addr
                 let fault_hpa_query = self.vm.lock().unwrap().gsmmu
                     .gpa_block_query(fault_addr);
@@ -174,7 +188,7 @@ impl VirtualCpu {
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
                         | PTE_EXECUTE;
                         
-                    println!("map gpa: {:x} to hpa: {:x}",
+                    dbg!("map gpa: {:x} to hpa: {:x}",
                         fault_addr, fault_hpa);
                     self.vm.lock().unwrap().gsmmu.map_page(
                         fault_addr, fault_hpa, flag);
@@ -211,7 +225,7 @@ impl VirtualCpu {
             }
             _ => {
                 self.exit_reason = ExitReason::ExitEaccess;
-                eprintln!("Invalid query result: {}", ret);
+                dbg!("Invalid query result: {}", ret);
             }
         }
 
@@ -224,7 +238,7 @@ impl VirtualCpu {
         let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
         // ...
         let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: funcID
-        println!("handle_supervisor_ecall: funcID = {:x}, arg0 = {:x}, arg1 = {:x}",
+        dbg!("handle_supervisor_ecall: funcID = {:x}, arg0 = {:x}, arg1 = {:x}",
             a7, a0, a1);
 
         // FIXME: for test cases
@@ -258,12 +272,12 @@ impl VirtualCpu {
                 ret = self.handle_supervisor_ecall();
             }
             _ => {
-                eprintln!("Invalid ucause: {}", ucause);
+                dbg!("Invalid ucause: {}", ucause);
             }
         }
 
         if ret < 0 {
-            eprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
+            dbg!("ERROR: handle_vcpu_exit ret: {}", ret);
 
             // FIXME: save the exit reason in HOST_A0 before the vcpu down
             self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
@@ -282,11 +296,11 @@ impl VirtualCpu {
         unsafe {
             // register vcpu thread to the kernel
             res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
-            println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
+            dbg!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
 
             // set hugatp
             let hugatp = self.config_hugatp();
-            println!("Config hugatp: {:x}", hugatp);
+            dbg!("Config hugatp: {:x}", hugatp);
 
             // set trap hadnler
             set_utvec();
@@ -306,7 +320,7 @@ impl VirtualCpu {
         
         unsafe {
             res = libc::ioctl(fd, IOCTL_LAPUTA_UNREGISTER_VCPU);
-            println!("IOCTL_LAPUTA_UNREGISTER_VCPU : {}", res);
+            dbg!("IOCTL_LAPUTA_UNREGISTER_VCPU : {}", res);
         }
 
         ret

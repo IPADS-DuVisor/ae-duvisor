@@ -116,7 +116,7 @@ impl VirtualMachine {
         }
 
         let (hva, hpa) = res.unwrap();
-        println!("New hpa: {:x}", hpa);
+        dbg!("New hpa: {:x}", hpa);
         
         unsafe {
             let ptr = hva as *mut i32;
@@ -125,11 +125,11 @@ impl VirtualMachine {
             libc::memcpy(ptr as *mut c_void, gpa_start as *mut c_void,
                 length as usize);
 
-            println!("memcpy ptr {:x}", ptr as u64);
-            println!("memcpy length {:x}", length);
+                dbg!("memcpy ptr {:x}", ptr as u64);
+                dbg!("memcpy length {:x}", length);
         }
 
-        println!("memcpy hva {:x}", hva);
+        dbg!("memcpy hva {:x}", hva);
 
         gpa_start
     }
@@ -176,7 +176,7 @@ impl VirtualMachine {
             // call ioctl
             let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG,
                 deleg_ptr);
-            println!("ioctl result: {}", res);
+            dbg!("ioctl result: {}", res);
         }
     }
 }
