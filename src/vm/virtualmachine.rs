@@ -7,6 +7,29 @@ use std::sync::{Arc, Mutex};
 use std::ffi::CString;
 use ioctl_constants::*;
 use delegation_constants::*;
+use crate::mm::utils::*;
+use core::ffi::c_void;
+
+#[allow(unused)]
+extern "C"
+{
+    fn vcpu_ecall_exit();
+    fn vcpu_ecall_exit_end();
+    fn vcpu_add_all_gprs();
+    fn vcpu_add_all_gprs_end();
+    fn vmem_ld_mapping();
+    fn vmem_ld_mapping_end();
+    fn vmem_W_Ro();
+    fn vmem_W_Ro_end();
+    fn vmem_X_nonX();
+    fn vmem_X_nonX_end();
+    fn vmem_ld_sd_over_loop();
+    fn vmem_ld_sd_over_loop_end();
+    fn vmem_ld_sd_sum();
+    fn vmem_ld_sd_sum_end();
+    fn vmem_ld_data();
+    fn vmem_ld_data_end();
+}
 
 // Export to vcpu
 pub struct VmSharedState {
@@ -16,11 +39,11 @@ pub struct VmSharedState {
 }
 
 impl VmSharedState {
-    pub fn new(ioctl_fd: i32) -> Self {
+    pub fn new(ioctl_fd: i32, mem_size: u64) -> Self {
         Self {
             vm_id: 0,
             ioctl_fd,
-            gsmmu: gstagemmu::GStageMmu::new(ioctl_fd),
+            gsmmu: gstagemmu::GStageMmu::new(ioctl_fd, mem_size),
         }
     }
 }
@@ -29,6 +52,7 @@ pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
     pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
     pub vcpu_num: u32,
+    pub mem_size: u64,
 }
 
 impl VirtualMachine {
@@ -46,13 +70,13 @@ impl VirtualMachine {
         ioctl_fd
     }
 
-    pub fn new(vcpu_num: u32) -> Self {
+    pub fn new(vcpu_num: u32, mem_size: u64) -> Self {
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
 
         // get ioctl fd of "/dev/laputa_dev" 
         let ioctl_fd = VirtualMachine::open_ioctl();
 
-        let vm_state = VmSharedState::new(ioctl_fd);
+        let vm_state = VmSharedState::new(ioctl_fd, mem_size);
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
 
@@ -61,6 +85,7 @@ impl VirtualMachine {
             vcpus,
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
+            mem_size,
         };
 
         // Create vcpu struct instance
@@ -82,6 +107,32 @@ impl VirtualMachine {
         // Delegate traps via ioctl
         VirtualMachine::hu_delegation(ioctl_fd);
         self.vm_state.lock().unwrap().gsmmu.allocator.set_ioctl_fd(ioctl_fd);
+    }
+
+    pub fn vm_img_load(&mut self, gpa_start: u64, length: u64) -> u64{
+        let res = self.vm_state.lock().unwrap().
+            gsmmu.gpa_block_add(gpa_start, length);
+        if !res.is_ok() {
+            panic!("vm_img_load failed");
+        }
+
+        let (hva, _hpa) = res.unwrap();
+        dbgprintln!("New hpa: {:x}", _hpa);
+        
+        unsafe {
+            let ptr = hva as *mut i32;
+
+            // set vm img code
+            libc::memcpy(ptr as *mut c_void, gpa_start as *mut c_void,
+                length as usize);
+
+                println!("memcpy ptr {:x}", ptr as u64);
+                dbgprintln!("memcpy length {:x}", length);
+        }
+
+        dbgprintln!("memcpy hva {:x}", hva);
+
+        gpa_start
     }
 
     pub fn vm_run(&mut self) {
@@ -126,7 +177,7 @@ impl VirtualMachine {
             // call ioctl
             let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG,
                 deleg_ptr);
-            println!("ioctl result: {}", res);
+            dbgprintln!("ioctl result: {}", res);
         }
     }
 }
@@ -137,6 +188,8 @@ mod tests {
     use super::*;
     use crate::vm::*;
     use rusty_fork::rusty_fork_test;
+    use crate::mm::gstagemmu::gsmmu_constants;
+    use gsmmu_constants::*;
 
     rusty_fork_test! {
         #[test]
@@ -145,8 +198,22 @@ mod tests {
             let nr_vcpu = 1;
             let sum_ans = 10;
             let mut sum = 0;
-            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu);
+            let mem_size = 1 << TB_SHIFT;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
+            
             vm.vm_init();
+
+            // set test code
+            let start = vcpu_add_all_gprs as u64;
+            let end = vcpu_add_all_gprs_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
             vm.vm_run();
             
             for i in &vm.vcpus {
@@ -158,18 +225,283 @@ mod tests {
         }
 
         #[test]
+        fn test_vmem_ro() { 
+            let nr_vcpu = 1;
+            let exit_reason_ans = 2; // g-stage page fault for no permission
+            let mut exit_reason = 0;
+            let mem_size = 1 << TB_SHIFT;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
+
+            vm.vm_init();
+
+            let ro_address = 0x3000;
+
+            // set test code
+            let start = vmem_W_Ro as u64;
+            let end = vmem_W_Ro_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_block_add(ro_address, PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!")
+            }
+
+            let (_hva, hpa) = res.unwrap();
+            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
+                | PTE_EXECUTE;
+
+            vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
+
+            // read-only
+            flag = PTE_USER | PTE_VALID | PTE_READ;
+            vm.vm_state.lock().unwrap().gsmmu.map_protect(ro_address, flag);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+            
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs
+                    .x_reg[0];
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        #[test]
+        fn test_vmem_nx() { 
+            let nr_vcpu = 1;
+            let exit_reason_ans = 2; // g-stage page fault for no permission
+            let mut exit_reason = 0;
+            let mem_size = 1 << TB_SHIFT;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
+
+            vm.vm_init();
+
+            let nx_address = 0x3000;
+
+            // set test code
+            let start = vmem_X_nonX as u64;
+            let end = vmem_X_nonX_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_block_add(nx_address, PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!")
+            }
+
+            let (_hva, hpa) = res.unwrap();
+            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
+                | PTE_EXECUTE;
+
+            vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
+
+            // non-execute
+            flag = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
+            vm.vm_state.lock().unwrap().gsmmu.map_protect(nx_address, flag);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+            
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason =
+                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        /* check the correctness of loading data from specific gpa */
+        #[test]
+        fn test_vmem_ld_data() { 
+            let nr_vcpu = 1;
+            let mut load_value = 0;
+            let mem_size = 1 << TB_SHIFT;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
+
+            /* Answer will be saved at 0x3000(gpa) */
+            let answer: u64 = 0x1213141516171819;
+
+            vm.vm_init();
+
+            let target_address = 0x3000;
+
+            // set test code
+            let start = vmem_ld_data as u64;
+            let end = vmem_ld_data_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_block_add(target_address, PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!")
+            }
+
+            let (hva, hpa) = res.unwrap();
+            println!("hva {:x}, hpa {:x}", hva, hpa);
+
+            unsafe {
+                *(hva as *mut u64) = answer;
+            }
+
+            let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
+                | PTE_EXECUTE;
+
+            vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, flag);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+            
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                load_value =
+                    i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
+            }
+            vm.vm_destroy();
+
+            println!("load value {:x}", load_value);
+
+            assert_eq!(load_value, answer);
+        }
+
+        #[test]
+        fn test_vmem_mapping() { 
+            let nr_vcpu = 1;
+            let exit_reason_ans = 0xdead;
+            let mut exit_reason = 0;
+            let mem_size = 1 << TB_SHIFT;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
+
+            vm.vm_init();
+
+            // set test code
+            let start = vmem_ld_mapping as u64;
+            let end = vmem_ld_mapping_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason =
+                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                println!("exit reason {:x}", exit_reason);
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        #[test]
+        fn test_vm_huge_mapping() { 
+            println!("---------start test_vm_huge_mapping------------");
+            let nr_vcpu = 1;
+            let exit_reason_ans = 0xdead;
+            let mut exit_reason = 0;
+            let mem_size = 1 << TB_SHIFT;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
+
+            vm.vm_init();
+
+            // set test code
+            let start = vmem_ld_sd_over_loop as u64;
+            let end = vmem_ld_sd_over_loop_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason =
+                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                println!("exit reason {:x}", exit_reason);
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason_ans, exit_reason);
+        }
+
+        #[test]
+        fn test_vm_ld_sd_sum() { 
+            println!("---------start test_vm_huge_mapping------------");
+            let nr_vcpu = 1;
+            let mut sum_ans = 0;
+            let mut sum = 0;
+            let mem_size = 1 << TB_SHIFT;
+            let mut vm = virtualmachine::VirtualMachine::new(nr_vcpu, mem_size);
+
+            /* sum up 0..100 twice */
+            for i in 0..100 {
+                sum_ans += i;
+            }
+            sum_ans *= 2;
+
+            vm.vm_init();
+
+            // set test code
+            let start = vmem_ld_sd_sum as u64;
+            let end = vmem_ld_sd_sum_end as u64;
+            let length = end - start;
+            let entry_point: u64 = vm.vm_img_load(start, length);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                sum = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[29];
+                println!("sum {}", sum);
+            }
+            vm.vm_destroy();
+
+            assert_eq!(sum_ans, sum);
+        }
+
+        #[test]
         fn test_vm_new() { 
             let vcpu_num = 4;
-            let vm = VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << TB_SHIFT;
+            let vm = VirtualMachine::new(vcpu_num, mem_size);
 
             assert_eq!(vm.vcpu_num, vcpu_num);
         }
 
-        // Check the num of the vcpu created 
+        // Check the num of the vcpu created
         #[test]
         fn test_vm_new_vcpu() {   
             let vcpu_num = 4;
-            let vm = VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << TB_SHIFT;
+            let vm = VirtualMachine::new(vcpu_num, mem_size);
             let mut sum = 0;
 
             for i in &vm.vcpus {

@@ -24,8 +24,9 @@ fn main() {
         .compile("enter_guest");
 
     let filenames = ["vcpu_add_all_gprs", "vcpu_ecall_exit", 
-                     "vmem_ld_mapping", "vmem_ld_nomapping", "vmem_ld_sd_over_loop",
-                     "vmem_W_Ro", "vmem_X_nonX"];
+                     "vmem_ld_mapping", "vmem_ld_sd_over_loop",
+                     "vmem_W_Ro", "vmem_X_nonX", "vmem_ld_sd_sum", 
+                     "vmem_ld_data"];
     for i in 0..filenames.len() {
         cc_build_filename(filenames[i]);
     }    

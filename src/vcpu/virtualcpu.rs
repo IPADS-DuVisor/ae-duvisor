@@ -4,13 +4,14 @@ use crate::irq::vtimer;
 use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
 use vcpucontext::*;
+use crate::mm::utils::*;
 use crate::mm::gstagemmu::*;
 use crate::plat::uhe::ioctl::ioctl_constants::*;
 use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
-use core::ffi::c_void;
 
+#[allow(unused)]
 mod errno_constants {
     pub const EFAILED: i32 = -1;
     pub const ENOPERMIT: i32 = -2;
@@ -49,6 +50,12 @@ extern "C"
     fn vcpu_add_all_gprs_end();
     fn vmem_ld_mapping();
     fn vmem_ld_mapping_end();
+    fn vmem_W_Ro();
+    fn vmem_W_Ro_end();
+    fn vmem_X_nonX();
+    fn vmem_X_nonX_end();
+    fn vmem_ld_sd_over_loop();
+    fn vmem_ld_sd_over_loop_end();
 }
 
 pub struct VirtualCpu {
@@ -103,96 +110,137 @@ impl VirtualCpu {
             set_hugatp(hugatp);
         }
 
+        dbgprintln!("set hugatp {:x}", hugatp);
+
         hugatp
     }
     
-    fn virtual_inst_fault(&mut self) -> i32 {
+    fn handle_virtual_inst_fault(&mut self) -> i32 {
         let ret = 0;
-        let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
-        println!("virtual_inst_fault: insn = {:x}", utval);
+        let _utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
+        dbgprintln!("handle_virtual_inst_fault: insn = {:x}", _utval);
         
         ret
     }
 
-    fn stage2_page_fault(&mut self) -> i32 {
-        let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
-        let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
-        //let fault_addr = (hutval << 2) | (utval & 0x3);
-        let fault_addr = utval;
-        println!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
-            hutval, utval, fault_addr);
+    fn handle_mmio(&mut self, _fault_addr: u64) -> i32 {
+        dbgprintln!("MMIO has not been finished yet! {:x}", _fault_addr);
+        return 0;
+    }
 
+    fn handle_stage2_page_fault(&mut self) -> i32 {
+        let _hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
+        let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
+        let mut fault_addr = utval;
         let mut ret;
+
+        dbgprintln!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
+            _hutval, utval, fault_addr);
+
+        fault_addr &= !PAGE_SIZE_MASK;
+        
+        let gpa_check = self.vm.lock().unwrap().gsmmu.check_gpa(fault_addr);
+        if !gpa_check {
+            // Maybe mmio or illegal gpa
+            let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
+
+            if !mmio_check {
+                panic!("Invalid gpa!");
+            }
+
+            ret = self.handle_mmio(fault_addr);
+
+            return ret;
+        }
+
         // map_query
         let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
         if query.is_some() {
             let i = query.unwrap();
-            println!("Query PTE offset {}, value {}, level {}", i.offset, 
+
+            dbgprintln!("Query PTE offset {}, value {}, level {}", i.offset, 
                 i.value, i.level);
-            ret = ENOPERMIT;
+
+            if i.is_leaf() {
+                ret = ENOPERMIT;
+            } else {
+                dbgprintln!("QUERY is some but ENOMAPPING");
+
+                ret = ENOMAPPING;
+            }
         } else {
             ret = ENOMAPPING;
         }
         match ret {
             ENOPERMIT => {
                 self.exit_reason = ExitReason::ExitEaccess;
-                eprintln!("Query return ENOPERMIT: {}", ret);
+                dbgprintln!("Query return ENOPERMIT: {}", ret);
             }
             ENOMAPPING => {
-                println!("Query return ENOMAPPING: {}", ret);
-                // find gpa region by fault_addr
-                let len = PAGE_SIZE;
-                let res = self.vm.lock().unwrap().
-                    gsmmu.gpa_region_add(fault_addr, len);
-                if res.is_ok() {
-                    // map new region to VM if the region exists
-                    let (hva, hpa) = res.unwrap();
-                    println!("New hpa: {:x}", hpa);
-                    unsafe {
-                        let ptr = hva as *mut i32;
+                dbgprintln!("Query return ENOMAPPING: {}", ret);
+                // find hpa by fault_addr
+                let fault_hpa_query = self.vm.lock().unwrap().gsmmu
+                    .gpa_block_query(fault_addr);
 
-                        // FIXME: set test code for now
-                        let start = vcpu_add_all_gprs as u64;
-                        let end = vcpu_add_all_gprs_end as u64;
-                        let size = end - start;
-                        libc::memcpy(ptr as *mut c_void,
-                            vcpu_add_all_gprs as *mut c_void,
-                            size as usize);
-                    }
+                if fault_hpa_query.is_some() {
+                    // fault gpa is already in a gpa_block and it is valid
+                    let fault_hpa = fault_hpa_query.unwrap();
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
                         | PTE_EXECUTE;
+                        
+                    dbgprintln!("map gpa: {:x} to hpa: {:x}",
+                        fault_addr, fault_hpa);
                     self.vm.lock().unwrap().gsmmu.map_page(
-                        fault_addr, hpa, flag);
+                        fault_addr, fault_hpa, flag);
+
                     ret = 0;
                 } else {
-                    // handle MMIO otherwise
-                    self.exit_reason = ExitReason::ExitMmio;
-                    ret = EFAILED;
-                    eprintln!("MMIO unsupported: {}", ret);
+                    // fault gpa is not in a gpa_block and it is valid
+                    let len = PAGE_SIZE;
+                    let res = self.vm.lock().unwrap().gsmmu
+                        .gpa_block_add(fault_addr, len);
+
+                    if res.is_ok() {
+                        // map new page to VM if the region exists
+                        let (_hva, hpa) = res.unwrap();
+                        let flag: u64 = PTE_USER | PTE_VALID | PTE_READ 
+                            | PTE_WRITE | PTE_EXECUTE;
+
+                        self.vm.lock().unwrap().gsmmu.map_page(
+                            fault_addr, hpa, flag);
+
+                        ret = 0;
+                    } else {
+                        panic!("Create gpa_block for fault addr {:x} failed!",
+                            fault_addr);
+                    }
                 }
             }
             _ => {
                 self.exit_reason = ExitReason::ExitEaccess;
-                eprintln!("Invalid query result: {}", ret);
+                dbgprintln!("Invalid query result: {}", ret);
             }
         }
 
         ret
     }
 
-    fn supervisor_ecall(&mut self) -> i32 {
+    fn handle_supervisor_ecall(&mut self) -> i32 {
         let ret;
-        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: funcID
-        let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
+        let _a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: 0th arg
+        let _a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
         // ...
-        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: 7th arg
-        println!("supervisor_ecall: funcID = {:x}, arg1 = {:x}, arg7 = {:x}",
-            a0, a1, a7);
+        let _a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: funcID
+        dbgprintln!("handle_supervisor_ecall: funcID = {:x}, arg0 = {:x}, arg1 = {:x}",
+            _a7, _a0, _a1);
 
-        // for test
+        // FIXME: for test cases
         ret = 0xdead;
+
+        // FIXME: for test cases
+        self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret;
         
-        ret
+        ret as i32
     }
 
     fn handle_vcpu_exit(&mut self) -> i32 {
@@ -207,22 +255,25 @@ impl VirtualCpu {
 
         match ucause {
             EXC_VIRTUAL_INST_FAULT => {
-                ret = self.virtual_inst_fault();
+                ret = self.handle_virtual_inst_fault();
             }
             EXC_INST_GUEST_PAGE_FAULT | EXC_LOAD_GUEST_PAGE_FAULT |
                 EXC_STORE_GUEST_PAGE_FAULT => {
-                ret = self.stage2_page_fault();
+                ret = self.handle_stage2_page_fault();
             }
             EXC_VIRTUAL_SUPERVISOR_SYSCALL => {
-                ret = self.supervisor_ecall();
+                ret = self.handle_supervisor_ecall();
             }
             _ => {
-                eprintln!("Invalid ucause: {}", ucause);
+                dbgprintln!("Invalid ucause: {}", ucause);
             }
         }
 
         if ret < 0 {
-            eprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
+            dbgprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
+
+            // FIXME: save the exit reason in HOST_A0 before the vcpu down
+            self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
         }
 
         ret
@@ -230,23 +281,21 @@ impl VirtualCpu {
 
     pub fn thread_vcpu_run(&mut self) -> i32 {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
-        let mut res;
+        let mut _res;
 
-        // FIXME: uepc should be set to the entry point of vm img
-        self.vcpu_ctx.host_ctx.hyp_regs.uepc = 0x400000; // for test
         self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
             | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
         unsafe {
             // register vcpu thread to the kernel
-            res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
-            println!("IOCTL_LAPUTA_REGISTER_VCPU : {}", res);
+            _res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
+            dbgprintln!("IOCTL_LAPUTA_REGISTER_VCPU : {}", _res);
 
             // set hugatp
-            let hugatp = self.config_hugatp();
-            println!("Config hugatp: {:x}", hugatp);
+            let _hugatp = self.config_hugatp();
+            dbgprintln!("Config hugatp: {:x}", _hugatp);
 
-            // set trap hadnler
+            // set trap handler
             set_utvec();
         }
         
@@ -263,8 +312,8 @@ impl VirtualCpu {
         } 
         
         unsafe {
-            res = libc::ioctl(fd, IOCTL_LAPUTA_UNREGISTER_VCPU);
-            println!("IOCTL_LAPUTA_UNREGISTER_VCPU : {}", res);
+            _res = libc::ioctl(fd, IOCTL_LAPUTA_UNREGISTER_VCPU);
+            dbgprintln!("IOCTL_LAPUTA_UNREGISTER_VCPU : {}", _res);
         }
 
         ret
@@ -275,20 +324,16 @@ impl VirtualCpu {
 mod tests {
     use super::*;
     use std::thread;
-    use crate::plat::uhe::ioctl::ioctl_constants;
-    use crate::irq::delegation::delegation_constants;
-    use crate::mm::gstagemmu::gsmmu_constants;
-    use ioctl_constants::*;
-    use delegation_constants::*;
-    use gsmmu_constants::*;
     use rusty_fork::rusty_fork_test;
+    use core::ffi::c_void;
 
     rusty_fork_test! {
         #[test]
-        fn test_stage2_page_fault() { 
+        fn test_handle_stage2_page_fault() { 
             let vcpu_id = 0;
             let vcpu_num = 1;
-            let vm = virtualmachine::VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << TB_SHIFT;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
@@ -344,7 +389,7 @@ mod tests {
 
             let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
             let ptr_u64 = ptr as u64;
-            println!("test_stage2_page_fault - ptr_u64: {:x}", ptr_u64);
+            println!("test_handle_stage2_page_fault - ptr_u64: {:x}", ptr_u64);
             let mut ret: i32 = 0;
 
             let target_code = (test_buf_pfn << PAGE_SIZE_SHIFT) as u64;
@@ -406,7 +451,9 @@ mod tests {
         #[test]
         fn test_vcpu_new() { 
             let vcpu_id = 20;
-            let vm = virtualmachine::VirtualMachine::new(1);
+            let vcpu_num = 1;
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let vm_mutex = vm.vm_state;
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
@@ -417,7 +464,9 @@ mod tests {
         #[test]
         fn test_vcpu_ctx_init() { 
             let vcpu_id = 1;
-            let vm = virtualmachine::VirtualMachine::new(1);
+            let vcpu_num = 1;
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let vm_mutex = vm.vm_state;
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
@@ -441,7 +490,9 @@ mod tests {
         #[test]
         fn test_vcpu_set_ctx() {  
             let vcpu_id = 1;
-            let vm = virtualmachine::VirtualMachine::new(1);
+            let vcpu_num = 1;
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let ans = 17;
@@ -473,7 +524,8 @@ mod tests {
         #[test]
         fn test_vcpu_run() {
             let vcpu_num = 4;
-            let mut vm = virtualmachine::VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << 30;
+            let mut vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
             let mut handle: thread::JoinHandle<()>;
             let mut vcpu_mutex;
@@ -522,7 +574,8 @@ mod tests {
         fn test_vcpu_ecall_exit() { 
             let vcpu_id = 0;
             let vcpu_num = 1;
-            let vm = virtualmachine::VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
@@ -635,7 +688,8 @@ mod tests {
         fn test_vcpu_add_all_gprs() { 
             let vcpu_id = 0;
             let vcpu_num = 1;
-            let vm = virtualmachine::VirtualMachine::new(vcpu_num);
+            let mem_size = 1 << 30;
+            let vm = virtualmachine::VirtualMachine::new(vcpu_num, mem_size);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);

@@ -6,7 +6,7 @@ use clap::App;
 
 pub struct VMConfig {
     pub vcpu_count: u32,
-    pub mem_size: u32,
+    pub mem_size: u64,
     pub machine_type: String,
     pub kernel_img_path: String,
     pub initrd_path: String,
@@ -53,7 +53,7 @@ impl VMConfig {
             }
 
             // Get memory size
-            vm_config.mem_size = value_t!(matches.value_of("memory"), u32).unwrap_or(0);
+            vm_config.mem_size = value_t!(matches.value_of("memory"), u64).unwrap_or(0);
             if vm_config.mem_size == 0 {
                 return Err("please set memory size by using --memory or config files.");
             }
@@ -95,7 +95,7 @@ impl VMConfig {
                 }
                 "memory" => {
                     if words.len() >= 2 {
-                        vm_config.mem_size = words[1].trim().to_string().parse::<u32>().unwrap_or(0);
+                        vm_config.mem_size = words[1].trim().to_string().parse::<u64>().unwrap_or(0);
                     }
                 }
                 "kernel" => {
@@ -187,7 +187,7 @@ impl VMConfig {
 mod tests {
     use super::*;
 
-    fn setup_vm_config(vcpu: u32, mem: u32,
+    fn setup_vm_config(vcpu: u32, mem: u64,
                        machine: &str, kernel: &str,
                        initrd: &str, dtb: &str) -> VMConfig {
         VMConfig {

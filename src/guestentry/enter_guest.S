@@ -22,7 +22,7 @@ enter_guest:
     ld t0, HOST_HYP_HUCOUNTEREN(a0)
     csrw CSR_HUCOUNTEREN, t0
 
-    /* Restore UEPC & UCAUSE & UTVAL for trap hadnler */
+    /* Restore UEPC & UCAUSE & UTVAL for trap handler */
     ld t0, HOST_HYP_UEPC(a0)
     csrw CSR_UEPC, t0
 
@@ -31,9 +31,6 @@ enter_guest:
 
     ld t0, HOST_HYP_UTVAL(a0)
     csrw CSR_UTVAL, t0
-
-    /* hufence */
-    //.word INS_HUFENCE_GVMA
 
     /* restore guest GP except A0 & X0 */
     RESTORE_GUEST_CTX a0
@@ -62,7 +59,7 @@ exit_guest:
     csrr t0, CSR_HUCOUNTEREN
     sd t0, HOST_HYP_HUCOUNTEREN(a0)
 
-    /* Save UEPC & UCAUSE & UTVAL for trap hadnler */
+    /* Save UEPC & UCAUSE & UTVAL for trap handler */
     csrr t0, CSR_UEPC
     sd t0, HOST_HYP_UEPC(a0)
 
