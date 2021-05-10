@@ -4,6 +4,13 @@ use crate::mm::mmio;
 use core::mem;
 use crate::mm::utils::*;
 
+#[allow(unused)]
+extern "C"
+{
+    fn hufence_gvma_all();
+}
+
+
 pub mod gsmmu_constants {
     // pte bit
     pub const PTE_VALID: u64 = 1u64 << 0;
@@ -449,6 +456,9 @@ impl GStageMmu {
         unsafe {
             *pte_addr = pte_value;
         }
+        unsafe { 
+            hufence_gvma_all();
+        }
 
         Some(0)
     }
@@ -529,7 +539,7 @@ impl GStageMmu {
     }
 
     // Unmap L0/L1/L2 page table pages if there are no valid PTEs in them
-    pub fn unmap_page(&mut self, gpa: u64) -> Option<u32> {
+    fn __unmap_page(&mut self, gpa: u64) -> Option<u32> {
         if (gpa & 0xfff) != 0 {
             return None;
         }
@@ -556,6 +566,14 @@ impl GStageMmu {
         Some(0)
     }
 
+    pub fn unmap_page(&mut self, gpa: u64) -> Option<u32> {
+        let ret = self.__unmap_page(gpa);
+        unsafe { 
+            hufence_gvma_all();
+        }
+        ret
+    }
+
     pub fn unmap_range(&mut self, gpa: u64, length: u64) -> Option<u32> {
         if (gpa & 0xfff) != 0 {
             return None;
@@ -568,13 +586,15 @@ impl GStageMmu {
         let mut offset: u64 = 0;
 
         loop {
-            self.unmap_page(gpa + offset);
+            self.__unmap_page(gpa + offset);
             offset += PAGE_SIZE;
             if offset >= length {
                 break;
             }
         }
-
+        unsafe { 
+            hufence_gvma_all();
+        }
         Some(0)
     }
 
