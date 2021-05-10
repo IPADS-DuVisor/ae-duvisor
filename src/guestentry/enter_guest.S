@@ -86,3 +86,62 @@ set_utvec:
     la t4, exit_guest
     csrw CSR_UTVEC, t4
     ret
+    
+/*
+    * Instruction encoding of hufence.gvma is:
+    * HUFENCE.GVMA rs1, rs2
+    * HUFENCE.GVMA zero, rs2
+    * HUFENCE.GVMA rs1
+    * HUFENCE.GVMA
+    *
+    * rs1!=zero and rs2!=zero ==> HUFENCE.GVMA rs1, rs2
+    * rs1==zero and rs2!=zero ==> HUFENCE.GVMA zero, rs2
+    * rs1!=zero and rs2==zero ==> HUFENCE.GVMA rs1
+    * rs1==zero and rs2==zero ==> HUFENCE.GVMA
+    *
+    * Instruction encoding of HUFENCE.GVMA is:
+    * 1110001 rs2(5) rs1(5) 000 00000 1110011
+    */
+.global hufence_gvma_vmid_gpa
+hufence_gvma_vmid_gpa:
+	/*
+	 * rs1 = a0 (GPA)
+	 * rs2 = a1 (VMID)
+	 * HUFENCE.GVMA a0, a1
+	 * 1110001 01011 01010 000 00000 1110011
+	 */
+	.word 0xe2b50073
+	ret
+
+.global hufence_gvma_vmid
+hufence_gvma_vmid:
+	/*
+	 * rs1 = zero
+	 * rs2 = a0 (VMID)
+	 * HUFENCE.GVMA zero, a0
+	 * 1110001 01010 00000 000 00000 1110011
+	 */
+	.word 0xe2a00073
+	ret
+
+.global hufence_gvma_gpa
+hufence_gvma_gpa:
+	/*
+	 * rs1 = a0 (GPA)
+	 * rs2 = zero
+	 * HUFENCE.GVMA a0
+	 * 1110001 00000 01010 000 00000 1110011
+	 */
+	.word 0xe2050073
+	ret
+
+.global hufence_gvma_all
+hufence_gvma_all:
+	/*
+	 * rs1 = zero
+	 * rs2 = zero
+	 * HUFENCE.GVMA
+	 * 1110001 00000 00000 000 00000 1110011
+	 */
+	.word 0xe2000073
+	ret
