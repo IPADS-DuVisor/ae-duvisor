@@ -182,6 +182,26 @@ impl VMConfig {
     }
 }
 
+#[cfg(test)]
+pub mod configtest {
+    use crate::mm::utils::*;
+    use crate::init::cmdline::VMConfig;
+
+    const ELF_IMG_PATH: &str = "./tests/integration/vcpu_add_all_gprs.img";
+
+    pub fn test_vm_config_create() -> VMConfig {
+        let test_vm_config: VMConfig = VMConfig {
+            vcpu_count: 1,
+            mem_size: 1 << TB_SHIFT,
+            machine_type: String::from(""),
+            kernel_img_path: String::from(ELF_IMG_PATH),
+            initrd_path: String::from(""),
+            dtb_path: String::from(""),
+        };
+
+        test_vm_config
+    }
+}
 
 #[cfg(test)]
 mod tests {

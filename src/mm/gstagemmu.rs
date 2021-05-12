@@ -174,7 +174,7 @@ pub struct GStageMmu {
 }
 
 impl GStageMmu {
-    pub fn new(ioctl_fd: i32, mem_size: u64) -> Self {
+    pub fn new(ioctl_fd: i32, mem_size: u64) -> Self {        
         let gpa_blocks: Vec<gparegion::GpaBlock> = Vec::new();
         let mut allocator = hpmallocator::HpmAllocator::new(ioctl_fd);
         let mut page_table = PageTableRegion::new(&mut allocator);
@@ -249,7 +249,7 @@ impl GStageMmu {
             let gpa_start = i.gpa;
             let gpa_end = gpa_start + i.length;
 
-            dbgprintln!("check_mmio() - gpa {:x}, gpa_start {:x}, gpa_end {:x}",
+            dbgprintln!("check_mmio(): gpa {:x}, gpa_start {:x}, gpa_end {:x}",
                 gpa, gpa_start, gpa_end);
 
             if gpa >= gpa_start && gpa < gpa_end {
@@ -270,13 +270,13 @@ impl GStageMmu {
         for i in &self.gpa_blocks {
             start = i.gpa;
             end = start + i.length;
-            dbgprintln!("gpa_block_query gpa: {:x}, hpa: {:x}, length: {:x}",
+            dbgprintln!("gpa_block_query: gpa {:x}, hpa {:x}, length {:x}",
                 i.gpa, i.hpa, i.length);
             if gpa >= start &&  gpa < end {
-                dbgprintln!("find a gpa block: gpa: {:x}, hpa: {:x}, length: {:x}",
+                dbgprintln!("query result: gpa {:x}, hpa {:x}, length {:x}",
                     i.gpa, i.hpa, i.length);
                 hpa = i.hpa + gpa - start;
-                dbgprintln!("gpa_block_query hpa: {:x}", hpa);
+                dbgprintln!("gpa_block_query: hpa {:x}", hpa);
                 return Some(hpa);
             }
         }
@@ -708,7 +708,6 @@ mod tests {
                 ioctl_fd =
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
-
             let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
 
             // Create a page table
@@ -1091,7 +1090,6 @@ mod tests {
                 panic!("GPA: {:x} should be invalid", invalid_gpa);
             }
         }
-
 
         #[test]
         fn test_map_protect() {
