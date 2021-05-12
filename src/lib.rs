@@ -13,18 +13,14 @@ mod vcpu;
 mod mm;
 mod irq;
 mod plat;
-use vm::VirtualMachine;
+use vm::virtualmachine::VirtualMachine;
 
 pub mod init;
 
 use init::cmdline;
 
-pub fn run(config: &cmdline::VMConfig) {
-    // TODO: assume everything else for laputa init has been finished
-    let vcpu_num = config.vcpu_count;
-    let mem_size = config.mem_size;
-
-    let mut vm = VirtualMachine::new(vcpu_num, mem_size);
+pub fn run(config: cmdline::VMConfig) {
+    let mut vm = VirtualMachine::new(config);
     vm.vm_init();
     vm.vm_run();
     vm.vm_destroy();
