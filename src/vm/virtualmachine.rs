@@ -702,24 +702,15 @@ mod tests {
 
         vm.vm_run();
 
-        /* let mut t0: u64 = 0;
-        let mut t1: u64 = 0;
-
-        // Sum up the chars in "Hello Ecall\n"
-        let t0_ans: u64 = 1023;
-
-        // all the ecall should should return 0 
-        let t1_ans: u64 = 0;
+        let mut t0: u64 = 0;
+        let t0_ans: u64 = 100;
 
         for i in &vm.vcpus {
             t0 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
-            t1 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[6];
-        } */
+        }
 
         vm.vm_destroy();
 
-        /* assert_eq!(t0_ans, t0);
-        assert_eq!(t1_ans, t1); */
-        assert_eq!(1, 0);
+        assert_eq!(t0_ans, t0);
     }
 }
