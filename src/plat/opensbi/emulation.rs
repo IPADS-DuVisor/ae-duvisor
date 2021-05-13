@@ -10,6 +10,12 @@ pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA: u64 = 0x6;
 pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID: u64 = 0x7;
 pub const SBI_EXT_0_1_SHUTDOWN: u64 = 0x8;
 
+#[allow(unused)]
+extern "C"
+{
+    fn getchar_emulation() -> i32;
+}
+
 pub struct SbiArg {
     pub ext_id: u64, // EID - a7
     pub func_id: u64, // FID - a6
@@ -44,7 +50,8 @@ impl SbiArg {
                 ret = self.console_putchar();
             },
             SBI_EXT_0_1_CONSOLE_GETCHAR => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                println!("SBI_EXT_0_1_CONSOLE_GETCHAR");
+                ret = self.console_getchar();
             },
             SBI_EXT_0_1_CLEAR_IPI => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
@@ -79,6 +86,22 @@ impl SbiArg {
 
         // success and return with a0 = 0
         self.ret[0] = 0;
+
+        0
+    }
+
+    fn console_getchar(&mut self) -> i32{
+        let mut ret: i32 = 0;
+        unsafe {
+            ret = getchar_emulation();
+        }
+        //let ch = self.arg[0] as u8;
+        //let ch = ch as char;
+        //print!("{}", ch);
+        println!("getchar_emulation ret {}", ret);
+
+        // success and return with a0 = 0
+        self.ret[0] = ret as u64;
 
         0
     }

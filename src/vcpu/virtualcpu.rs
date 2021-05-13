@@ -332,12 +332,18 @@ impl VirtualCpu {
         let vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
         let mut ret: i32 = 0;
+        let mut cnt: u64 = 0;
         while ret == 0 {
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
 
             ret = self.handle_vcpu_exit();
+
+            cnt += 1;
+            if cnt > 10 {
+                panic!("test stop!");
+            }
         }
         
         unsafe {
