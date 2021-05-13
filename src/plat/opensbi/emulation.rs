@@ -34,14 +34,14 @@ impl SbiArg {
 
     pub fn ecall_handler(&mut self) -> i32 {
         let ext_id = self.ext_id;
+        let mut ret: i32 = 1;
 
         match ext_id {
             SBI_EXT_0_1_SET_TIMER => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
             },
             SBI_EXT_0_1_CONSOLE_PUTCHAR => {
-                self.console_putchar();
-                //dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                ret = self.console_putchar();
             },
             SBI_EXT_0_1_CONSOLE_GETCHAR => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
@@ -69,21 +69,18 @@ impl SbiArg {
             },
         }
 
-        0
+        ret
     }
 
-    fn console_putchar(&mut self) {
-        //dbgprintln!("console_putchar start");
+    fn console_putchar(&mut self) -> i32{
         let ch = self.arg[0] as u8;
         let ch = ch as char;
         print!("{}", ch);
-        //dbgprintln!("console_putchar end");
-/*         let ch_try = u8::try_from(self.arg[0]);
-        if ch_try.is_ok() {
-            let ch = ch_try.unwrap();
-            print!("{}", ch);
-        } */
-        
+
+        // success and return with a0 = 0
+        self.ret[0] = 0;
+
+        0
     }
 }
 

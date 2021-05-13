@@ -238,8 +238,6 @@ impl VirtualCpu {
         let a5 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 5th arg 
         let a6 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; // a6: FID
         let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: EID
-        //dbgprintln!("handle_supervisor_ecall: EID = {:x}, FID = {:x}, arg0 = {:x}, arg1 = {:x}",
-        //    a7, a6, a0, a1);
 
         // FIXME: for test cases
         if a7 == ECALL_VM_TEST_END {
@@ -249,8 +247,6 @@ impl VirtualCpu {
         
             return ret as i32;
         }
-
-        //panic!("unreachable");
         
         let mut sbi_arg = opensbi::emulation::SbiArg::new();
         sbi_arg.ext_id = a7;
@@ -265,8 +261,13 @@ impl VirtualCpu {
         sbi_arg.ret[1] = a1;
 
         ret = sbi_arg.ecall_handler();
+
+        // save the result
+        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = sbi_arg.ret[0];
+        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = sbi_arg.ret[1];
+
+        // add uepc to start vm on next instruction
         self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
-        //panic!("debug for test_ecall_putchar {}", ret);
 
         ret
     }
@@ -331,17 +332,12 @@ impl VirtualCpu {
         let vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
         let mut ret: i32 = 0;
-        let mut cnt = 0;
         while ret == 0 {
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
 
             ret = self.handle_vcpu_exit();
-            cnt += 1;
-            if cnt > 2000 {
-                panic!("handle_vcpu_exit ret {}", ret);
-            }
         }
         
         unsafe {
@@ -361,7 +357,7 @@ mod tests {
     use crate::init::cmdline::configtest::test_vm_config_create;
 
     rusty_fork_test! {
-        /* #[test]
+        #[test]
         fn test_handle_stage2_page_fault() { 
             let vcpu_id = 0;
             let vm_config = test_vm_config_create();
@@ -477,7 +473,7 @@ mod tests {
             assert_eq!(uepc, test_buf_pfn << PAGE_SIZE_SHIFT);
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
-        } */
+        }
 
         // Check the correctness of vcpu new()
         #[test]
@@ -600,7 +596,7 @@ mod tests {
             assert_eq!(result, vcpu_num * 100);
         }
 
-        /* #[test]
+        #[test]
         fn test_vcpu_ecall_exit() { 
             let vcpu_id = 0;
             let vm_config = test_vm_config_create();
@@ -709,10 +705,10 @@ mod tests {
             }
 
             assert_eq!(uepc, ((test_buf_pfn << PAGE_SIZE_SHIFT)
-                + PAGE_TABLE_REGION_SIZE) + 2);
+                + PAGE_TABLE_REGION_SIZE) + 4);
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
-        } */
+        }
 
         #[test]
         fn test_vcpu_add_all_gprs() { 

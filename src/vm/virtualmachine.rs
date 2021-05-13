@@ -544,7 +544,6 @@ mod tests {
             vm.vm_destroy();
 
             assert_eq!(exit_reason, exit_reason_ans);
-            //assert_eq!(1, 0);
         }
 
         #[test]
@@ -648,8 +647,6 @@ mod tests {
 
         #[test]
         fn test_ecall_putchar() { 
-            let exit_reason_ans = 0xdead;
-            let mut exit_reason = 0;
             let mut vm_config = test_vm_config_create();
             let elf_path: &str = "./tests/integration/opensbi_putchar.img";
             vm_config.kernel_img_path = String::from(elf_path);
@@ -669,16 +666,21 @@ mod tests {
             let mut t0: u64 = 0;
             let mut t1: u64 = 0;
 
+            // Sum up the chars in "Hello Ecall\n"
+            let t0_ans: u64 = 1023;
+
+            // all the ecall should should return 0 
+            let t1_ans: u64 = 0;
+
             for i in &vm.vcpus {
                 t0 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
                 t1 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[6];
             }
 
-            println!("t0 {}, t1 {}", t0, t1);
-
             vm.vm_destroy();
 
-            assert_eq!(1, 0);
+            assert_eq!(t0_ans, t0);
+            assert_eq!(t1_ans, t1);
         }
     }
 }
