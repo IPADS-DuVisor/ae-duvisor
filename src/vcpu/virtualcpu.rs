@@ -248,8 +248,8 @@ impl VirtualCpu {
         sbi_arg.arg[3] = a3;
         sbi_arg.arg[4] = a4;
         sbi_arg.arg[5] = a5;
-        sbi_arg.ret_val[0] = a0;
-        sbi_arg.ret_val[1] = a1;
+        sbi_arg.ret[0] = a0;
+        sbi_arg.ret[1] = a1;
 
         sbi_arg.ecall_handler();
 
