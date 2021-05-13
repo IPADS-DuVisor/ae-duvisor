@@ -544,6 +544,7 @@ mod tests {
             vm.vm_destroy();
 
             assert_eq!(exit_reason, exit_reason_ans);
+            assert_eq!(1, 0);
         }
 
         #[test]

@@ -10,6 +10,7 @@ use crate::plat::uhe::ioctl::ioctl_constants::*;
 use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
+use crate::plat::opensbi;
 
 #[allow(unused)]
 mod errno_constants {
@@ -227,12 +228,30 @@ impl VirtualCpu {
 
     fn handle_supervisor_ecall(&mut self) -> i32 {
         let ret;
-        let _a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: 0th arg
-        let _a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
-        // ...
-        let _a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: funcID
+        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: 0th arg/ret 1
+        let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg/ret 2
+        let a2 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 2nd arg 
+        let a3 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 3rd arg 
+        let a4 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 4th arg 
+        let a5 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 5th arg 
+        let a6 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; // a6: FID
+        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: EID
         dbgprintln!("handle_supervisor_ecall: funcID = {:x}, arg0 = {:x}, arg1 = {:x}",
-            _a7, _a0, _a1);
+            a7, a0, a1);
+        
+        let mut sbi_arg = opensbi::emulation::SbiArg::new();
+        sbi_arg.ext_id = a7;
+        sbi_arg.func_id = a6;
+        sbi_arg.arg[0] = a0;
+        sbi_arg.arg[1] = a1;
+        sbi_arg.arg[2] = a2;
+        sbi_arg.arg[3] = a3;
+        sbi_arg.arg[4] = a4;
+        sbi_arg.arg[5] = a5;
+        sbi_arg.ret_val[0] = a0;
+        sbi_arg.ret_val[1] = a1;
+
+        sbi_arg.ecall_handler();
 
         // FIXME: for test cases
         ret = 0xdead;
