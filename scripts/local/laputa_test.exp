@@ -19,7 +19,7 @@ expect {
     }
 
     "root@(none)" {
-        send "cd laputa && ./run_tests.sh $args_for_laputa_test\n"
+        send "cd laputa && ./run_tests.sh $args_for_laputa_test\nputchar succeed\n"
         expect {
             "test failed" {
                 exit -1

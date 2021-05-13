@@ -50,7 +50,7 @@ impl SbiArg {
                 ret = self.console_putchar();
             },
             SBI_EXT_0_1_CONSOLE_GETCHAR => {
-                println!("SBI_EXT_0_1_CONSOLE_GETCHAR");
+                //println!("SBI_EXT_0_1_CONSOLE_GETCHAR");
                 ret = self.console_getchar();
             },
             SBI_EXT_0_1_CLEAR_IPI => {
@@ -98,7 +98,7 @@ impl SbiArg {
         //let ch = self.arg[0] as u8;
         //let ch = ch as char;
         //print!("{}", ch);
-        println!("getchar_emulation ret {}", ret);
+        //println!("getchar_emulation ret {}", ret);
 
         // success and return with a0 = 0
         self.ret[0] = ret as u64;

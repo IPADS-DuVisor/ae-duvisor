@@ -341,7 +341,7 @@ impl VirtualCpu {
             ret = self.handle_vcpu_exit();
 
             cnt += 1;
-            if cnt > 10 {
+            if cnt > 1000 {
                 panic!("test stop!");
             }
         }

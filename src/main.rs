@@ -11,6 +11,8 @@ extern "C"
 fn main() {
     unsafe {
         getchar_emulation();
+        getchar_emulation();
+        getchar_emulation();
     }
     let vm_config = cmdline::VMConfig::new().unwrap_or_else(|err| {
         eprintln!("{}: {}", "error".bright_red(), err);

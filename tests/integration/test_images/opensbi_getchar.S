@@ -2,16 +2,20 @@
 
 // Output "Hello Ecall\n" via opensbi
 BEGIN_FUNC_FILE_NAME()
-	// target char
-	li t0, 100
+	// target char 'd'
+	li a6, 100
 
-	li a7, SBI_EXT_0_1_CONSOLE_GETCHAR
-
-	//li t0, 0x3000
-	//jalr t0
+// output "putchar succeed" from scripts/local/laputa_test.exp
 continue:
+	li a7, SBI_EXT_0_1_CONSOLE_GETCHAR
 	ecall
-	bne a0, t0, continue
+	mv t0, a0
+	li a7, SBI_EXT_0_1_CONSOLE_PUTCHAR
+	ecall
+	bne t0, a6, continue
+
+	li a0, 10 // \n
+	ecall
 
 	// test end
 	li a7, ECALL_VM_TEST_END
