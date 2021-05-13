@@ -6,5 +6,7 @@ BEGIN_FUNC_FILE_NAME()
 
 	ld t0, (t1)
 
+	// test end
+	li a7, ECALL_VM_TEST_END
 	ecall
 END_FUNC_FILE_NAME()

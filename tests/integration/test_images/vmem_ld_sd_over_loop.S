@@ -16,6 +16,6 @@ continue:
 	add t2, t2, t5
 	bne	t0, t1, continue
 
-	li a7, HVC_VM_TEST_END
+	li a7, ECALL_VM_TEST_END
 	ecall
 END_FUNC_FILE_NAME()
