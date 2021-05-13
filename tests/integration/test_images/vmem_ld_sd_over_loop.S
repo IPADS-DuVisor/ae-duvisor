@@ -5,6 +5,7 @@ BEGIN_FUNC_FILE_NAME()
 	li t1, 100
 	li t2, 0x3000
 	li t4, 0
+	
 continue:
 	ld t3, (t2)
 	add t4, t4, t3
