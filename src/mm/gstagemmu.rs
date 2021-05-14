@@ -174,14 +174,15 @@ pub struct GStageMmu {
 }
 
 impl GStageMmu {
-    pub fn new(ioctl_fd: i32, mem_size: u64) -> Self {        
+    pub fn new(ioctl_fd: i32, mem_size: u64,
+        mmio_regions: Vec<gparegion::GpaRegion>) -> Self {    
         let gpa_blocks: Vec<gparegion::GpaBlock> = Vec::new();
         let mut allocator = hpmallocator::HpmAllocator::new(ioctl_fd);
         let mut page_table = PageTableRegion::new(&mut allocator);
-        let mmio_manager = mmio::MmioManager::new();
+        let mmio_manager = mmio::MmioManager::new(mmio_regions);
 
-        // TODO: init mmio_manager by vm config
-        let mem_gpa_regions = GStageMmu::init_gpa_regions(mem_size, &mmio_manager);
+        let mem_gpa_regions = GStageMmu::init_gpa_regions(mem_size,
+                &mmio_manager);
 
         // create root table
         page_table.page_table_create(0);
@@ -652,7 +653,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
 
             // Check the root table has been created
             let free_offset = gsmmu.page_table.free_offset;
@@ -679,7 +681,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
             let mut gpa: u64 = 0;
             let mut length: u64 = 0;
 
@@ -708,7 +711,8 @@ mod tests {
                 ioctl_fd =
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
 
             // Create a page table
             gsmmu.page_table.page_table_create(1);
@@ -739,7 +743,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
 
             // Create a page table
             gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -769,7 +774,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let mut ptr: *mut u64;
             let mut pte: u64;
@@ -832,7 +838,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
 
             // Create a page table
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -872,7 +879,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let mut ptr: *mut u64;
             let mut pte: u64;
@@ -914,7 +922,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
 
             // Create a page table
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -952,7 +961,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
 
             // Create a page table
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -1007,7 +1017,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
             let mut pte: Pte;
             let mut pte_offset: u64 = 0;
             let mut pte_value: u64 = 0;
@@ -1055,7 +1066,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
             let valid_gpa = 0x1000;
             let invalid_hpa = 0x2100;
 
@@ -1079,7 +1091,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
             let valid_hpa = 0x2000;
             let invalid_gpa = 0x1100;
 
@@ -1102,7 +1115,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size);
+            let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let ptr: *mut u64;
             let mut pte: u64;

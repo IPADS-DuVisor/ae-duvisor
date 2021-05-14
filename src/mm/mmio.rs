@@ -5,8 +5,12 @@ pub struct MmioManager {
 }
 
 impl MmioManager {
-    pub fn new() -> Self {
-        let gpa_regions: Vec<gparegion::GpaRegion> = Vec::new();
+    pub fn new(mmio_regions: Vec<gparegion::GpaRegion>) -> Self {
+        let mut gpa_regions: Vec<gparegion::GpaRegion> = Vec::new();
+
+        for i in mmio_regions {
+            gpa_regions.push(i);
+        }
 
         Self {
             gpa_regions,
@@ -36,7 +40,8 @@ mod tests {
         let mut length: u64 = 0;
         let gpa_ans = 0x4000;
         let length_ans = 0x1000;
-        let mut mmio_manager = MmioManager::new();
+        let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
+        let mut mmio_manager = MmioManager::new(mmio_regions);
 
         mmio_manager.mmio_add(gpa_ans, length_ans);
 
