@@ -92,13 +92,33 @@ impl SbiArg {
 
     fn console_getchar(&mut self) -> i32{
         let mut ret: i32 = 0;
+
+        // Cannot switch the backend process to the front.
+        // So test_ecall_getchar() have to get chars from here. 
+        #[cfg(test)]
+        {
+            let virtual_input: [i32; 16];
+
+            // input "getchar succeed\n"
+            virtual_input = [103, 101, 116, 99, 104, 97, 114, 32, 115, 117, 99,
+                99, 101, 101, 100, 10];
+    
+            static mut INDEX: usize = 0;
+
+            unsafe {
+                ret = virtual_input[INDEX];
+                INDEX += 1;
+            }
+
+            // success and return with a0 = 0
+            self.ret[0] = ret as u64;
+
+            return 0
+        }
+
         unsafe {
             ret = getchar_emulation();
         }
-        //let ch = self.arg[0] as u8;
-        //let ch = ch as char;
-        //print!("{}", ch);
-        //println!("getchar_emulation ret {}", ret);
 
         // success and return with a0 = 0
         self.ret[0] = ret as u64;

@@ -239,478 +239,488 @@ mod tests {
     use crate::mm::gstagemmu::gsmmu_constants;
     use gsmmu_constants::*;
     use crate::init::cmdline::configtest::test_vm_config_create;
+    use std::{thread, time};
 
-//    rusty_fork_test! {
-//        #[test]
-//        fn test_elf_parse() {
-//            let vm_config = test_vm_config_create();
-//            let vm = virtualmachine::VirtualMachine::new(vm_config);
-//
-//            // answer
-//            let entry_ans = 0x1000;
-//            let phnum_ans = 1;
-//            let offset_ans = 0x1000;
-//            let paddr_ans = 0x1000;
-//            let vaddr_ans = 0x1000;
-//
-//            let elf_file = vm.vm_image.elf_file;
-//            let entry_point = elf_file.ehdr.entry;
-//            let phnum = elf_file.phdrs.len();
-//
-//            assert_eq!(entry_ans, entry_point);
-//            assert_eq!(phnum_ans, phnum);
-//
-//            let mut p_offset = 0;
-//            let mut p_paddr = 0;
-//            let mut p_vaddr = 0;
-//            for i in &elf_file.phdrs {
-//                p_offset = i.offset;
-//                p_paddr = i.paddr;
-//                p_vaddr = i.vaddr;
-//            }
-//
-//            println!("test_elf_parse: offset {}, paddr {}, vaddr {}", p_offset,
-//                p_paddr, p_vaddr);
-//            
-//            assert_eq!(offset_ans, p_offset);
-//            assert_eq!(paddr_ans, p_paddr);
-//            assert_eq!(vaddr_ans, p_vaddr);
-//        }
-//
-//        // test init_gpa_block_elf() by compare the data from hva with img file
-//        #[test]
-//        fn test_init_gpa_block_elf() {
-//            let vm_config = test_vm_config_create();
-//            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-//            let hva_list: Vec<u64>;
-//
-//            hva_list = vm.vm_init();
-//
-//            let mut gb_gpa;
-//            let mut gb_hpa;
-//            let mut gb_length;
-//            let mut target_hva = 0;
-//            for i in &vm.vm_state.lock().unwrap().gsmmu.mem_gpa_regions {
-//                gb_gpa = i.gpa;
-//                gb_length = i.length;
-//                println!("gpa_regions - gpa {:x}, length {:x}", gb_gpa,
-//                    gb_length);
-//            }
-//
-//            for i in &vm.vm_state.lock().unwrap().gsmmu.gpa_blocks {
-//                gb_gpa = i.gpa;
-//                gb_hpa = i.hpa;
-//                gb_length = i.length;
-//                println!("gpa_blocks - gpa {:x}, hpa {:x}, length {:x}",
-//                    gb_gpa, gb_hpa, gb_length);
-//            }
-//
-//            for i in hva_list {
-//                println!("hva_list {:x}", i);
-//                target_hva = i;
-//            }
-//
-//            // extract answer from the img file
-//            let mut elf_data_ans: u64 = 0x9092908E908A40A9;
-//            let mut elf_data: u64;
-//            unsafe {
-//                elf_data = *(target_hva as *mut u64);
-//                println!("elf_data {:x}", elf_data);
-//            }
-//
-//            assert_eq!(elf_data_ans, elf_data);
-//
-//            elf_data_ans = 0x90F290EE90EA90E6;
-//            unsafe {
-//                elf_data = *((target_hva + 0x30) as *mut u64);
-//                println!("elf_data {:x}", elf_data);
-//            }
-//
-//            assert_eq!(elf_data_ans, elf_data);
-//
-//            elf_data_ans = 0x0;
-//            unsafe {
-//                elf_data = *((target_hva + 0x100) as *mut u64);
-//                println!("elf_data {:x}", elf_data);
-//            }
-//
-//            assert_eq!(elf_data_ans, elf_data);
-//        }
-//
-//        #[test]
-//        fn test_vm_add_all_gprs() { 
-//            println!("---------start vm------------");
-//            let sum_ans = 10;
-//            let mut sum = 0;
-//            let mut vm_config = test_vm_config_create();
-//            let elf_path: &str = "./tests/integration/vcpu_add_all_gprs.img";
-//            vm_config.kernel_img_path = String::from(elf_path);
-//            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-//            
-//            vm.vm_init();
-//
-//            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-//
-//            for i in &vm.vcpus {
-//                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-//                    = entry_point;
-//            }
-//
-//            vm.vm_run();
-//            
-//            for i in &vm.vcpus {
-//                sum += i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
-//            }
-//            vm.vm_destroy();
-//
-//            assert_eq!(sum, sum_ans);
-//        }
-//
-//        #[test]
-//        fn test_vmem_ro() { 
-//            let exit_reason_ans = 2; // g-stage page fault for no permission
-//            let mut exit_reason = 0;
-//            let mut vm_config = test_vm_config_create();
-//            let elf_path: &str = "./tests/integration/vmem_W_Ro.img";
-//            vm_config.kernel_img_path = String::from(elf_path);
-//            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-//
-//            vm.vm_init();
-//
-//            let ro_address = 0x3000;
-//
-//            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-//
-//            let res = vm.vm_state.lock().unwrap()
-//                .gsmmu.gpa_block_add(ro_address, PAGE_SIZE);
-//            if !res.is_ok() {
-//                panic!("gpa region add failed!")
-//            }
-//
-//            let (_hva, hpa) = res.unwrap();
-//            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
-//                | PTE_EXECUTE;
-//
-//            vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
-//
-//            // read-only
-//            flag = PTE_USER | PTE_VALID | PTE_READ;
-//            vm.vm_state.lock().unwrap().gsmmu.map_protect(ro_address, flag);
-//
-//            for i in &vm.vcpus {
-//                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-//                    = entry_point;
-//            }
-//            
-//            vm.vm_run();
-//            
-//            for i in &vm.vcpus {
-//                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs
-//                    .x_reg[0];
-//            }
-//            vm.vm_destroy();
-//
-//            assert_eq!(exit_reason, exit_reason_ans);
-//        }
-//
-//        #[test]
-//        fn test_vmem_nx() { 
-//            let exit_reason_ans = 2; // g-stage page fault for no permission
-//            let mut exit_reason = 0;
-//            let mut vm_config = test_vm_config_create();
-//            let elf_path: &str = "./tests/integration/vmem_X_nonX.img";
-//            vm_config.kernel_img_path = String::from(elf_path);
-//            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-//
-//            vm.vm_init();
-//
-//            let nx_address = 0x3000;
-//
-//            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-//
-//            let res = vm.vm_state.lock().unwrap()
-//                .gsmmu.gpa_block_add(nx_address, PAGE_SIZE);
-//            if !res.is_ok() {
-//                panic!("gpa region add failed!")
-//            }
-//
-//            let (_hva, hpa) = res.unwrap();
-//            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
-//                | PTE_EXECUTE;
-//
-//            vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
-//
-//            // non-execute
-//            flag = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
-//            vm.vm_state.lock().unwrap().gsmmu.map_protect(nx_address, flag);
-//
-//            for i in &vm.vcpus {
-//                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-//                    = entry_point;
-//            }
-//            
-//            vm.vm_run();
-//            
-//            for i in &vm.vcpus {
-//                exit_reason =
-//                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
-//            }
-//            vm.vm_destroy();
-//
-//            assert_eq!(exit_reason, exit_reason_ans);
-//        }
-//
-//        /* check the correctness of loading data from specific gpa */
-//        #[test]
-//        fn test_vmem_ld_data() { 
-//            let mut load_value = 0;
-//            let mut vm_config = test_vm_config_create();
-//            let elf_path: &str = "./tests/integration/vmem_ld_data.img";
-//            vm_config.kernel_img_path = String::from(elf_path);
-//            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-//
-//            /* Answer will be saved at 0x3000(gpa) */
-//            let answer: u64 = 0x1213141516171819;
-//
-//            vm.vm_init();
-//
-//            let target_address = 0x3000;
-//
-//            // set entry point
-//            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-//
-//            let res = vm.vm_state.lock().unwrap()
-//                .gsmmu.gpa_block_add(target_address, PAGE_SIZE);
-//            if !res.is_ok() {
-//                panic!("gpa region add failed!")
-//            }
-//
-//            let (hva, hpa) = res.unwrap();
-//            println!("hva {:x}, hpa {:x}", hva, hpa);
-//
-//            unsafe {
-//                *(hva as *mut u64) = answer;
-//            }
-//
-//            let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
-//                | PTE_EXECUTE;
-//
-//            vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
-//                flag);
-//
-//            for i in &vm.vcpus {
-//                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-//                    = entry_point;
-//            }
-//            
-//            vm.vm_run();
-//            
-//            for i in &vm.vcpus {
-//                load_value =
-//                    i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
-//            }
-//            vm.vm_destroy();
-//
-//            println!("load value {:x}", load_value);
-//
-//            assert_eq!(load_value, answer);
-//        }
-//
-//        #[test]
-//        fn test_vmem_mapping() { 
-//            let exit_reason_ans = 0xdead;
-//            let mut exit_reason = 0;
-//            let mut vm_config = test_vm_config_create();
-//            let elf_path: &str = "./tests/integration/vmem_ld_mapping.img";
-//            vm_config.kernel_img_path = String::from(elf_path);
-//            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-//
-//            vm.vm_init();
-//
-//            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-//
-//            for i in &vm.vcpus {
-//                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-//                    = entry_point;
-//            }
-//
-//            vm.vm_run();
-//            
-//            for i in &vm.vcpus {
-//                exit_reason =
-//                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
-//                println!("exit reason {:x}", exit_reason);
-//            }
-//            vm.vm_destroy();
-//
-//            assert_eq!(exit_reason, exit_reason_ans);
-//        }
-//
-//        #[test]
-//        fn test_vm_huge_mapping() { 
-//            println!("---------start test_vm_huge_mapping------------");
-//            let exit_reason_ans = 0xdead;
-//            let mut exit_reason = 0;
-//            let mut vm_config = test_vm_config_create();
-//
-//            // cancel the three mmio regions
-//            let elf_path: &str 
-//                = "./tests/integration/vmem_ld_sd_over_loop.img";
-//            vm_config.kernel_img_path = String::from(elf_path);
-//
-//            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-//
-//            vm.vm_init();
-//
-//            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-//
-//            for i in &vm.vcpus {
-//                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-//                    = entry_point;
-//            }
-//
-//            vm.vm_run();
-//            
-//            for i in &vm.vcpus {
-//                exit_reason =
-//                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
-//                println!("exit reason {:x}", exit_reason);
-//            }
-//            vm.vm_destroy();
-//
-//            assert_eq!(exit_reason_ans, exit_reason);
-//        }
-//
-//        #[test]
-//        fn test_vm_ld_sd_sum() { 
-//            println!("---------start test_vm_huge_mapping------------");
-//            let mut sum_ans = 0;
-//            let mut sum = 0;
-//            let mut vm_config = test_vm_config_create();
-//
-//            // cancel the three mmio regions
-//            let elf_path: &str = "./tests/integration/vmem_ld_sd_sum.img";
-//            vm_config.kernel_img_path = String::from(elf_path);
-//
-//            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-//
-//            /* sum up 0..100 twice */
-//            for i in 0..100 {
-//                sum_ans += i;
-//            }
-//            sum_ans *= 2;
-//
-//            vm.vm_init();
-//
-//            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-//
-//            for i in &vm.vcpus {
-//                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-//                    = entry_point;
-//            }
-//
-//            vm.vm_run();
-//            
-//            for i in &vm.vcpus {
-//                sum = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[29];
-//                println!("sum {}", sum);
-//            }
-//            vm.vm_destroy();
-//
-//            assert_eq!(sum_ans, sum);
-//        }
-//
-//        #[test]
-//        fn test_vm_new() { 
-//            let vcpu_num = 1;
-//            let vm_config = test_vm_config_create();
-//            let vm = virtualmachine::VirtualMachine::new(vm_config);
-//
-//            assert_eq!(vm.vcpu_num, vcpu_num);
-//        }
-//
-//        // Check the num of the vcpu created
-//        #[test]
-//        fn test_vm_new_vcpu() {   
-//            let vcpu_num = 4;
-//            let mut vm_config = test_vm_config_create();
-//            vm_config.vcpu_count = vcpu_num;
-//            let vm = virtualmachine::VirtualMachine::new(vm_config);
-//            let mut sum = 0;
-//
-//            for i in &vm.vcpus {
-//                sum = sum + i.lock().unwrap().vcpu_id;
-//            } 
-//
-//            assert_eq!(sum, 6); // 0 + 1 + 2 + 3
-//        }
-//
-//        #[test]
-//        fn test_ecall_putchar() { 
-//            let mut vm_config = test_vm_config_create();
-//            let elf_path: &str = "./tests/integration/opensbi_putchar.img";
-//            vm_config.kernel_img_path = String::from(elf_path);
-//            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-//
-//            vm.vm_init();
-//
-//            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-//
-//            for i in &vm.vcpus {
-//                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-//                    = entry_point;
-//            }
-//
-//            vm.vm_run();
-//
-//            let mut t0: u64 = 0;
-//            let mut t1: u64 = 0;
-//
-//            // Sum up the chars in "Hello Ecall\n"
-//            let t0_ans: u64 = 1023;
-//
-//            // all the ecall should should return 0 
-//            let t1_ans: u64 = 0;
-//
-//            for i in &vm.vcpus {
-//                t0 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
-//                t1 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[6];
-//            }
-//
-//            vm.vm_destroy();
-//
-//            assert_eq!(t0_ans, t0);
-//            assert_eq!(t1_ans, t1);
-//        }
-//    }
+    rusty_fork_test! {
+        #[test]
+        fn test_elf_parse() {
+            let vm_config = test_vm_config_create();
+            let vm = virtualmachine::VirtualMachine::new(vm_config);
 
-    #[test]
-    fn test_ecall_getchar() {
-        let mut vm_config = test_vm_config_create();
-        let elf_path: &str = "./tests/integration/opensbi_getchar.img";
-        vm_config.kernel_img_path = String::from(elf_path);
-        let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+            // answer
+            let entry_ans = 0x1000;
+            let phnum_ans = 1;
+            let offset_ans = 0x1000;
+            let paddr_ans = 0x1000;
+            let vaddr_ans = 0x1000;
 
-        vm.vm_init();
+            let elf_file = vm.vm_image.elf_file;
+            let entry_point = elf_file.ehdr.entry;
+            let phnum = elf_file.phdrs.len();
 
-        let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+            assert_eq!(entry_ans, entry_point);
+            assert_eq!(phnum_ans, phnum);
 
-        for i in &vm.vcpus {
-            i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-                = entry_point;
+            let mut p_offset = 0;
+            let mut p_paddr = 0;
+            let mut p_vaddr = 0;
+            for i in &elf_file.phdrs {
+                p_offset = i.offset;
+                p_paddr = i.paddr;
+                p_vaddr = i.vaddr;
+            }
+
+            println!("test_elf_parse: offset {}, paddr {}, vaddr {}", p_offset,
+                p_paddr, p_vaddr);
+            
+            assert_eq!(offset_ans, p_offset);
+            assert_eq!(paddr_ans, p_paddr);
+            assert_eq!(vaddr_ans, p_vaddr);
         }
 
-        vm.vm_run();
+        // test init_gpa_block_elf() by compare the data from hva with img file
+        #[test]
+        fn test_init_gpa_block_elf() {
+            let vm_config = test_vm_config_create();
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+            let hva_list: Vec<u64>;
 
-        let mut t0: u64 = 0;
-        let t0_ans: u64 = 100;
+            hva_list = vm.vm_init();
 
-        for i in &vm.vcpus {
-            t0 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
+            let mut gb_gpa;
+            let mut gb_hpa;
+            let mut gb_length;
+            let mut target_hva = 0;
+            for i in &vm.vm_state.lock().unwrap().gsmmu.mem_gpa_regions {
+                gb_gpa = i.gpa;
+                gb_length = i.length;
+                println!("gpa_regions - gpa {:x}, length {:x}", gb_gpa,
+                    gb_length);
+            }
+
+            for i in &vm.vm_state.lock().unwrap().gsmmu.gpa_blocks {
+                gb_gpa = i.gpa;
+                gb_hpa = i.hpa;
+                gb_length = i.length;
+                println!("gpa_blocks - gpa {:x}, hpa {:x}, length {:x}",
+                    gb_gpa, gb_hpa, gb_length);
+            }
+
+            for i in hva_list {
+                println!("hva_list {:x}", i);
+                target_hva = i;
+            }
+
+            // extract answer from the img file
+            let mut elf_data_ans: u64 = 0x9092908E908A40A9;
+            let mut elf_data: u64;
+            unsafe {
+                elf_data = *(target_hva as *mut u64);
+                println!("elf_data {:x}", elf_data);
+            }
+
+            assert_eq!(elf_data_ans, elf_data);
+
+            elf_data_ans = 0x90F290EE90EA90E6;
+            unsafe {
+                elf_data = *((target_hva + 0x30) as *mut u64);
+                println!("elf_data {:x}", elf_data);
+            }
+
+            assert_eq!(elf_data_ans, elf_data);
+
+            elf_data_ans = 0x0;
+            unsafe {
+                elf_data = *((target_hva + 0x100) as *mut u64);
+                println!("elf_data {:x}", elf_data);
+            }
+
+            assert_eq!(elf_data_ans, elf_data);
         }
 
-        vm.vm_destroy();
+        #[test]
+        fn test_vm_add_all_gprs() { 
+            println!("---------start vm------------");
+            let sum_ans = 10;
+            let mut sum = 0;
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/vcpu_add_all_gprs.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+            
+            vm.vm_init();
 
-        assert_eq!(t0_ans, t0);
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                sum += i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+            }
+            vm.vm_destroy();
+
+            assert_eq!(sum, sum_ans);
+        }
+
+        #[test]
+        fn test_vmem_ro() { 
+            let exit_reason_ans = 2; // g-stage page fault for no permission
+            let mut exit_reason = 0;
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/vmem_W_Ro.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let ro_address = 0x3000;
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_block_add(ro_address, PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!")
+            }
+
+            let (_hva, hpa) = res.unwrap();
+            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
+                | PTE_EXECUTE;
+
+            vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
+
+            // read-only
+            flag = PTE_USER | PTE_VALID | PTE_READ;
+            vm.vm_state.lock().unwrap().gsmmu.map_protect(ro_address, flag);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+            
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason = i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs
+                    .x_reg[0];
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        #[test]
+        fn test_vmem_nx() { 
+            let exit_reason_ans = 2; // g-stage page fault for no permission
+            let mut exit_reason = 0;
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/vmem_X_nonX.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let nx_address = 0x3000;
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_block_add(nx_address, PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!")
+            }
+
+            let (_hva, hpa) = res.unwrap();
+            let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
+                | PTE_EXECUTE;
+
+            vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
+
+            // non-execute
+            flag = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
+            vm.vm_state.lock().unwrap().gsmmu.map_protect(nx_address, flag);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+            
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason =
+                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        /* check the correctness of loading data from specific gpa */
+        #[test]
+        fn test_vmem_ld_data() { 
+            let mut load_value = 0;
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/vmem_ld_data.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            /* Answer will be saved at 0x3000(gpa) */
+            let answer: u64 = 0x1213141516171819;
+
+            vm.vm_init();
+
+            let target_address = 0x3000;
+
+            // set entry point
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_block_add(target_address, PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!")
+            }
+
+            let (hva, hpa) = res.unwrap();
+            println!("hva {:x}, hpa {:x}", hva, hpa);
+
+            unsafe {
+                *(hva as *mut u64) = answer;
+            }
+
+            let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
+                | PTE_EXECUTE;
+
+            vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
+                flag);
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+            
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                load_value =
+                    i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
+            }
+            vm.vm_destroy();
+
+            println!("load value {:x}", load_value);
+
+            assert_eq!(load_value, answer);
+        }
+
+        #[test]
+        fn test_vmem_mapping() { 
+            let exit_reason_ans = 0xdead;
+            let mut exit_reason = 0;
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/vmem_ld_mapping.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason =
+                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                println!("exit reason {:x}", exit_reason);
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason, exit_reason_ans);
+        }
+
+        #[test]
+        fn test_vm_huge_mapping() { 
+            println!("---------start test_vm_huge_mapping------------");
+            let exit_reason_ans = 0xdead;
+            let mut exit_reason = 0;
+            let mut vm_config = test_vm_config_create();
+
+            // cancel the three mmio regions
+            let elf_path: &str 
+                = "./tests/integration/vmem_ld_sd_over_loop.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                exit_reason =
+                    i.lock().unwrap().vcpu_ctx.host_ctx.gp_regs.x_reg[0];
+                println!("exit reason {:x}", exit_reason);
+            }
+            vm.vm_destroy();
+
+            assert_eq!(exit_reason_ans, exit_reason);
+        }
+
+        #[test]
+        fn test_vm_ld_sd_sum() { 
+            println!("---------start test_vm_huge_mapping------------");
+            let mut sum_ans = 0;
+            let mut sum = 0;
+            let mut vm_config = test_vm_config_create();
+
+            // cancel the three mmio regions
+            let elf_path: &str = "./tests/integration/vmem_ld_sd_sum.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            /* sum up 0..100 twice */
+            for i in 0..100 {
+                sum_ans += i;
+            }
+            sum_ans *= 2;
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            vm.vm_run();
+            
+            for i in &vm.vcpus {
+                sum = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[29];
+                println!("sum {}", sum);
+            }
+            vm.vm_destroy();
+
+            assert_eq!(sum_ans, sum);
+        }
+
+        #[test]
+        fn test_vm_new() { 
+            let vcpu_num = 1;
+            let vm_config = test_vm_config_create();
+            let vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            assert_eq!(vm.vcpu_num, vcpu_num);
+        }
+
+        // Check the num of the vcpu created
+        #[test]
+        fn test_vm_new_vcpu() {   
+            let vcpu_num = 4;
+            let mut vm_config = test_vm_config_create();
+            vm_config.vcpu_count = vcpu_num;
+            let vm = virtualmachine::VirtualMachine::new(vm_config);
+            let mut sum = 0;
+
+            for i in &vm.vcpus {
+                sum = sum + i.lock().unwrap().vcpu_id;
+            } 
+
+            assert_eq!(sum, 6); // 0 + 1 + 2 + 3
+        }
+
+        #[test]
+        fn test_ecall_putchar() { 
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/opensbi_putchar.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            vm.vm_run();
+
+            let mut t0: u64 = 0;
+            let mut t1: u64 = 0;
+
+            // Sum up the chars in "Hello Ecall\n"
+            let t0_ans: u64 = 1023;
+
+            // all the ecall should should return 0 
+            let t1_ans: u64 = 0;
+
+            for i in &vm.vcpus {
+                t0 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
+                t1 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[6];
+            }
+
+            vm.vm_destroy();
+
+            assert_eq!(t0_ans, t0);
+            assert_eq!(t1_ans, t1);
+        }
+
+
+        #[test]
+        fn test_ecall_getchar() {
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/opensbi_getchar.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            for i in &vm.vcpus {
+                i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            }
+
+            //println!("Emulation input received:");
+            vm.vm_run();
+
+            // t0 should be '\n' to end
+            let mut t0: u64 = 0;
+            let t0_ans: u64 = 10;
+
+            // t1 should sum up the input
+            let mut t1: u64 = 0;
+            let t1_ans: u64 = 1508;
+
+            for i in &vm.vcpus {
+                t0 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
+                t1 = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[6];
+            }
+
+            vm.vm_destroy();
+
+            assert_eq!(t0_ans, t0);
+            assert_eq!(t1_ans, t1);
+        }
     }
 }

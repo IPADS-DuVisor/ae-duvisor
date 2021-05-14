@@ -3,13 +3,17 @@
 // Output "Hello Ecall\n" via opensbi
 BEGIN_FUNC_FILE_NAME()
 	// target char 'd'
-	li a6, 100
+	li a6, 10
 
-// output "putchar succeed" from scripts/local/laputa_test.exp
+	// Sum up the input
+	li t1, 0
+
+// Output "getchar succeed" from console_getchar()
 continue:
 	li a7, SBI_EXT_0_1_CONSOLE_GETCHAR
 	ecall
 	mv t0, a0
+	add t1, t1, a0
 	li a7, SBI_EXT_0_1_CONSOLE_PUTCHAR
 	ecall
 	bne t0, a6, continue
