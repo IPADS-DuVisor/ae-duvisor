@@ -239,7 +239,6 @@ mod tests {
     use crate::mm::gstagemmu::gsmmu_constants;
     use gsmmu_constants::*;
     use crate::init::cmdline::configtest::test_vm_config_create;
-    use std::{thread, time};
 
     rusty_fork_test! {
         #[test]

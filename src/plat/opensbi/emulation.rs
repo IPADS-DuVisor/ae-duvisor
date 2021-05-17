@@ -16,14 +16,14 @@ extern "C"
     fn getchar_emulation() -> i32;
 }
 
-pub struct SbiArg {
+pub struct Ecall {
     pub ext_id: u64, // EID - a7
     pub func_id: u64, // FID - a6
     pub arg: [u64; 6], // args - a0~a5
     pub ret: [u64; 2], // return - a0, a1
 }
 
-impl SbiArg {
+impl Ecall {
     pub fn new() -> Self {
         let ext_id: u64 = 0;
         let func_id: u64 = 0;
@@ -50,7 +50,6 @@ impl SbiArg {
                 ret = self.console_putchar();
             },
             SBI_EXT_0_1_CONSOLE_GETCHAR => {
-                //println!("SBI_EXT_0_1_CONSOLE_GETCHAR");
                 ret = self.console_getchar();
             },
             SBI_EXT_0_1_CLEAR_IPI => {
@@ -91,7 +90,7 @@ impl SbiArg {
     }
 
     fn console_getchar(&mut self) -> i32{
-        let mut ret: i32 = 0;
+        let ret: i32;
 
         // Cannot switch the backend process to the front.
         // So test_ecall_getchar() have to get chars from here. 
