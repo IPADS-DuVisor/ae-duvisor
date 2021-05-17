@@ -10,14 +10,14 @@ pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA: u64 = 0x6;
 pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID: u64 = 0x7;
 pub const SBI_EXT_0_1_SHUTDOWN: u64 = 0x8;
 
-pub struct SbiArg {
+pub struct Ecall {
     pub ext_id: u64, // EID - a7
     pub func_id: u64, // FID - a6
     pub arg: [u64; 6], // args - a0~a5
     pub ret: [u64; 2], // return - a0, a1
 }
 
-impl SbiArg {
+impl Ecall {
     pub fn new() -> Self {
         let ext_id: u64 = 0;
         let func_id: u64 = 0;

@@ -248,23 +248,23 @@ impl VirtualCpu {
             return ret as i32;
         }
         
-        let mut sbi_arg = opensbi::emulation::SbiArg::new();
-        sbi_arg.ext_id = a7;
-        sbi_arg.func_id = a6;
-        sbi_arg.arg[0] = a0;
-        sbi_arg.arg[1] = a1;
-        sbi_arg.arg[2] = a2;
-        sbi_arg.arg[3] = a3;
-        sbi_arg.arg[4] = a4;
-        sbi_arg.arg[5] = a5;
-        sbi_arg.ret[0] = a0;
-        sbi_arg.ret[1] = a1;
+        let mut target_ecall = opensbi::emulation::Ecall::new();
+        target_ecall.ext_id = a7;
+        target_ecall.func_id = a6;
+        target_ecall.arg[0] = a0;
+        target_ecall.arg[1] = a1;
+        target_ecall.arg[2] = a2;
+        target_ecall.arg[3] = a3;
+        target_ecall.arg[4] = a4;
+        target_ecall.arg[5] = a5;
+        target_ecall.ret[0] = a0;
+        target_ecall.ret[1] = a1;
 
-        ret = sbi_arg.ecall_handler();
+        ret = target_ecall.ecall_handler();
 
         // save the result
-        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = sbi_arg.ret[0];
-        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = sbi_arg.ret[1];
+        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
+        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
 
         // add uepc to start vm on next instruction
         self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
