@@ -10,6 +10,7 @@ use crate::plat::uhe::ioctl::ioctl_constants::*;
 use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
+use crate::plat::opensbi;
 
 #[allow(unused)]
 mod errno_constants {
@@ -18,6 +19,8 @@ mod errno_constants {
     pub const ENOMAPPING: i32 = -3;
 }
 pub use errno_constants::*;
+
+pub const ECALL_VM_TEST_END: u64 = 0xFF;
 
 pub enum ExitReason {
     ExitUnknown,
@@ -226,21 +229,47 @@ impl VirtualCpu {
     }
 
     fn handle_supervisor_ecall(&mut self) -> i32 {
-        let ret;
-        let _a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: 0th arg
-        let _a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg 
-        // ...
-        let _a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: funcID
-        dbgprintln!("handle_supervisor_ecall: funcID = {:x}, arg0 = {:x}, arg1 = {:x}",
-            _a7, _a0, _a1);
+        let ret: i32;
+        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: 0th arg/ret 1
+        let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg/ret 2
+        let a2 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 2nd arg 
+        let a3 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 3rd arg 
+        let a4 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 4th arg 
+        let a5 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 5th arg 
+        let a6 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; // a6: FID
+        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: EID
 
         // FIXME: for test cases
-        ret = 0xdead;
+        if a7 == ECALL_VM_TEST_END {
+            ret = 0xdead;
 
-        // FIXME: for test cases
-        self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret;
+            self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret as u64;
         
-        ret as i32
+            return ret as i32;
+        }
+        
+        let mut target_ecall = opensbi::emulation::Ecall::new();
+        target_ecall.ext_id = a7;
+        target_ecall.func_id = a6;
+        target_ecall.arg[0] = a0;
+        target_ecall.arg[1] = a1;
+        target_ecall.arg[2] = a2;
+        target_ecall.arg[3] = a3;
+        target_ecall.arg[4] = a4;
+        target_ecall.arg[5] = a5;
+        target_ecall.ret[0] = a0;
+        target_ecall.ret[1] = a1;
+
+        ret = target_ecall.ecall_handler();
+
+        // save the result
+        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
+        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
+
+        // add uepc to start vm on next instruction
+        self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
+
+        ret
     }
 
     fn handle_vcpu_exit(&mut self) -> i32 {
@@ -309,7 +338,7 @@ impl VirtualCpu {
             }
 
             ret = self.handle_vcpu_exit();
-        } 
+        }
         
         unsafe {
             _res = libc::ioctl(fd, IOCTL_LAPUTA_UNREGISTER_VCPU);
@@ -676,7 +705,7 @@ mod tests {
             }
 
             assert_eq!(uepc, ((test_buf_pfn << PAGE_SIZE_SHIFT)
-                + PAGE_TABLE_REGION_SIZE) + 2);
+                + PAGE_TABLE_REGION_SIZE) + 4);
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
         }

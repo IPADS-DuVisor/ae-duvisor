@@ -34,6 +34,6 @@ BEGIN_FUNC_FILE_NAME()
 	add x1, x1, x30
 	add x1, x1, x31
 	mv a0, x1
-	li a7, HVC_VM_TEST_END
+	li a7, ECALL_VM_TEST_END
 	ecall
 END_FUNC_FILE_NAME()
