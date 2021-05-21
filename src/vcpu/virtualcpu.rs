@@ -581,18 +581,20 @@ mod tests {
             }
 
             // Check the guest contexxt
-            let mut gpreg;
-            let mut sysreg;
-            let mut hypreg;
-            for i in &vm.vcpus {
-                gpreg = i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
-                sysreg = 
-                    i.lock().unwrap().vcpu_ctx.guest_ctx.sys_regs.huvsscratch;
-                hypreg = i.lock().unwrap().vcpu_ctx.guest_ctx.hyp_regs.hutinst;
-                assert_eq!(gpreg, 10);
-                assert_eq!(sysreg, 11);
-                assert_eq!(hypreg, 12);
-            }
+            let gpreg;
+            let sysreg;
+            let hypreg;
+
+            gpreg = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+                .x_reg[10];
+            sysreg = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.sys_regs
+                .huvsscratch;
+            hypreg = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.hyp_regs
+                .hutinst;
+
+            assert_eq!(gpreg, 10);
+            assert_eq!(sysreg, 11);
+            assert_eq!(hypreg, 12);
 
             /* 
              * The result should be 400 to prove the main thread can get the 
