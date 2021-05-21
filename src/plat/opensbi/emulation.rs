@@ -112,7 +112,7 @@ impl Ecall {
             // success and return with a0 = 0
             self.ret[0] = ret as u64;
 
-            return 0
+            return 0;
         }
 
         unsafe {

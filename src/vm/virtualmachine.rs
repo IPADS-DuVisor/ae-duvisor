@@ -617,7 +617,9 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let mut sum = 0;
 
-            sum = sum + vm.vcpus[0].lock().unwrap().vcpu_id;
+            for i in &vm.vcpus {
+                sum = sum + i.lock().unwrap().vcpu_id;
+            }
 
             assert_eq!(sum, 6); // 0 + 1 + 2 + 3
         }
@@ -691,5 +693,40 @@ mod tests {
             assert_eq!(t0_ans, t0);
             assert_eq!(t1_ans, t1);
         }
+
+        #[test]
+        fn test_ecall_getchar_count() {
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/opensbi_getchar_count.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                = entry_point;
+
+            //println!("Emulation input received:");
+            vm.vm_run();
+
+            // t0 should be '\n' to end
+            let t0: u64;
+            let t0_ans: u64 = 10;
+            t0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
+
+            // t1 should sum up the input
+            let t1: u64;
+            let t1_ans: u64 = 16;
+            t1 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[6];
+
+            vm.vm_destroy();
+
+            assert_eq!(t0_ans, t0);
+            assert_eq!(t1_ans, t1);
+        }
+
+
     }
 }
