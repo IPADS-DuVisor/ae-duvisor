@@ -662,9 +662,9 @@ mod tests {
 
 
         #[test]
-        fn test_ecall_getchar() {
+        fn test_ecall_getchar_sum() {
             let mut vm_config = test_vm_config_create();
-            let elf_path: &str = "./tests/integration/opensbi_getchar.img";
+            let elf_path: &str = "./tests/integration/opensbi_getchar_sum.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
@@ -726,7 +726,5 @@ mod tests {
             assert_eq!(t0_ans, t0);
             assert_eq!(t1_ans, t1);
         }
-
-
     }
 }
