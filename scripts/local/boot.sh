@@ -13,7 +13,7 @@ fi
     -smp 4 \
     -m 8G \
     -machine virt \
-    -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.elf \
+    -bios ./opensbi-laputa/build/platform/generic/firmware/fw_jump.elf \
     -kernel ./linux-laputa/arch/riscv/boot/Image \
     -initrd $PREPARE/rootfs.img \
     -append "root=/dev/ram rw console=ttyS0 earlycon=sbi" \
