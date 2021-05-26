@@ -12,7 +12,6 @@ expect {
         mount -t proc proc /proc \n
         mount -t sysfs sysfs /sys \n
         mount -t devtmpfs devtmpfs /dev \n 
-        echo 5 > /proc/sys/kernel/printk \n
         ./laputa/ioctl_test\n"
         exp_continue
     }
