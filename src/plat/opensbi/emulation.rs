@@ -10,6 +10,12 @@ pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA: u64 = 0x6;
 pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID: u64 = 0x7;
 pub const SBI_EXT_0_1_SHUTDOWN: u64 = 0x8;
 
+#[allow(unused)]
+extern "C"
+{
+    fn getchar_emulation() -> i32;
+}
+
 pub struct Ecall {
     pub ext_id: u64, // EID - a7
     pub func_id: u64, // FID - a6
@@ -44,7 +50,7 @@ impl Ecall {
                 ret = self.console_putchar();
             },
             SBI_EXT_0_1_CONSOLE_GETCHAR => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                ret = self.console_getchar();
             },
             SBI_EXT_0_1_CLEAR_IPI => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
@@ -81,6 +87,45 @@ impl Ecall {
         self.ret[0] = 0;
 
         0
+    }
+
+    fn console_getchar(&mut self) -> i32{
+        let ret: i32;
+
+        // Cannot switch the backend process to the front.
+        // So test_ecall_getchar() have to get chars from here. 
+        #[cfg(test)]
+        {
+            let virtual_input: [i32; 16];
+
+            // input "getchar succeed\n"
+            virtual_input = [103, 101, 116, 99, 104, 97, 114, 32, 115, 117, 99,
+                99, 101, 101, 100, 10];
+    
+            static mut INDEX: usize = 0;
+
+            unsafe {
+                ret = virtual_input[INDEX];
+                INDEX += 1;
+            }
+
+            // success and return with a0 = 0
+            self.ret[0] = ret as u64;
+
+            return 0;
+        }
+
+        #[allow(unreachable_code)]
+        {
+            unsafe {
+                ret = getchar_emulation();
+            }
+    
+            // success and return with a0 = 0
+            self.ret[0] = ret as u64;
+    
+            0
+        }
     }
 }
 
