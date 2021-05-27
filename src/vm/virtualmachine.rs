@@ -11,6 +11,7 @@ use crate::mm::utils::*;
 use crate::init::cmdline::VMConfig;
 use crate::vm::image;
 use crate::mm::gparegion::GpaRegion;
+use crate::vm::dtb;
 
 #[allow(unused)]
 extern "C"
@@ -57,6 +58,7 @@ pub struct VirtualMachine {
     pub vcpu_num: u32,
     pub mem_size: u64,
     pub vm_image: image::VmImage,
+    pub dtb_file: dtb::DeviceTree,
 }
 
 impl VirtualMachine {
@@ -78,9 +80,11 @@ impl VirtualMachine {
         let vcpu_num = vm_config.vcpu_count;
         let mem_size = vm_config.mem_size;
         let elf_path = &vm_config.kernel_img_path[..];
+        let dtb_path = &vm_config.dtb_path[..];
         let mmio_regions = vm_config.mmio_regions;
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
         let vm_image = image::VmImage::new(elf_path);
+        let dtb_file = dtb::DeviceTree::new(dtb_path);
 
         // get ioctl fd of "/dev/laputa_dev" 
         let ioctl_fd = VirtualMachine::open_ioctl();
@@ -96,6 +100,7 @@ impl VirtualMachine {
             vm_state: vm_state_mutex.clone(),
             mem_size,
             vm_image,
+            dtb_file,
         };
 
         // Create vcpu struct instance
@@ -240,7 +245,7 @@ mod tests {
     use rusty_fork::rusty_fork_test;
     use crate::mm::gstagemmu::gsmmu_constants;
     use gsmmu_constants::*;
-    use crate::init::cmdline::configtest::test_vm_config_create;
+    use crate::debug::utils::configtest::test_vm_config_create;
 
     rusty_fork_test! {
         #[test]

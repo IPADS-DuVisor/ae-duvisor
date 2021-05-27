@@ -360,7 +360,7 @@ mod tests {
     use super::*;
     use std::thread;
     use rusty_fork::rusty_fork_test;
-    use crate::init::cmdline::configtest::test_vm_config_create;
+    use crate::debug::utils::configtest::test_vm_config_create;
 
     rusty_fork_test! {
         #[test]

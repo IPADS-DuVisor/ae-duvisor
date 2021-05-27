@@ -6,13 +6,12 @@
 #[macro_use]
 extern crate clap;
 
-
-
 pub mod vm;
 mod vcpu;
 mod mm;
 mod irq;
 mod plat;
+mod debug;
 use vm::virtualmachine::VirtualMachine;
 
 pub mod init;
