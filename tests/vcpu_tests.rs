@@ -14,6 +14,7 @@ fn test_vcpu_add_all_gprs() {
         kernel_img_path: String::from("tests/integration/vcpu_add_all_gprs.img"),
         initrd_path: String::from(""),
         dtb_path: String::from(""),
+        mmio_regions: Vec::new(),
     };
     assert!(cmdline::VMConfig::verify_args(&vm_config));
 

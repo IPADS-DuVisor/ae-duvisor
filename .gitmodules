@@ -4,3 +4,6 @@
 [submodule "linux-laputa"]
 	path = linux-laputa
 	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/linux-laputa.git
+[submodule "opensbi-laputa"]
+	path = opensbi-laputa
+	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/opensbi-laputa.git

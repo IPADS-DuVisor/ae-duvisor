@@ -115,14 +115,17 @@ impl Ecall {
             return 0;
         }
 
-        unsafe {
-            ret = getchar_emulation();
+        #[allow(unreachable_code)]
+        {
+            unsafe {
+                ret = getchar_emulation();
+            }
+    
+            // success and return with a0 = 0
+            self.ret[0] = ret as u64;
+    
+            0
         }
-
-        // success and return with a0 = 0
-        self.ret[0] = ret as u64;
-
-        0
     }
 }
 

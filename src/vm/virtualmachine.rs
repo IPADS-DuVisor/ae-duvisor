@@ -10,6 +10,7 @@ use delegation_constants::*;
 use crate::mm::utils::*;
 use crate::init::cmdline::VMConfig;
 use crate::vm::image;
+use crate::mm::gparegion::GpaRegion;
 
 #[allow(unused)]
 extern "C"
@@ -40,12 +41,12 @@ pub struct VmSharedState {
 }
 
 impl VmSharedState {
-    pub fn new(ioctl_fd: i32, mem_size: u64)
+    pub fn new(ioctl_fd: i32, mem_size: u64, mmio_regions: Vec<GpaRegion>)
         -> Self {
         Self {
             vm_id: 0,
             ioctl_fd,
-            gsmmu: gstagemmu::GStageMmu::new(ioctl_fd, mem_size),
+            gsmmu: gstagemmu::GStageMmu::new(ioctl_fd, mem_size, mmio_regions),
         }
     }
 }
@@ -77,13 +78,14 @@ impl VirtualMachine {
         let vcpu_num = vm_config.vcpu_count;
         let mem_size = vm_config.mem_size;
         let elf_path = &vm_config.kernel_img_path[..];
+        let mmio_regions = vm_config.mmio_regions;
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
         let vm_image = image::VmImage::new(elf_path);
 
         // get ioctl fd of "/dev/laputa_dev" 
         let ioctl_fd = VirtualMachine::open_ioctl();
 
-        let vm_state = VmSharedState::new(ioctl_fd, mem_size);
+        let vm_state = VmSharedState::new(ioctl_fd, mem_size, mmio_regions);
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
 
@@ -538,6 +540,8 @@ mod tests {
             let mut vm_config = test_vm_config_create();
 
             // cancel the three mmio regions
+            vm_config.mmio_regions = Vec::new();
+
             let elf_path: &str 
                 = "./tests/integration/vmem_ld_sd_over_loop.img";
             vm_config.kernel_img_path = String::from(elf_path);
@@ -570,6 +574,8 @@ mod tests {
             let mut vm_config = test_vm_config_create();
 
             // cancel the three mmio regions
+            vm_config.mmio_regions = Vec::new();
+            
             let elf_path: &str = "./tests/integration/vmem_ld_sd_sum.img";
             vm_config.kernel_img_path = String::from(elf_path);
 

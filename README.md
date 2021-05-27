@@ -18,6 +18,12 @@ rm -r prepare
 ```
 ./scripts/local/build_linux.sh
 ```
+
+## Build opensbi
+```
+./scripts/local/build_opensbi.sh
+```
+
 ## Build laputa
 ```
 ./scripts/local/docker_build_laputa.sh
