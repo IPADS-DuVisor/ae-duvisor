@@ -186,45 +186,6 @@ impl VMConfig {
 }
 
 #[cfg(test)]
-pub mod configtest {
-    use crate::mm::utils::*;
-    use crate::init::cmdline::VMConfig;
-    use crate::mm::gparegion::GpaRegion;
-
-    const ELF_IMG_PATH: &str = "./tests/integration/vcpu_add_all_gprs.img";
-    const TEST_MMIO_REGION_1: GpaRegion = GpaRegion {
-        gpa: 0x18000,
-        length: 0x2000,
-    };
-    const TEST_MMIO_REGION_2: GpaRegion = GpaRegion {
-        gpa: 0x34000,
-        length: 0x3000,
-    };
-    const TEST_MMIO_REGION_3: GpaRegion = GpaRegion {
-        gpa: 0x77000,
-        length: 0x4000,
-    };
-
-    pub fn test_vm_config_create() -> VMConfig {
-        let mut test_vm_config: VMConfig = VMConfig {
-            vcpu_count: 1,
-            mem_size: 1 << TB_SHIFT,
-            machine_type: String::from(""),
-            kernel_img_path: String::from(ELF_IMG_PATH),
-            initrd_path: String::from(""),
-            dtb_path: String::from(""),
-            mmio_regions: Vec::new(),
-        };
-
-        test_vm_config.mmio_regions.push(TEST_MMIO_REGION_1);
-        test_vm_config.mmio_regions.push(TEST_MMIO_REGION_2);
-        test_vm_config.mmio_regions.push(TEST_MMIO_REGION_3);
-
-        test_vm_config
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -247,7 +208,6 @@ mod tests {
         let vm_config = setup_vm_config(2, 20, "laputa_virt",
                                     "src/unit/unitest_kernel",
                                     "", "");
-
         assert_eq!(VMConfig::verify_args(&vm_config), true);
     }
 
@@ -256,7 +216,6 @@ mod tests {
         let vm_config = setup_vm_config(1024, 20, "laputa_virt",
                                     "src/unit/unitest_kernel",
                                     "", "");
-
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
 
@@ -265,7 +224,6 @@ mod tests {
         let vm_config = setup_vm_config(0, 20, "laputa_virt",
                                     "src/unit/unitest_kernel",
                                     "", "");
-
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
 
@@ -274,7 +232,6 @@ mod tests {
         let vm_config = setup_vm_config(4, 5000, "laputa_virt",
                                     "src/unit/unitest_kernel",
                                     "", "");
-
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
 
@@ -283,7 +240,6 @@ mod tests {
         let vm_config = setup_vm_config(4, 0, "laputa_virt",
                                     "src/unit/unitest_kernel",
                                     "", "");
-
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
 
@@ -292,7 +248,6 @@ mod tests {
         let vm_config = setup_vm_config(4, 1024, "laputa_virt2",
                                     "src/unit/unitest_kernel",
                                     "", "");
-
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
 
@@ -301,7 +256,6 @@ mod tests {
         let vm_config = setup_vm_config(4, 1024, "laputa_virt",
                                     "err_unitest_kernel",
                                     "", "");
-
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
 
@@ -310,7 +264,6 @@ mod tests {
         let vm_config = setup_vm_config(4, 1024, "laputa_virt",
                                     "src/unit/unitest_kernel",
                                     "err_initrd", "");
-
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
 
@@ -319,7 +272,6 @@ mod tests {
         let vm_config = setup_vm_config(4, 1024, "laputa_virt",
                                     "src/unit/unitest_kernel",
                                     "", "err_dtb");
-
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
 
