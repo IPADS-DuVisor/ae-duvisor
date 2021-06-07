@@ -126,6 +126,11 @@ impl VirtualCpu {
         ret
     }
 
+    fn handle_u_vtimer_irq(&mut self) -> i32 {
+        self.vcpu_ctx.guest_ctx.hyp_regs.huvip |= IRQ_VS_TIMER;
+        return 0;
+    }
+
     fn handle_mmio(&mut self, _fault_addr: u64) -> i32 {
         dbgprintln!("MMIO has not been finished yet! {:x}", _fault_addr);
         return 0;
@@ -279,7 +284,17 @@ impl VirtualCpu {
 
         if (ucause & EXC_IRQ_MASK) != 0 {
             self.exit_reason = ExitReason::ExitIntr;
-            return 1;
+            let ucause = ucause & (!EXC_IRQ_MASK);
+            match ucause {
+                IRQ_U_VTIMER => {
+                    ret = self.handle_u_vtimer_irq();
+                }
+                _ => {
+                    dbgprintln!("Invalid IRQ ucause: {}", ucause);
+                    ret = 1;
+                }
+            }
+            return ret;
         }
 
         match ucause {
@@ -294,7 +309,7 @@ impl VirtualCpu {
                 ret = self.handle_supervisor_ecall();
             }
             _ => {
-                dbgprintln!("Invalid ucause: {}", ucause);
+                dbgprintln!("Invalid EXCP ucause: {}", ucause);
             }
         }
 

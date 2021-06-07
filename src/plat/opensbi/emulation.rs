@@ -1,4 +1,5 @@
 use crate::mm::utils::*;
+use crate::vcpu::utils::*;
 
 pub const SBI_EXT_0_1_SET_TIMER: u64 = 0x0;
 pub const SBI_EXT_0_1_CONSOLE_PUTCHAR: u64 = 0x1;
@@ -44,7 +45,10 @@ impl Ecall {
 
         match ext_id {
             SBI_EXT_0_1_SET_TIMER => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                // TODO: add rust feature to tell between rv64 and rv32
+                // TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if rv32
+                let next_cycle = self.arg[0];
+                csrw!(vtimecmp, next_cycle);
             },
             SBI_EXT_0_1_CONSOLE_PUTCHAR => {
                 ret = self.console_putchar();
