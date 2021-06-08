@@ -11,6 +11,7 @@ use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
 use crate::plat::opensbi;
+use crate::vcpu::utils::*;
 
 #[allow(unused)]
 mod errno_constants {
@@ -127,7 +128,15 @@ impl VirtualCpu {
     }
 
     fn handle_u_vtimer_irq(&mut self) -> i32 {
-        self.vcpu_ctx.guest_ctx.hyp_regs.huvip |= IRQ_VS_TIMER;
+        dbgprintln!("set IRQ_VS_TIMER irq.");
+        // set virtual timer
+        csrs!(HUVIP, 1 << IRQ_VS_TIMER);
+
+        // Clear U VTIMER bit. Its counterpart in ARM is GIC EOI. 
+        csrc!(HUIP, 1 << IRQ_U_VTIMER);
+
+        // disable timer.
+        csrc!(VTIMECTL, 1 << 0);
         return 0;
     }
 
@@ -287,6 +296,7 @@ impl VirtualCpu {
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
                 IRQ_U_VTIMER => {
+                    dbgprintln!("handler U VTIMER: {}", ucause);
                     ret = self.handle_u_vtimer_irq();
                 }
                 _ => {
@@ -328,7 +338,7 @@ impl VirtualCpu {
         let mut _res;
 
         self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
-            | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
+            | (1 << HUSTATUS_SPVP_SHIFT)) | (1 << HUSTATUS_UPIE_SHIFT) as u64;
 
         unsafe {
             // register vcpu thread to the kernel
@@ -342,7 +352,17 @@ impl VirtualCpu {
             // set trap handler
             set_utvec();
         }
-        
+        // enable timer irq
+        csrw!(HUIE, 1 << IRQ_U_VTIMER);
+
+        // TODO: redesign scounteren register
+        // allow VM to directly access time register
+        // csrs!(HUCOUNTEREN, HUCOUNTEREN_TM);
+
+        // TODO: introduce RUST feature to distinguish between rv64 and rv32
+        let delta_time :i64 = csrr!(TIME) as i64;
+        csrw!(HUTIMEDELTA, -delta_time as u64);
+
         let vcpu_ctx_ptr = &self.vcpu_ctx as *const VcpuCtx;
         let vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
@@ -411,6 +431,8 @@ mod tests {
                 libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
                 println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
                     test_buf_pfn);
+
+                vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[17] = ECALL_VM_TEST_END;
 
                 let mut test_buf_ptr = test_buf as *mut i32;
                 *test_buf_ptr = 0x73; // ecall

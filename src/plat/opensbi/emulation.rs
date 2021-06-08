@@ -1,5 +1,7 @@
 use crate::mm::utils::*;
 use crate::vcpu::utils::*;
+use crate::plat::uhe::csr::csr_constants::*;
+use crate::irq::delegation::delegation_constants::*;
 
 pub const SBI_EXT_0_1_SET_TIMER: u64 = 0x0;
 pub const SBI_EXT_0_1_CONSOLE_PUTCHAR: u64 = 0x1;
@@ -48,7 +50,11 @@ impl Ecall {
                 // TODO: add rust feature to tell between rv64 and rv32
                 // TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if rv32
                 let next_cycle = self.arg[0];
-                csrw!(vtimecmp, next_cycle);
+                // set timer ctl register to enable u vtimer
+                csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
+                csrw!(VTIMECMP, next_cycle);
+                dbgprintln!("set vtimer for ulh");
+                ret = 0;
             },
             SBI_EXT_0_1_CONSOLE_PUTCHAR => {
                 ret = self.console_putchar();

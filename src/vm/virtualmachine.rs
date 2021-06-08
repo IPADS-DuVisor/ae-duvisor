@@ -225,7 +225,8 @@ impl VirtualMachine {
                 (1 << EXC_VIRTUAL_INST_FAULT) |
                 (1 << EXC_LOAD_GUEST_PAGE_FAULT) |
                 (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
-            let ideleg = (1 << IRQ_S_SOFT) as libc::c_ulong;
+            let ideleg = (1 << IRQ_S_SOFT) |
+                (1 << IRQ_U_VTIMER) as libc::c_ulong;
             let deleg = [edeleg, ideleg];
             let deleg_ptr = (&deleg) as *const u64;
 
@@ -671,34 +672,34 @@ mod tests {
             assert_eq!(t1_ans, t1);
         }
 
-        // #[test]
-        // fn test_vtimer() { 
-        //     let mut vm_config = test_vm_config_create();
-        //     let elf_path: &str = "./tests/integration/vtimer.img";
-        //     vm_config.kernel_img_path = String::from(elf_path);
-        //     let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+        #[test]
+        fn test_vtimer_imme() { 
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/vtimer_imme.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
-        //     vm.vm_init();
+            vm.vm_init();
 
-        //     let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-        //     vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
-        //         = entry_point;
+            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                = entry_point;
 
-        //     vm.vm_run();
+            vm.vm_run();
 
-        //     let a0: u64;
+            let a0: u64;
 
-        //     // correct a0 after time irq\n"
-        //     let a0_ans: u64 = 0xcafe;
+            // correct a0 after time irq\n"
+            let a0_ans: u64 = 0xcafe;
 
-        //     a0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
-        //         .x_reg[10];
+            a0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+                .x_reg[10];
 
-        //     vm.vm_destroy();
+            vm.vm_destroy();
 
-        //     assert_eq!(a0_ans, a0);
-        // }
+            assert_eq!(a0_ans, a0);
+        }
 
         #[test]
         fn test_ecall_getchar_sum() {
