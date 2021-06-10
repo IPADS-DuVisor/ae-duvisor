@@ -132,11 +132,12 @@ impl VirtualCpu {
         // set virtual timer
         csrs!(HUVIP, 1 << IRQ_VS_TIMER);
 
+        /**FIXME: There may be unexpected pending bit IRQ_U_VTIMER when traped to kernel */
+        // disable timer.
+        csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
+
         // Clear U VTIMER bit. Its counterpart in ARM is GIC EOI. 
         csrc!(HUIP, 1 << IRQ_U_VTIMER);
-
-        // disable timer.
-        csrc!(VTIMECTL, 1 << 0);
         return 0;
     }
 
