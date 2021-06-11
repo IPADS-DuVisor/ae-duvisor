@@ -42,6 +42,7 @@ enter_guest:
     uret
 
     .align 2
+    .global exit_guest
 exit_guest:
     /* save guest-a0 in sscratch & get host-a0 */
     csrrw a0, CSR_USCRATCH, a0
@@ -72,19 +73,6 @@ exit_guest:
     /* restore host gp with a0=ctx, except t0-t6 and zero-x0 */
     RESTORE_HOST_CTX a0
 
-    ret
-
-.global set_hugatp
-
-set_hugatp:
-    csrw CSR_HUGATP, a0
-    ret
-    
-.global set_utvec
-
-set_utvec:
-    la t4, exit_guest
-    csrw CSR_UTVEC, t4
     ret
     
 /*

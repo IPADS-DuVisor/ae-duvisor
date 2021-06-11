@@ -1,4 +1,6 @@
 use crate::vcpu::virtualcpu;
+#[allow(unused_imports)]
+use crate::vcpu::vcpucontext::GpRegs;
 use crate::mm::gstagemmu;
 use crate::plat::uhe::ioctl::ioctl_constants;
 use crate::irq::delegation::delegation_constants;
@@ -676,6 +678,70 @@ mod tests {
         fn test_vtimer_imme() { 
             let mut vm_config = test_vm_config_create();
             let elf_path: &str = "./tests/integration/vtimer_imme.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                = entry_point;
+
+            vm.vm_run();
+
+            let a0: u64;
+
+            // correct a0 after time irq\n"
+            let a0_ans: u64 = 0xcafe;
+
+            a0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+                .x_reg[GpRegs::A0];
+
+            vm.vm_destroy();
+
+            assert_eq!(a0_ans, a0);
+        }
+
+        #[test]
+        fn test_vtimer_eoi() { 
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/vtimer_eoi.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                = entry_point;
+
+            vm.vm_run();
+
+            let a1: u64 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.
+                          gp_regs.x_reg[GpRegs::A1];
+            let t1: u64 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.
+                          gp_regs.x_reg[GpRegs::T1];
+
+            // only single time irq
+            let a1_ans: u64 = 0xcafe;
+
+            // the loop has finished
+            let t1_ans: u64 = 0x1000;
+            let a1_bad_ans: u64 = 0xdeaf;
+
+            vm.vm_destroy();
+
+            assert_eq!(a1_ans, a1);
+            assert_eq!(t1_ans, t1);
+            assert_ne!(a1_bad_ans, a1);
+        }
+
+        #[test]
+        fn test_vtimer_sret() { 
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/vtimer_sret.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 

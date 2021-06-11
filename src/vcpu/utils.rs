@@ -281,7 +281,7 @@ pub macro_rules! csrr {
     ( $r:ident ) => {{
         let value: u64;
         #[allow(unused_unsafe)]
-        unsafe { unsafe{ llvm_asm!("csrr $0, $1" : "=r"(value) : "i"($r)) } };
+        llvm_asm!("csrr $0, $1" : "=r"(value) : "i"($r));
         value
     }};
 }
@@ -291,7 +291,7 @@ pub macro_rules! csrr {
 pub macro_rules! csrw {
     ( $r:ident, $x:expr ) => {{
         let x: u64 = $x;
-        unsafe{ llvm_asm!("csrw $0, $1" :: "i"($r), "r"(x) :: "volatile") };
+        llvm_asm!("csrw $0, $1" :: "i"($r), "r"(x) :: "volatile");
     }};
 }
 
@@ -300,7 +300,7 @@ pub macro_rules! csrw {
 pub macro_rules! csrwi {
     ( $r:ident, $x:expr ) => {{
         const X: u64 = $x;
-        unsafe{ llvm_asm!("csrwi $0, $1" :: "i"($r), "i"(X) :: "volatile") };
+        llvm_asm!("csrwi $0, $1" :: "i"($r), "i"(X) :: "volatile");
     }};
 }
 
@@ -309,7 +309,7 @@ pub macro_rules! csrwi {
 pub macro_rules! csrs {
     ( $r:ident, $x:expr ) => {{
         let x: u64 = $x;
-        unsafe{ llvm_asm!("csrs $0, $1" :: "i"($r), "r"(x) :: "volatile") };
+        llvm_asm!("csrs $0, $1" :: "i"($r), "r"(x) :: "volatile");
     }};
 }
 
@@ -318,7 +318,7 @@ pub macro_rules! csrs {
 pub macro_rules! csrsi {
     ( $r:ident, $x:expr ) => {{
         const X: u64 = $x;
-        unsafe{ llvm_asm!("csrsi $0, $1" :: "i"($r), "i"(X) :: "volatile") };
+        llvm_asm!("csrsi $0, $1" :: "i"($r), "i"(X) :: "volatile");
     }};
 }
 
@@ -327,7 +327,7 @@ pub macro_rules! csrsi {
 pub macro_rules! csrc {
     ( $r:ident, $x:expr ) => {{
         let x: u64 = $x;
-        unsafe{ llvm_asm!("csrc $0, $1" :: "i"($r), "r"(x) :: "volatile") };
+        llvm_asm!("csrc $0, $1" :: "i"($r), "r"(x) :: "volatile");
     }};
 }
 
@@ -336,6 +336,6 @@ pub macro_rules! csrc {
 pub macro_rules! csrci {
     ( $r:ident, $x:expr ) => {{
         const X: u64 = $x;
-        unsafe{ llvm_asm!("csrci $0, $1" :: "i"($r), "i"(X) :: "volatile") };
+        llvm_asm!("csrci $0, $1" :: "i"($r), "i"(X) :: "volatile");
     }};
 }

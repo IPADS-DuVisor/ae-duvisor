@@ -9,7 +9,7 @@ BEGIN_FUNC_FILE_NAME()
     csrs sie, t1
 	li a7, SBI_EXT_0_1_SET_TIMER
     // timer irq will be triggered immediately 
-    csrr  a0, 0
+    li a0, 0
 	ecall
 
     li a0, 1

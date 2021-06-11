@@ -37,12 +37,7 @@ pub enum ExitReason {
 extern "C" {
     // int enter_guest(struct VcpuCtx *ctx);
     fn enter_guest(vcpuctx: u64) -> i32;
-
-    // void set_hugatp(uint64_t hugatp)
-    fn set_hugatp(hugatp: u64);
-
-    // void set_utvec()
-    fn set_utvec();
+    fn exit_guest();
 }
 
 #[allow(unused)]
@@ -110,9 +105,7 @@ impl VirtualCpu {
 
         self.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
 
-        unsafe {
-            set_hugatp(hugatp);
-        }
+        unsafe { csrw!(HUGATP, hugatp); }
 
         dbgprintln!("set hugatp {:x}", hugatp);
 
@@ -128,16 +121,18 @@ impl VirtualCpu {
     }
 
     fn handle_u_vtimer_irq(&mut self) -> i32 {
-        dbgprintln!("set IRQ_VS_TIMER irq.");
-        // set virtual timer
-        csrs!(HUVIP, 1 << IRQ_VS_TIMER);
+        unsafe {
+            dbgprintln!("set IRQ_VS_TIMER irq.");
+            // set virtual timer
+            csrs!(HUVIP, 1 << IRQ_VS_TIMER);
 
-        /**FIXME: There may be unexpected pending bit IRQ_U_VTIMER when traped to kernel */
-        // disable timer.
-        csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
+            // FIXME: There may be unexpected pending bit IRQ_U_VTIMER when traped to kernel
+            // disable timer.
+            csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
 
-        // Clear U VTIMER bit. Its counterpart in ARM is GIC EOI. 
-        csrc!(HUIP, 1 << IRQ_U_VTIMER);
+            // Clear U VTIMER bit. Its counterpart in ARM is GIC EOI. 
+            csrc!(HUIP, 1 << IRQ_U_VTIMER);
+        }
         return 0;
     }
 
@@ -297,7 +292,7 @@ impl VirtualCpu {
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
                 IRQ_U_VTIMER => {
-                    dbgprintln!("handler U VTIMER: {}", ucause);
+                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", ucause, self.vcpu_ctx.host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
                 }
                 _ => {
@@ -351,19 +346,19 @@ impl VirtualCpu {
             dbgprintln!("Config hugatp: {:x}", _hugatp);
 
             // set trap handler
-            set_utvec();
+            csrw!(UTVEC, exit_guest as u64);
+
+            // enable timer irq
+            csrw!(HUIE, 1 << IRQ_U_VTIMER);
+
+            // TODO: redesign scounteren register
+            // allow VM to directly access time register
+            // csrs!(HUCOUNTEREN, HUCOUNTEREN_TM);
+
+            // TODO: introduce RUST feature to distinguish between rv64 and rv32
+            let delta_time :i64 = csrr!(TIME) as i64;
+            csrw!(HUTIMEDELTA, -delta_time as u64);
         }
-        // enable timer irq
-        csrw!(HUIE, 1 << IRQ_U_VTIMER);
-
-        // TODO: redesign scounteren register
-        // allow VM to directly access time register
-        // csrs!(HUCOUNTEREN, HUCOUNTEREN_TM);
-
-        // TODO: introduce RUST feature to distinguish between rv64 and rv32
-        let delta_time :i64 = csrr!(TIME) as i64;
-        csrw!(HUTIMEDELTA, -delta_time as u64);
-
         let vcpu_ctx_ptr = &self.vcpu_ctx as *const VcpuCtx;
         let vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
@@ -472,7 +467,7 @@ mod tests {
 
             while ret == 0 {
                 unsafe {
-                    set_hugatp(vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                    csrw!(HUGATP, vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
                     println!("HUGATP : {:x}", 
                         vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
 
@@ -481,8 +476,7 @@ mod tests {
                         ((1 << HUSTATUS_SPV_SHIFT) 
                         | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
-                    set_utvec();
-
+                    csrw!(UTVEC, exit_guest as u64);
                     enter_guest(ptr_u64);
 
                     uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
@@ -724,18 +718,16 @@ mod tests {
             vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
 
             unsafe {
+                csrw!(HUGATP, hugatp);
                 // set hugatp
-                set_hugatp(hugatp);
                 println!("HUGATP : 0x{:x}", hugatp);
-
                 //hustatus.SPP=1 .SPVP=1 uret to VS mode
                 vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
                     ((1 << HUSTATUS_SPV_SHIFT)
                     | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
                 // set utvec to trap handler
-                set_utvec();
-
+                csrw!(UTVEC, exit_guest as u64);
                 enter_guest(ptr_u64);
 
                 uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
@@ -848,18 +840,15 @@ mod tests {
             println!("sum {}", sum);
 
             unsafe {
+                csrw!(HUGATP, hugatp);
                 // set hugatp
-                set_hugatp(hugatp);
                 println!("HUGATP : 0x{:x}", hugatp);
-
                 //hustatus.SPP=1 .SPVP=1 uret to VS mode
                 vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
                     ((1 << HUSTATUS_SPV_SHIFT) 
                     | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
-
                 // set utvec to trap handler
-                set_utvec();
-
+                csrw!(UTVEC, exit_guest as u64);
                 enter_guest(ptr_u64);
 
                 uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
