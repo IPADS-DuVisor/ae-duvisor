@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $USER == gitlab-runner ]; then
+if [ ${USER}1 == gitlab-runner1 ]; then
     # for CI environment
     PREPARE="$HOME/prepare"
 else
@@ -18,4 +18,4 @@ fi
     -initrd $PREPARE/rootfs.img \
     -append "root=/dev/ram rw console=ttyS0 earlycon=sbi" \
     -device virtio-blk-pci,drive=vdisk \
-    -drive if=none,id=vdisk,file=$PREPARE/ubuntu-vdisk.img,format=raw
+    -drive if=none,id=vdisk,file=$PREPARE/ubuntu-vdisk.img,format=raw $@

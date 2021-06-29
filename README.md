@@ -46,4 +46,18 @@ Or if you want to run test in verbose mode, run:
 ```
 ./scripts/local/docker_test_app.sh
 ```
-
+## Update Docker
+When building laputa, rust package in docker will always be reinstalled, which is quite time-consuming.
+The scripts below will help update rust package in docker image.
+```
+./scripts/local/docker_update.sh
+``` 
+## Debug laputa
+The following script will boot qemu with -s -S arguments
+```
+./scripts/local/docker_debug_laputa.sh
+```
+If you want to debug certain test case, for example, vm::virtualmachine::tests::test_vtimer_sret, you can run
+```
+./scripts/local/docker_debug_laputa.sh vm::virtualmachine::tests::test_vtimer_sret
+```

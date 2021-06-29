@@ -1,4 +1,7 @@
 use crate::mm::utils::*;
+use crate::vcpu::utils::*;
+use crate::plat::uhe::csr::csr_constants::*;
+use crate::irq::delegation::delegation_constants::*;
 
 pub const SBI_EXT_0_1_SET_TIMER: u64 = 0x0;
 pub const SBI_EXT_0_1_CONSOLE_PUTCHAR: u64 = 0x1;
@@ -44,7 +47,23 @@ impl Ecall {
 
         match ext_id {
             SBI_EXT_0_1_SET_TIMER => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                // TODO: add rust feature to tell between rv64 and rv32
+                // TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if rv32
+                let next_cycle = self.arg[0];
+                unsafe {
+                    // linux thinks that the IRQ_S_TIMER will be cleared when ecall SBI_EXT_0_1_SET_TIMER
+                    // For record, opensbi thinks that IRQ_M_TIMER should be cleared by software.
+                    // Qemu and xv6 think that IRQ_M_TIMER should be clear when writing timecmp.
+                    // I think that IRQ_U_VTIMER should be cleared by software.
+                    // That's a drawback of riscv, unlike GIC which can provide the same interface for eoi. 
+                    csrc!(HUVIP, 1 << IRQ_VS_TIMER);
+
+                    // set timer ctl register to enable u vtimer
+                    csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
+                    csrw!(VTIMECMP, next_cycle);
+                }
+                dbgprintln!("set vtimer for ulh");
+                ret = 0;
             },
             SBI_EXT_0_1_CONSOLE_PUTCHAR => {
                 ret = self.console_putchar();

@@ -117,7 +117,9 @@ impl MachineMeta {
                     self.soc_parse(values, address_cells, size_cells);
                 }
             },
-            _ => {dbgprintln!("match nothing");},
+            _ => {
+                dbgprintln!("match nothing");
+            },
         }
     }
 
