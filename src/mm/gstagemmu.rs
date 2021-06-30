@@ -196,6 +196,34 @@ impl GStageMmu {
         }
     }
 
+    fn region_overlap(first_region_start: u64, first_region_len: u64, 
+            second_region_start: u64, second_region_len: u64) -> bool {
+        if first_region_start >= second_region_start + second_region_len 
+            || first_region_start + first_region_len <= second_region_start {
+            return false;
+        }
+
+        return true;
+    }
+
+    pub fn gpa_block_overlap(&mut self, gpa: u64, length: u64) -> bool {
+        let mut start_block: u64;
+        let mut length_block: u64;
+ 
+        for i in &self.gpa_blocks {
+            start_block = i.gpa;
+            length_block = i.length;
+
+            if GStageMmu::region_overlap(gpa, length, start_block,
+                    length_block) {
+                /* overlapped */
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     pub fn init_gpa_regions(mem_size: u64, mmio_manager: &mmio::MmioManager)
         -> Vec<gparegion::GpaRegion> {
         let mut gpa_regions: Vec<gparegion::GpaRegion> = Vec::new();
@@ -603,6 +631,12 @@ impl GStageMmu {
         -> Result<(u64, u64), u64> {
         // gpa block should always be aligned to PAGE_SIZE
         length = page_size_round_up(length);
+
+        if self.gpa_block_overlap(gpa, length) {
+            println!("GPA block overlapped on gpa: 0x{:x}, length: 0x{:x}",
+                gpa, length);
+            return Err(0);
+        }
 
         let region_wrap = self.allocator.hpm_alloc(length);
 

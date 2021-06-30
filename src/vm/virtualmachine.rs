@@ -117,7 +117,7 @@ impl VirtualMachine {
         vm
     }
 
-    fn load_img_data(dst: u64, src: u64, size: u64) {
+    fn load_file_to_mem(dst: u64, src: u64, size: u64) {
         unsafe {
             std::ptr::copy_nonoverlapping(src as *const u8, dst as *mut u8,
                 size as usize);
@@ -157,11 +157,31 @@ impl VirtualMachine {
             let (hva, _hpa) = res.unwrap();
             hva_list.push(hva);
 
-            VirtualMachine::load_img_data(hva, ph_data_ptr, size);
+            VirtualMachine::load_file_to_mem(hva, ph_data_ptr, size);
         }
 
         // return for test
         hva_list
+    }
+
+    /* Load DTB data to DTB_GPA */
+    pub fn init_gpa_block_dtb(&mut self) -> Option<(u64, u64)>{
+        let dtb_gpa: u64 = dtb::DTB_GPA;
+        let dtb_size: u64 = self.dtb_file.file_data.len() as u64;
+
+        let res = self.vm_state.lock().unwrap().gsmmu.gpa_block_add(dtb_gpa,
+                page_size_round_up(dtb_size));
+        if !res.is_ok() {
+            return None;
+        }
+
+        let (hva, _hpa) = res.unwrap();
+        let dtb_data_ptr = self.dtb_file.file_data.as_ptr() as u64;
+        VirtualMachine::load_file_to_mem(hva, dtb_data_ptr, dtb_size);
+
+        dbgprintln!("DTB load finish");
+
+        return Some((dtb_gpa, hva));
     }
 
     // Init vm & vcpu before vm_run()
@@ -172,6 +192,12 @@ impl VirtualMachine {
         // Delegate traps via ioctl
         VirtualMachine::hu_delegation(ioctl_fd);
         self.vm_state.lock().unwrap().gsmmu.allocator.set_ioctl_fd(ioctl_fd);
+
+        /* Load DTB */
+        let dtb_res = self.init_gpa_block_dtb();
+        if dtb_res.is_none() {
+            println!("Load DTB failed");
+        }
 
         // init gpa block from the elf file, return for test
         self.init_gpa_block_elf()
@@ -187,7 +213,7 @@ impl VirtualMachine {
         let (hva, _hpa) = res.unwrap();
         dbgprintln!("New hpa: {:x}", _hpa);
 
-        VirtualMachine::load_img_data(hva, gpa_start, length);
+        VirtualMachine::load_file_to_mem(hva, gpa_start, length);
 
         gpa_start
     }
@@ -240,7 +266,6 @@ impl VirtualMachine {
     }
 }
 
-// Check the correctness of vm new()
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,6 +274,7 @@ mod tests {
     use crate::mm::gstagemmu::gsmmu_constants;
     use gsmmu_constants::*;
     use crate::debug::utils::configtest::test_vm_config_create;
+    use libc::c_void;
 
     rusty_fork_test! {
         #[test]
@@ -831,6 +857,89 @@ mod tests {
 
             assert_eq!(t0_ans, t0);
             assert_eq!(t1_ans, t1);
+        }
+
+        /* Check the magic number of DTB */
+        #[test]
+        fn test_dtb_check_magic() {
+            let mut vm_config = test_vm_config_create();
+            let dtb_path: &str = "./tests/k210.dtb";
+            let ans_magic: u32 = 0xedfe0dd0;
+            vm_config.dtb_path = String::from(dtb_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            let dtb_res = vm.init_gpa_block_dtb();
+            if dtb_res.is_none() {
+                panic!("Load DTB failed");
+            }
+
+            let (_dtb_gpa, dtb_hva) = dtb_res.unwrap();
+            let dtb_magic: u32;
+
+            unsafe {
+                dtb_magic = *(dtb_hva as *mut u32);
+                dbgprintln!("DTB magic: 0x{:x}", dtb_magic);
+            }
+
+            assert_eq!(dtb_magic, ans_magic);
+        }
+
+        /* 
+         * Check the correctness of DTB data in guest memory.
+         * The test dtb is compiled from linux/arch/riscv/boot/dts/kendryte/
+         */
+        #[test]
+        fn test_dtb_load_data_kendryte() {
+            let mut vm_config = test_vm_config_create();
+            let dtb_path: &str = "./tests/k210.dtb";
+            let ans_res = std::fs::read(dtb_path);
+            let ans_data = ans_res.unwrap();
+            vm_config.dtb_path = String::from(dtb_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            let dtb_res = vm.init_gpa_block_dtb();
+            if dtb_res.is_none() {
+                panic!("Load DTB failed");
+            }
+
+            let (_dtb_gpa, dtb_hva) = dtb_res.unwrap();
+            let result: i32;
+            unsafe {
+                result = libc::memcmp(dtb_hva as *const c_void,
+                        ans_data.as_ptr() as *const c_void,
+                        ans_data.len());
+            }
+
+            assert_eq!(result, 0);
+        }
+
+        /* 
+         * Check the correctness of DTB data in guest memory.
+         * The test dtb is compiled from linux/arch/riscv/boot/dts/sifive/
+         */
+        #[test]
+        fn test_dtb_load_data_sifive() {
+            let mut vm_config = test_vm_config_create();
+            let dtb_path: &str = "./tests/hifive-unleashed-a00.dtb";
+            let ans_res = std::fs::read(dtb_path);
+            let ans_data = ans_res.unwrap();
+            vm_config.dtb_path = String::from(dtb_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            let dtb_res = vm.init_gpa_block_dtb();
+            if dtb_res.is_none() {
+                panic!("Load DTB failed");
+            }
+
+            let (_dtb_gpa, dtb_hva) = dtb_res.unwrap();
+            let result: i32;
+            unsafe {
+                result = libc::memcmp(dtb_hva as *const c_void,
+                        ans_data.as_ptr() as *const c_void,
+                        ans_data.len());
+            }
+
+            assert_eq!(result, 0);
         }
     }
 }

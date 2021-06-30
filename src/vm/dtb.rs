@@ -1,4 +1,3 @@
-//use std::io::prelude::*;
 use crate::mm::utils::*;
 
 #[allow(unused)]
@@ -6,6 +5,8 @@ pub struct BusRegion {
     offset: u64,
     size: u64,
 }
+
+pub const DTB_GPA: u64 = 0x82200000;
 
 impl BusRegion {
     pub fn new(offset: u64, size: u64) -> Self {
