@@ -61,6 +61,7 @@ pub struct VirtualMachine {
     pub mem_size: u64,
     pub vm_image: image::VmImage,
     pub dtb_file: dtb::DeviceTree,
+    pub initrd_path: String,
 }
 
 impl VirtualMachine {
@@ -87,6 +88,7 @@ impl VirtualMachine {
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
         let vm_image = image::VmImage::new(elf_path);
         let dtb_file = dtb::DeviceTree::new(dtb_path);
+        let initrd_path = vm_config.initrd_path;
 
         // get ioctl fd of "/dev/laputa_dev" 
         let ioctl_fd = VirtualMachine::open_ioctl();
@@ -103,6 +105,7 @@ impl VirtualMachine {
             mem_size,
             vm_image,
             dtb_file,
+            initrd_path,
         };
 
         // Create vcpu struct instance
@@ -165,7 +168,7 @@ impl VirtualMachine {
     }
 
     /* Load DTB data to DTB_GPA */
-    pub fn init_gpa_block_dtb(&mut self) -> Option<(u64, u64)>{
+    pub fn init_gpa_block_dtb(&mut self) -> Option<(u64, u64)> {
         let dtb_gpa: u64 = dtb::DTB_GPA;
         let dtb_size: u64 = self.dtb_file.file_data.len() as u64;
 
@@ -184,6 +187,44 @@ impl VirtualMachine {
         return Some((dtb_gpa, hva));
     }
 
+    /* Load initrd image to the location specified by DTB */
+    pub fn init_gpa_block_initrd(&mut self) -> Option<(u64, u64)> {
+        let initrd_gpa: u64 = self.dtb_file.meta_data.initrd_region.start;
+        let initrd_end: u64 = self.dtb_file.meta_data.initrd_region.end;
+        let initrd_size: u64 = initrd_end - initrd_gpa;
+        
+        if initrd_gpa == 0 || initrd_end == 0 {
+            dbgprintln!("No initrd config in DTB");
+            return None;
+        }
+
+        let page_offset: u64 = initrd_gpa & 0xfff;
+        let initrd_path: &str = &self.initrd_path[..];
+
+        /* Read initrd data */
+        let initrd_data_res = std::fs::read(initrd_path);
+        if initrd_data_res.is_err() {
+            return None;
+        }
+
+        let initrd_data = initrd_data_res.unwrap();
+        let initrd_res = self.vm_state.lock().unwrap().gsmmu.gpa_block_add(
+                initrd_gpa - page_offset,
+                page_size_round_up(initrd_size + page_offset));
+        if !initrd_res.is_ok() {
+            return None;
+        }
+
+        let (hva, _hpa) = initrd_res.unwrap();
+        let initrd_data_ptr = initrd_data.as_ptr() as u64;
+        VirtualMachine::load_file_to_mem(hva + page_offset, initrd_data_ptr,
+                initrd_data.len() as u64);
+
+        dbgprintln!("Initrd load finish");
+
+        return Some((initrd_gpa, hva + page_offset));
+    }
+
     // Init vm & vcpu before vm_run()
     // return for test
     pub fn vm_init(&mut self) -> Vec<u64> {
@@ -197,6 +238,12 @@ impl VirtualMachine {
         let dtb_res = self.init_gpa_block_dtb();
         if dtb_res.is_none() {
             println!("Load DTB failed");
+        }
+
+        /* Load initrd image and it must come after DTB-loading */
+        let initrd_res = self.init_gpa_block_initrd();
+        if initrd_res.is_none() {
+            println!("Load initrd image failed");
         }
 
         // init gpa block from the elf file, return for test
@@ -863,7 +910,7 @@ mod tests {
         #[test]
         fn test_dtb_check_magic() {
             let mut vm_config = test_vm_config_create();
-            let dtb_path: &str = "./tests/k210.dtb";
+            let dtb_path: &str = "./test-files-laputa/k210.dtb";
             let ans_magic: u32 = 0xedfe0dd0;
             vm_config.dtb_path = String::from(dtb_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
@@ -891,7 +938,7 @@ mod tests {
         #[test]
         fn test_dtb_load_data_kendryte() {
             let mut vm_config = test_vm_config_create();
-            let dtb_path: &str = "./tests/k210.dtb";
+            let dtb_path: &str = "./test-files-laputa/k210.dtb";
             let ans_res = std::fs::read(dtb_path);
             let ans_data = ans_res.unwrap();
             vm_config.dtb_path = String::from(dtb_path);
@@ -920,7 +967,8 @@ mod tests {
         #[test]
         fn test_dtb_load_data_sifive() {
             let mut vm_config = test_vm_config_create();
-            let dtb_path: &str = "./tests/hifive-unleashed-a00.dtb";
+            let dtb_path: &str 
+                = "./test-files-laputa/hifive-unleashed-a00.dtb";
             let ans_res = std::fs::read(dtb_path);
             let ans_data = ans_res.unwrap();
             vm_config.dtb_path = String::from(dtb_path);
@@ -940,6 +988,141 @@ mod tests {
             }
 
             assert_eq!(result, 0);
+        }
+
+        #[test]
+        fn test_dtb_load_data_vmlinux() {
+            let mut vm_config = test_vm_config_create();
+            let dtb_path: &str = "./test-files-laputa/vmlinux.dtb";
+            let ans_res = std::fs::read(dtb_path);
+            let ans_data = ans_res.unwrap();
+            vm_config.dtb_path = String::from(dtb_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            let dtb_res = vm.init_gpa_block_dtb();
+            if dtb_res.is_none() {
+                panic!("Load DTB failed");
+            }
+
+            let (_dtb_gpa, dtb_hva) = dtb_res.unwrap();
+            let result: i32;
+            unsafe {
+                result = libc::memcmp(dtb_hva as *const c_void,
+                        ans_data.as_ptr() as *const c_void,
+                        ans_data.len());
+            }
+
+            assert_eq!(result, 0);
+        }
+
+        #[test]
+        fn test_initrd_load_data_vmlinux() {
+            let mut vm_config = test_vm_config_create();
+            let dtb_path: &str = "./test-files-laputa/vmlinux.dtb";
+            vm_config.dtb_path = String::from(dtb_path);
+            let initrd_path: &str = "./test-files-laputa/rootfs-vm.img";
+            vm_config.initrd_path = String::from(initrd_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            let ans_res = std::fs::read(initrd_path);
+            if ans_res.is_err() {
+                panic!("Ans initrd load failed");
+            }
+            let ans_data = ans_res.unwrap();
+
+            let dtb_res = vm.init_gpa_block_dtb();
+            if dtb_res.is_none() {
+                panic!("Load DTB failed");
+            }
+
+            let initrd_res = vm.init_gpa_block_initrd();
+            if initrd_res.is_none() {
+                panic!("Load initrd failed");
+            }
+
+            let (_initrd_gpa, initrd_hva) = initrd_res.unwrap();
+            let result: i32;
+            unsafe {
+                result = libc::memcmp(initrd_hva as *const c_void,
+                        ans_data.as_ptr() as *const c_void,
+                        ans_data.len());
+            }
+
+            assert_eq!(result, 0);
+        }
+
+        #[test]
+        fn test_initrd_load_data_fake_file() {
+            let mut vm_config = test_vm_config_create();
+            let dtb_path: &str = "./test-files-laputa/vmlinux.dtb";
+            vm_config.dtb_path = String::from(dtb_path);
+            let initrd_path: &str = "./test-files-laputa/rootfs-vm.img";
+            let wrong_path: &str = "./test-files-laputa/fake.img";
+            vm_config.initrd_path = String::from(wrong_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            let ans_res = std::fs::read(initrd_path);
+            if ans_res.is_err() {
+                panic!("Ans initrd load failed");
+            }
+            let ans_data = ans_res.unwrap();
+
+            let dtb_res = vm.init_gpa_block_dtb();
+            if dtb_res.is_none() {
+                panic!("Load DTB failed");
+            }
+            let initrd_res = vm.init_gpa_block_initrd();
+
+            if initrd_res.is_none() {
+                panic!("Load initrd failed");
+            }
+
+            let (_initrd_gpa, initrd_hva) = initrd_res.unwrap();
+            let result: i32;
+            unsafe {
+                result = libc::memcmp(initrd_hva as *const c_void,
+                        ans_data.as_ptr() as *const c_void,
+                        ans_data.len());
+            }
+
+            assert_ne!(result, 0);
+        }
+
+        #[test]
+        fn test_initrd_load_data_wrong_file() {
+            let mut vm_config = test_vm_config_create();
+            let dtb_path: &str = "./test-files-laputa/vmlinux.dtb";
+            vm_config.dtb_path = String::from(dtb_path);
+            let initrd_path: &str = "./test-files-laputa/rootfs-vm.img";
+            let wrong_path: &str = "./test-files-laputa/rootfs-vm-wrong.img";
+            vm_config.initrd_path = String::from(wrong_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            let ans_res = std::fs::read(initrd_path);
+            if ans_res.is_err() {
+                panic!("Ans initrd load failed");
+            }
+            let ans_data = ans_res.unwrap();
+
+            let dtb_res = vm.init_gpa_block_dtb();
+            if dtb_res.is_none() {
+                panic!("Load DTB failed");
+            }
+            let initrd_res = vm.init_gpa_block_initrd();
+
+            if initrd_res.is_none() {
+                panic!("Load initrd failed");
+            }
+
+            let (_initrd_gpa, initrd_hva) = initrd_res.unwrap();
+            let result: i32;
+            unsafe {
+                result = libc::memcmp(initrd_hva as *const c_void,
+                        ans_data.as_ptr() as *const c_void,
+                        ans_data.len());
+            }
+
+            assert_ne!(result, 0);
         }
     }
 }

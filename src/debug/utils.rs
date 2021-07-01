@@ -5,7 +5,7 @@ pub mod configtest {
     use crate::mm::gparegion::GpaRegion;
 
     const ELF_IMG_PATH: &str = "./tests/integration/vcpu_add_all_gprs.img";
-    const DTB_PATH: &str = "./tests/hifive-unleashed-a00.dtb";
+    const DTB_PATH: &str = "./test-files-laputa/hifive-unleashed-a00.dtb";
     const TEST_MMIO_REGION_1: GpaRegion = GpaRegion {
         gpa: 0x18000,
         length: 0x2000,

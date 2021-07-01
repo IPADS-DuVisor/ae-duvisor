@@ -31,4 +31,5 @@ sudo cp $laputa_test_names ./mnt/laputa/tests_bin/
 sudo mv ./mnt/laputa/$laputa_name_basename ./mnt/laputa/laputa
 sudo cp -r src ./mnt/laputa/
 sudo cp -r tests ./mnt/laputa/
+sudo cp -r test-files-laputa ./mnt/laputa/
 sudo umount ./mnt
