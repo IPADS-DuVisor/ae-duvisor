@@ -1,12 +1,15 @@
 use crate::mm::utils::*;
 
+pub const DTB_GPA: u64 = 0x82200000;
+
 #[allow(unused)]
 pub struct BusRegion {
     offset: u64,
     size: u64,
 }
 
-pub const DTB_GPA: u64 = 0x82200000;
+pub const DTB_TARGET_PROP: [&str; 5] = ["memory", "soc", "chosen", "linux,initrd-start",
+    "linux,initrd-end"];
 
 impl BusRegion {
     pub fn new(offset: u64, size: u64) -> Self {
@@ -17,26 +20,48 @@ impl BusRegion {
     }
 }
 
-pub const DTB_TARGET_PROP: [&str; 2] = ["memory", "soc"];
+pub struct InitrdRegion {
+    pub start: u64,
+    pub end: u64,
+}
+
+impl InitrdRegion {
+    pub fn new() -> Self {
+        let start: u64 = 0;
+        let end: u64 = 0;
+
+        Self {
+            start,
+            end,
+        }
+    }
+}
+
 pub struct MachineMeta {
     pub address_cells: Vec<u32>,
     pub size_cells: Vec<u32>,
     pub memory_regions: Vec<BusRegion>,
     pub soc_regions: Vec<BusRegion>,
+    pub initrd_region: InitrdRegion,
 }
 
 impl MachineMeta {
+    const INITRD_START: i32 = 0;
+    const INITRD_END: i32 = 1;
+
     pub fn new() -> Self {
         let address_cells: Vec<u32> = Vec::new();
         let size_cells: Vec<u32> = Vec::new();
         let memory_regions: Vec<BusRegion> = Vec::new();
         let soc_regions: Vec<BusRegion> = Vec::new();
+        let initrd_region: InitrdRegion = InitrdRegion::new();
 
         Self {
             address_cells,
             size_cells,
             memory_regions,
             soc_regions,
+            initrd_region,
         }
     }
 
@@ -114,10 +139,25 @@ impl MachineMeta {
 
                 if  prop_name == "reg" && node_path.len() == 3 {
                     let values = item.value_u32_list(&mut file_data).unwrap();
-                    dbgprintln!("MEMORY REG {:x?}", values);
+                    dbgprintln!("SOC REG {:x?}", values);
                     self.soc_parse(values, address_cells, size_cells);
                 }
             },
+            "chosen" => {
+                dbgprintln!("match chosen");
+
+                if  prop_name == "linux,initrd-start" && node_path.len() == 2 {
+                    let values = item.value_u32_list(&mut file_data).unwrap();
+                    dbgprintln!("INITRD REG {:x?}", values);
+                    self.initrd_parse(values, address_cells, size_cells, MachineMeta::INITRD_START);
+                }
+
+                if  prop_name == "linux,initrd-end" && node_path.len() == 2 {
+                    let values = item.value_u32_list(&mut file_data).unwrap();
+                    dbgprintln!("INITRD REG {:x?}", values);
+                    self.initrd_parse(values, address_cells, size_cells, MachineMeta::INITRD_END);
+                }
+            }
             _ => {
                 dbgprintln!("match nothing");
             },
@@ -149,7 +189,32 @@ impl MachineMeta {
 
             // add memory region
             self.soc_regions.push(BusRegion::new(offset, size));
-            dbgprintln!("add memory region {:x} {:x}", offset, size);
+            dbgprintln!("add soc region {:x} {:x}", offset, size);
+        }
+    }
+
+    pub fn initrd_parse(&mut self, value_u32_list: &[u32], address_cells: u32, size_cells: u32, value_type: i32) {
+        let mut prop_value: u64 = 0;
+        let cells: u32;
+        
+        if value_type == MachineMeta::INITRD_START {
+            cells = address_cells;
+        } else {
+            cells = size_cells;
+        }
+
+        dbgprintln!("initrd_parse - cells {}", cells);
+
+        for i in 0..cells {
+            prop_value = (prop_value << 32) + (value_u32_list[i as usize] as u64);
+        }
+
+        dbgprintln!("initrd_parse - prop_value 0x{:x}", prop_value);
+
+        if value_type == MachineMeta::INITRD_START {
+            self.initrd_region.start = prop_value;
+        } else {
+            self.initrd_region.end = prop_value;
         }
     }
 
@@ -252,7 +317,8 @@ mod tests {
         #[test]
         fn test_dtb_parse_sifive() {
             // Compiled from linux/arch/riscv/boot/dts/sifive/
-            let dtb = DeviceTree::new("./tests/hifive-unleashed-a00.dtb");
+            let dtb = DeviceTree::new(
+                    "./test-files-laputa/hifive-unleashed-a00.dtb");
             let mut len;
             let mut offset: u64;
             let mut size: u64;
@@ -289,7 +355,7 @@ mod tests {
         #[test]
         fn test_dtb_parse_kendryte() {
             // Compiled from linux/arch/riscv/boot/dts/kendryte/
-            let dtb = DeviceTree::new("./tests/k210.dtb");
+            let dtb = DeviceTree::new("./test-files-laputa/k210.dtb");
             let mut len;
             let mut offset: u64;
             let mut size: u64;
