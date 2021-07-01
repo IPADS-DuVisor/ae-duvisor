@@ -112,14 +112,12 @@ impl Plic {
         }
     }
     
-    pub fn select_local_pending_irq(&self, ctx_id: usize) -> u32 {
+    fn select_local_pending_irq(&self, ctx: &mut PlicContext) -> u32 {
         let mut best_irq_prio: u8 = 0;
         let (mut i, mut j, mut irq): (u32, u32, u32);
         let mut best_irq: u32 = 0;
         
         let state = self.plic_state.read().unwrap();
-        let vec = self.plic_contexts.read().unwrap();
-        let mut ctx = vec[ctx_id].lock().unwrap();
 
         for i in 0..state.num_irq_word {
             if ctx.irq_pending[i as usize] != 0 { continue; }
@@ -143,8 +141,8 @@ impl Plic {
         best_irq
     }
 
-    pub fn update_local_irq(&self, ctx_id: usize) {
-        let best_irq: u32 = self.select_local_pending_irq(ctx_id);
+    fn update_local_irq(&self, ctx: &mut PlicContext) {
+        let best_irq: u32 = self.select_local_pending_irq(&mut *ctx);
 
         if best_irq == 0 {
             // unset irq
@@ -153,7 +151,7 @@ impl Plic {
         }
     }
 
-    pub fn write_global_priority(&self, offset: u64, data: u32) {
+    fn write_global_priority(&self, offset: u64, data: u32) {
         let irq: u32 = (offset >> 2) as u32;
         if irq == 0 || irq >= self.plic_state.read().unwrap().num_irq { return; }
         
@@ -161,8 +159,16 @@ impl Plic {
         let val = data & ((1 << PRIORITY_PER_ID) - 1);
         state.irq_priority[irq as usize] = val as u8;
     }
+
+    fn read_global_priority(&self, offset: u64, data: &mut u32) {
+        let irq: u32 = (offset >> 2) as u32;
+        if irq == 0 || irq >= self.plic_state.read().unwrap().num_irq { return; }
+        
+        let mut state = self.plic_state.write().unwrap();
+        *data = state.irq_priority[irq as usize] as u32;
+    }
     
-    pub fn write_local_enable(&self, ctx_id: usize, offset: u64, data: u32) {
+    fn write_local_enable(&self, ctx_id: usize, offset: u64, data: u32) {
         let mut irq_prio: u8;
         let (mut i, mut irq, mut irq_mask): (u32, u32, u32);
         let irq_word: u32 = (offset >> 2) as u32;
@@ -205,19 +211,29 @@ impl Plic {
             }
         }
 
-        self.update_local_irq(ctx_id);
+        self.update_local_irq(&mut *ctx);
     }
     
-    pub fn write_local_context(&self, ctx_id: usize, offset: u64, data: u32) {
+    fn read_local_enable(&self, ctx_id: usize, offset: u64, data: &mut u32) {
+        let irq_word: u32 = (offset >> 2) as u32;
+        
+        let state = self.plic_state.read().unwrap();
+        if state.num_irq_word < irq_word { return; }
+        
+        let vec = self.plic_contexts.read().unwrap();
+        let mut ctx = vec[ctx_id].lock().unwrap();
+        *data = ctx.irq_enable[irq_word as usize]
+    }
+    
+    fn write_local_context(&self, ctx_id: usize, offset: u64, data: u32) {
         let mut irq_update = false;
+        let vec = self.plic_contexts.read().unwrap();
+        let mut ctx = vec[ctx_id].lock().unwrap();
 
         match offset {
             CONTEXT_THRESHOLD => {
-                let state = self.plic_state.read().unwrap();
-                let vec = self.plic_contexts.read().unwrap();
-                let mut ctx = vec[ctx_id].lock().unwrap();
-
                 let val = data & ((1 << PRIORITY_PER_ID) - 1);
+                let state = self.plic_state.read().unwrap();
                 if val <= state.max_prio {
                     ctx.irq_priority_threshold = val as u8;
                 } else {
@@ -229,17 +245,50 @@ impl Plic {
         }
 
         if irq_update {
-            self.update_local_irq(ctx_id);
+            self.update_local_irq(&mut *ctx);
+        }
+    }
+    
+    fn read_local_context(&self, ctx_id: usize, offset: u64, data: &mut u32) {
+        let vec = self.plic_contexts.read().unwrap();
+        let mut ctx = vec[ctx_id].lock().unwrap();
+        
+        match offset {
+            CONTEXT_THRESHOLD => {
+                *data = ctx.irq_priority_threshold as u32;
+            }
+            CONTEXT_CLAIM => {
+                let best_irq: u32 = self.select_local_pending_irq(&mut *ctx);
+                let best_irq_word: u32 = best_irq / 32;
+                let best_irq_mask: u32 = (1 << (best_irq % 32));
+
+                // unset irq
+
+                if best_irq != 0 {
+                    if (ctx.irq_autoclear[best_irq_word as usize] & 
+                        best_irq_mask) != 0 {
+                        ctx.irq_pending[best_irq_word as usize] = 
+                            ctx.irq_pending[best_irq_word as usize] & !best_irq_mask;
+                        ctx.irq_pending_priority[best_irq as usize] = 0;
+                        ctx.irq_claimed[best_irq_word as usize] = 
+                            ctx.irq_claimed[best_irq_word as usize] & !best_irq_mask;
+                        ctx.irq_autoclear[best_irq_word as usize] = 
+                            ctx.irq_autoclear[best_irq_word as usize] & !best_irq_mask;
+                    } else {
+                        ctx.irq_claimed[best_irq_word as usize] = 
+                            ctx.irq_claimed[best_irq_word as usize] | best_irq_mask;
+                    }
+                }
+                self.update_local_irq(&mut *ctx);
+                
+                *data = best_irq;
+            }
+            _ => {}
         }
     }
 
-    pub fn read_global_priority(&self, offset: u64, data: u32) {}
-    
-    pub fn read_local_enable(&self, ctx_id: usize, offset: u64, data: u32) {}
-    
-    pub fn read_local_context(&self, ctx_id: usize, offset: u64, data: u32) {}
-
-    pub fn mmio_callback(&self, vcpu_id: u32, addr: u64, data: u32, is_write: bool) {
+    pub fn mmio_callback(&self, vcpu_id: u32, 
+        addr: u64, data: &mut u32, is_write: bool) {
         let ctx_id: u64;
 
         let mut offset = addr & !0x3;
@@ -248,20 +297,20 @@ impl Plic {
         if is_write {
             match offset {
                 PRIORITY_BASE..=PRIORITY_END => {
-                    self.write_global_priority(offset, data);
+                    self.write_global_priority(offset, *data);
                 }
                 ENABLE_BASE..=ENABLE_END => {
                     ctx_id = (offset - ENABLE_BASE) / ENABLE_PER_HART;
                     offset = offset - (ctx_id * ENABLE_PER_HART + ENABLE_BASE);
                     if (ctx_id as usize) < self.plic_contexts.read().unwrap().len() {
-                        self.write_local_enable(ctx_id as usize, offset, data);
+                        self.write_local_enable(ctx_id as usize, offset, *data);
                     }
                 } 
                 CONTEXT_BASE..=CONTEXT_END => {
                     ctx_id = (offset - CONTEXT_BASE) / CONTEXT_PER_HART;
                     offset = offset - (ctx_id * CONTEXT_PER_HART + CONTEXT_BASE);
                     if (ctx_id as usize) < self.plic_contexts.read().unwrap().len() {
-                        self.write_local_context(ctx_id as usize, offset, data);
+                        self.write_local_context(ctx_id as usize, offset, *data);
                     }
                 }
                 _ => {
@@ -271,15 +320,71 @@ impl Plic {
         } else {
             match offset {
                 PRIORITY_BASE..=PRIORITY_END => {
+                    self.read_global_priority(offset, data);
                 }
                 ENABLE_BASE..=ENABLE_END => {
+                    ctx_id = (offset - ENABLE_BASE) / ENABLE_PER_HART;
+                    offset = offset - (ctx_id * ENABLE_PER_HART + ENABLE_BASE);
+                    if (ctx_id as usize) < self.plic_contexts.read().unwrap().len() {
+                        self.read_local_enable(ctx_id as usize, offset, data);
+                    }
                 } 
                 CONTEXT_BASE..=CONTEXT_END => {
+                    ctx_id = (offset - CONTEXT_BASE) / CONTEXT_PER_HART;
+                    offset = offset - (ctx_id * CONTEXT_PER_HART + CONTEXT_BASE);
+                    if (ctx_id as usize) < self.plic_contexts.read().unwrap().len() {
+                        self.read_local_context(ctx_id as usize, offset, data);
+                    }
                 }
                 _ => {
                     panic!("Invalid offset: {:?}", offset)
                 }
             }
+        }
+    }
+
+    // Only support level-triggered IRQs
+    pub fn trigger_irq(&self, irq: u32, level: u32) {
+        if (irq < 0) || (self.plic_state.read().unwrap().num_irq <= irq) { return; }
+
+        let mut state = self.plic_state.write().unwrap();
+
+        let irq_prio: u8 = state.irq_priority[irq as usize];
+        let irq_word: u8 = (irq / 32) as u8;
+        let irq_mask: u32 = 1 << (irq % 32);
+
+        if level != 0 {
+            state.irq_level[irq_word as usize] = 
+                state.irq_level[irq_word as usize] | irq_mask;
+        } else {
+            state.irq_level[irq_word as usize] = 
+                state.irq_level[irq_word as usize] & !irq_mask;
+        }
+
+        let vec = self.plic_contexts.read().unwrap();
+        for ctx_id in 0..vec.len() {
+            let mut irq_marked: bool = false;
+            let mut ctx = vec[ctx_id].lock().unwrap();
+            
+            if (ctx.irq_enable[irq_word as usize] & irq_mask) != 0 {
+                if level != 0 {
+                    ctx.irq_pending[irq_word as usize] = 
+                        ctx.irq_pending[irq_word as usize] | irq_mask;
+                    ctx.irq_pending_priority[irq as usize] = irq_prio as u32;
+                } else {
+                    ctx.irq_pending[irq_word as usize] = 
+                        ctx.irq_pending[irq_word as usize] & !irq_mask;
+                    ctx.irq_pending_priority[irq as usize] = 0;
+                    ctx.irq_claimed[irq_word as usize] = 
+                        ctx.irq_claimed[irq_word as usize] & !irq_mask;
+                    ctx.irq_autoclear[irq_word as usize] = 
+                        ctx.irq_autoclear[irq_word as usize] & !irq_mask;
+                }
+                self.update_local_irq(&mut *ctx);
+                irq_marked = true;
+            }
+
+            if irq_marked { break; }
         }
     }
 }
