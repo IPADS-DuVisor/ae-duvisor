@@ -1,6 +1,8 @@
 use std::vec::Vec;
 use std::sync::{Arc, Mutex, RwLock};
 
+use crate::vcpu::virtualcpu::VirtualCpu;
+
 const MAX_DEVICES: usize = 32;
 
 const PRIORITY_BASE: u64 = 0;
@@ -35,7 +37,7 @@ struct PlicState {
 struct PlicContext {
     // Static configuration
     ctx_id: u32,
-    vcpu_id: u32,
+    vcpu: Arc<Mutex<VirtualCpu>>,
     // Local IRQ state
     irq_priority_threshold: u8,
     irq_enable: [u32; MAX_DEVICES / 32],
@@ -47,7 +49,7 @@ struct PlicContext {
 
 pub struct Plic {
     plic_state: RwLock<PlicState>,
-    plic_contexts: RwLock<Vec<Mutex<PlicContext>>>,
+    plic_contexts: Vec<Mutex<PlicContext>>,
 }
 
 impl PlicState {
@@ -72,16 +74,17 @@ impl PlicState {
 }
 
 impl PlicContext {
-    pub fn new(ctx_id: u32, vcpu_id: u32) -> Self {
+    pub fn new(ctx_id: u32, vcpu: Arc<Mutex<VirtualCpu>>) -> Self {
         let irq_priority_threshold: u8 = 0;
         let irq_enable = [0; MAX_DEVICES / 32];
         let irq_pending = [0; MAX_DEVICES / 32];
         let irq_pending_priority = [0; MAX_DEVICES];
         let irq_claimed = [0; MAX_DEVICES / 32];
         let irq_autoclear = [0; MAX_DEVICES / 32];
+        
         PlicContext {
             ctx_id,
-            vcpu_id,
+            vcpu,
             irq_priority_threshold,
             irq_enable,
             irq_pending,
@@ -93,18 +96,17 @@ impl PlicContext {
 }
 
 impl Plic {
-    pub fn new(nr_vcpu: u32) -> Self {
+    pub fn new(vcpus: &Vec<Arc<Mutex<VirtualCpu>>>) -> Self {
         let plic_state = RwLock::new(PlicState::new());
-        let nr_ctx = nr_vcpu * 2;
-        let mut contexts: Vec<Mutex<PlicContext>> = 
+        let nr_ctx = vcpus.len() * 2;
+        let mut plic_contexts: Vec<Mutex<PlicContext>> = 
             Vec::with_capacity(nr_ctx as usize);
         for i in 0..nr_ctx {
-            let ctx_id = i;
-            let vcpu_id = i / 2;
-            let ctx = PlicContext::new(ctx_id, vcpu_id);
-            contexts.push(Mutex::new(ctx));
+            let ctx_id = i as u32;
+            let vcpu = vcpus[i / 2].clone();
+            let ctx = PlicContext::new(ctx_id, vcpu);
+            plic_contexts.push(Mutex::new(ctx));
         }
-        let plic_contexts = RwLock::new(contexts);
 
         Plic {
             plic_state,
@@ -177,8 +179,7 @@ impl Plic {
         let state = self.plic_state.read().unwrap();
         if state.num_irq_word < irq_word { return; }
 
-        let vec = self.plic_contexts.read().unwrap();
-        let mut ctx = vec[ctx_id].lock().unwrap();
+        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
 
         old_val = ctx.irq_enable[irq_word as usize];
         new_val = data;
@@ -220,15 +221,13 @@ impl Plic {
         let state = self.plic_state.read().unwrap();
         if state.num_irq_word < irq_word { return; }
         
-        let vec = self.plic_contexts.read().unwrap();
-        let mut ctx = vec[ctx_id].lock().unwrap();
+        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
         *data = ctx.irq_enable[irq_word as usize]
     }
     
     fn write_local_context(&self, ctx_id: usize, offset: u64, data: u32) {
         let mut irq_update = false;
-        let vec = self.plic_contexts.read().unwrap();
-        let mut ctx = vec[ctx_id].lock().unwrap();
+        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
 
         match offset {
             CONTEXT_THRESHOLD => {
@@ -250,8 +249,7 @@ impl Plic {
     }
     
     fn read_local_context(&self, ctx_id: usize, offset: u64, data: &mut u32) {
-        let vec = self.plic_contexts.read().unwrap();
-        let mut ctx = vec[ctx_id].lock().unwrap();
+        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
         
         match offset {
             CONTEXT_THRESHOLD => {
@@ -287,8 +285,7 @@ impl Plic {
         }
     }
 
-    pub fn mmio_callback(&self, vcpu_id: u32, 
-        addr: u64, data: &mut u32, is_write: bool) {
+    pub fn mmio_callback(&self, addr: u64, data: &mut u32, is_write: bool) {
         let ctx_id: u64;
 
         let mut offset = addr & !0x3;
@@ -302,14 +299,14 @@ impl Plic {
                 ENABLE_BASE..=ENABLE_END => {
                     ctx_id = (offset - ENABLE_BASE) / ENABLE_PER_HART;
                     offset = offset - (ctx_id * ENABLE_PER_HART + ENABLE_BASE);
-                    if (ctx_id as usize) < self.plic_contexts.read().unwrap().len() {
+                    if (ctx_id as usize) < self.plic_contexts.len() {
                         self.write_local_enable(ctx_id as usize, offset, *data);
                     }
                 } 
                 CONTEXT_BASE..=CONTEXT_END => {
                     ctx_id = (offset - CONTEXT_BASE) / CONTEXT_PER_HART;
                     offset = offset - (ctx_id * CONTEXT_PER_HART + CONTEXT_BASE);
-                    if (ctx_id as usize) < self.plic_contexts.read().unwrap().len() {
+                    if (ctx_id as usize) < self.plic_contexts.len() {
                         self.write_local_context(ctx_id as usize, offset, *data);
                     }
                 }
@@ -325,14 +322,14 @@ impl Plic {
                 ENABLE_BASE..=ENABLE_END => {
                     ctx_id = (offset - ENABLE_BASE) / ENABLE_PER_HART;
                     offset = offset - (ctx_id * ENABLE_PER_HART + ENABLE_BASE);
-                    if (ctx_id as usize) < self.plic_contexts.read().unwrap().len() {
+                    if (ctx_id as usize) < self.plic_contexts.len() {
                         self.read_local_enable(ctx_id as usize, offset, data);
                     }
                 } 
                 CONTEXT_BASE..=CONTEXT_END => {
                     ctx_id = (offset - CONTEXT_BASE) / CONTEXT_PER_HART;
                     offset = offset - (ctx_id * CONTEXT_PER_HART + CONTEXT_BASE);
-                    if (ctx_id as usize) < self.plic_contexts.read().unwrap().len() {
+                    if (ctx_id as usize) < self.plic_contexts.len() {
                         self.read_local_context(ctx_id as usize, offset, data);
                     }
                 }
@@ -361,10 +358,9 @@ impl Plic {
                 state.irq_level[irq_word as usize] & !irq_mask;
         }
 
-        let vec = self.plic_contexts.read().unwrap();
-        for ctx_id in 0..vec.len() {
+        for i in 0..self.plic_contexts.len() {
             let mut irq_marked: bool = false;
-            let mut ctx = vec[ctx_id].lock().unwrap();
+            let mut ctx = self.plic_contexts[i].lock().unwrap();
             
             if (ctx.irq_enable[irq_word as usize] & irq_mask) != 0 {
                 if level != 0 {
