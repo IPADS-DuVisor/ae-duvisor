@@ -126,8 +126,10 @@ impl VirtualCpu {
             // set virtual timer
             csrs!(HUVIP, 1 << IRQ_VS_TIMER);
 
-            // FIXME: There may be unexpected pending bit IRQ_U_VTIMER when traped to kernel
-            // disable timer.
+            /* 
+             * FIXME: There may be unexpected pending bit IRQ_U_VTIMER when 
+             * traped to kernel disable timer.
+             */
             csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
 
             // Clear U VTIMER bit. Its counterpart in ARM is GIC EOI. 
@@ -142,13 +144,13 @@ impl VirtualCpu {
     }
 
     fn handle_stage2_page_fault(&mut self) -> i32 {
-        let _hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
+        let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
         let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
-        let mut fault_addr = utval;
+        let mut fault_addr = (hutval << 2) | (utval & 0x3);
         let mut ret;
 
         dbgprintln!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
-            _hutval, utval, fault_addr);
+            hutval, utval, fault_addr);
 
         fault_addr &= !PAGE_SIZE_MASK;
         
