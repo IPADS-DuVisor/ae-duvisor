@@ -46,7 +46,7 @@ struct PlicContext {
 }
 
 pub struct Plic {
-    plic_state: Mutex<PlicState>,
+    plic_state: RwLock<PlicState>,
     plic_contexts: RwLock<Vec<Mutex<PlicContext>>>,
 }
 
@@ -94,7 +94,7 @@ impl PlicContext {
 
 impl Plic {
     pub fn new(nr_vcpu: u32) -> Self {
-        let plic_state = Mutex::new(PlicState::new());
+        let plic_state = RwLock::new(PlicState::new());
         let nr_ctx = nr_vcpu * 2;
         let mut contexts: Vec<Mutex<PlicContext>> = 
             Vec::with_capacity(nr_ctx as usize);
@@ -117,7 +117,7 @@ impl Plic {
         let (mut i, mut j, mut irq): (u32, u32, u32);
         let mut best_irq: u32 = 0;
         
-        let state = self.plic_state.lock().unwrap();
+        let state = self.plic_state.read().unwrap();
         let vec = self.plic_contexts.read().unwrap();
         let mut ctx = vec[ctx_id].lock().unwrap();
 
@@ -153,7 +153,14 @@ impl Plic {
         }
     }
 
-    pub fn write_global_priority(&self, offset: u64, data: u32) {}
+    pub fn write_global_priority(&self, offset: u64, data: u32) {
+        let irq: u32 = (offset >> 2) as u32;
+        if irq == 0 || irq >= self.plic_state.read().unwrap().num_irq { return; }
+        
+        let mut state = self.plic_state.write().unwrap();
+        let val = data & ((1 << PRIORITY_PER_ID) - 1);
+        state.irq_priority[irq as usize] = val as u8;
+    }
     
     pub fn write_local_enable(&self, ctx_id: usize, offset: u64, data: u32) {
         let mut irq_prio: u8;
@@ -161,7 +168,7 @@ impl Plic {
         let irq_word: u32 = (offset >> 2) as u32;
         let (mut old_val, mut new_val, mut xor_val): (u32, u32, u32);
         
-        let state = self.plic_state.lock().unwrap();
+        let state = self.plic_state.read().unwrap();
         if state.num_irq_word < irq_word { return; }
 
         let vec = self.plic_contexts.read().unwrap();
@@ -202,9 +209,27 @@ impl Plic {
     }
     
     pub fn write_local_context(&self, ctx_id: usize, offset: u64, data: u32) {
-        if ctx_id < self.plic_contexts.read().unwrap().len() {
-            let vec = self.plic_contexts.read().unwrap();
-            let ctx = vec[ctx_id].lock().unwrap();
+        let mut irq_update = false;
+
+        match offset {
+            CONTEXT_THRESHOLD => {
+                let state = self.plic_state.read().unwrap();
+                let vec = self.plic_contexts.read().unwrap();
+                let mut ctx = vec[ctx_id].lock().unwrap();
+
+                let val = data & ((1 << PRIORITY_PER_ID) - 1);
+                if val <= state.max_prio {
+                    ctx.irq_priority_threshold = val as u8;
+                } else {
+                    irq_update = true;
+                }
+            }
+            CONTEXT_CLAIM => {}
+            _ => { irq_update = true; }
+        }
+
+        if irq_update {
+            self.update_local_irq(ctx_id);
         }
     }
 
@@ -233,8 +258,11 @@ impl Plic {
                     }
                 } 
                 CONTEXT_BASE..=CONTEXT_END => {
-                    ctx_id = (offset - ENABLE_BASE) / ENABLE_PER_HART;
-                    offset = offset - (ctx_id * ENABLE_PER_HART + ENABLE_BASE);
+                    ctx_id = (offset - CONTEXT_BASE) / CONTEXT_PER_HART;
+                    offset = offset - (ctx_id * CONTEXT_PER_HART + CONTEXT_BASE);
+                    if (ctx_id as usize) < self.plic_contexts.read().unwrap().len() {
+                        self.write_local_context(ctx_id as usize, offset, data);
+                    }
                 }
                 _ => {
                     panic!("Invalid offset: {:?}", offset)
