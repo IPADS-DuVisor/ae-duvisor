@@ -1,9 +1,12 @@
 use std::vec::Vec;
 use std::sync::{Arc, Mutex, RwLock};
 
+use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
 
 const MAX_DEVICES: usize = 32;
+
+const PLIC_BASE_ADDR: u64 = 0xc000000;
 
 const PRIORITY_BASE: u64 = 0;
 const PRIORITY_PER_ID: u64 = 4;
@@ -16,13 +19,11 @@ const CONTEXT_PER_HART: u64 = 0x1000;
 const CONTEXT_THRESHOLD: u64 = 0;
 const CONTEXT_CLAIM: u64 = 4;
 
-const REG_SIZE: u64 = 0x1000000;
-
-const PLIC_BASE_ADDR: u64 = 0xc000000;
-
 const PRIORITY_END: u64 = ENABLE_BASE - 1;
 const ENABLE_END: u64 = CONTEXT_BASE - 1;
 const CONTEXT_END: u64 = REG_SIZE - 1;
+
+const REG_SIZE: u64 = 0x1000000;
 
 struct PlicState {
     // Static configuration
@@ -122,7 +123,7 @@ impl Plic {
         let state = self.plic_state.read().unwrap();
 
         for i in 0..state.num_irq_word {
-            if ctx.irq_pending[i as usize] != 0 { continue; }
+            if ctx.irq_pending[i as usize] == 0 { continue; }
 
             for j in 0..32 {
                 irq = i * 32 + j;
@@ -137,6 +138,8 @@ impl Plic {
                         best_irq = irq;
                         best_irq_prio = ctx.irq_pending_priority[irq as usize] as u8;
                 }
+                dbgprintln!("selecting irq: {} {}, best_irq_prio: {:x}, prio: {:x}", 
+                    irq, best_irq, best_irq_prio, ctx.irq_pending_priority[irq as usize]);
             }
         }
 
@@ -145,6 +148,7 @@ impl Plic {
 
     fn update_local_irq(&self, ctx: &mut PlicContext) {
         let best_irq: u32 = self.select_local_pending_irq(&mut *ctx);
+        dbgprintln!("update_local_irq best_irq: {}", best_irq);
 
         if best_irq == 0 {
             // unset irq
@@ -184,6 +188,8 @@ impl Plic {
         old_val = ctx.irq_enable[irq_word as usize];
         new_val = data;
 
+        // Bit 0 of word 0, which represents the non-existent interrupt source 0, 
+        // is hardwired to zero.
         if irq_word == 0 {
             new_val = new_val & !0x1;
         }
@@ -341,32 +347,41 @@ impl Plic {
     }
 
     // Only support level-triggered IRQs
-    pub fn trigger_irq(&self, irq: u32, level: u32) {
-        if (irq < 0) || (self.plic_state.read().unwrap().num_irq <= irq) { return; }
-
-        let mut state = self.plic_state.write().unwrap();
+    pub fn trigger_irq(&self, irq: u32, level: bool) {
+        let state = self.plic_state.read().unwrap();
+        dbgprintln!("trigger_irq: irq {} num_irq {} level {}",
+            irq, state.num_irq, level);
+        if state.num_irq <= irq { return; }
 
         let irq_prio: u8 = state.irq_priority[irq as usize];
         let irq_word: u8 = (irq / 32) as u8;
         let irq_mask: u32 = 1 << (irq % 32);
+        // state.read_unlock()
+        drop(state);
 
-        if level != 0 {
+        if level {
+            let mut state = self.plic_state.write().unwrap();
             state.irq_level[irq_word as usize] = 
                 state.irq_level[irq_word as usize] | irq_mask;
         } else {
+            let mut state = self.plic_state.write().unwrap();
             state.irq_level[irq_word as usize] = 
                 state.irq_level[irq_word as usize] & !irq_mask;
         }
+        dbgprintln!("\t\ttrigger_irq: irq_prio {:x} irq_word {:x} irq_mask {:x}",
+            irq_prio, irq_word, irq_mask);
 
         for i in 0..self.plic_contexts.len() {
             let mut irq_marked: bool = false;
             let mut ctx = self.plic_contexts[i].lock().unwrap();
             
             if (ctx.irq_enable[irq_word as usize] & irq_mask) != 0 {
-                if level != 0 {
+                if level {
                     ctx.irq_pending[irq_word as usize] = 
                         ctx.irq_pending[irq_word as usize] | irq_mask;
                     ctx.irq_pending_priority[irq as usize] = irq_prio as u32;
+                    dbgprintln!("\t\ttrigger_irq irq_pending: {:x}, irq_mask: {:x}", 
+                        ctx.irq_pending[irq_word as usize], irq_mask);
                 } else {
                     ctx.irq_pending[irq_word as usize] = 
                         ctx.irq_pending[irq_word as usize] & !irq_mask;
@@ -379,8 +394,202 @@ impl Plic {
                 self.update_local_irq(&mut *ctx);
                 irq_marked = true;
             }
+            dbgprintln!("\t\ttrigger_irq: i {} irq_enable {:x} irq_marked {}",
+                i, ctx.irq_enable[irq_word as usize], irq_marked);
 
             if irq_marked { break; }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rusty_fork::rusty_fork_test;
+    use crate::vm::*;
+    use crate::debug::utils::configtest::test_vm_config_create;
+    use crate::irq::plic::*;
+    use std::thread;
+
+    rusty_fork_test! {
+        #[test]
+        fn test_plic_init() {
+            let mut vm_config = test_vm_config_create();
+            vm_config.vcpu_count = 2;
+            let vm = virtualmachine::VirtualMachine::new(vm_config);
+            let plic = Plic::new(&vm.vcpus);
+        }
+        
+        #[test]
+        fn test_plic_local_enable() {
+            let mut vm_config = test_vm_config_create();
+            vm_config.vcpu_count = 2;
+            let vm = virtualmachine::VirtualMachine::new(vm_config);
+            let plic = Arc::new(Plic::new(&vm.vcpus));
+        
+            let get_enable_offset = |ctx_id: u64, offset: u64| -> u64 {
+                PLIC_BASE_ADDR + ENABLE_BASE + ctx_id * ENABLE_PER_HART + offset
+            };
+            let local_enable_succeed = 
+                |mut write: u32, mut read: u32, ctx_id: u64, offset: u64| {
+                    plic.mmio_callback(get_enable_offset(ctx_id, offset), 
+                        &mut write, true);
+                    plic.mmio_callback(get_enable_offset(ctx_id, offset), 
+                        &mut read, false);
+                    // IRQ #0 is hardwired to 0
+                    assert_eq!(read, write & !0x1);
+            };
+            local_enable_succeed(0xff, 0xdead, 0, 0);
+            local_enable_succeed(0xf, 0xdead, 1, 0);
+            
+            let local_enable_failed = 
+                |mut write: u32, mut read: u32, ctx_id: u64, offset: u64| {
+                    plic.mmio_callback(get_enable_offset(ctx_id, offset), 
+                        &mut write, true);
+                    plic.mmio_callback(get_enable_offset(ctx_id, offset), 
+                        &mut read, false);
+                    // Only 32 IRQs supported, write to offset > 0x8 is ignored
+                    assert_eq!(read, 0xdead);
+            };
+            local_enable_failed(0xff, 0xdead, 0, 0x8);
+            local_enable_failed(0xf, 0xdead, 1, 0x8);
+        }
+        
+        #[test]
+        fn test_plic_local_context() {
+            let mut vm_config = test_vm_config_create();
+            vm_config.vcpu_count = 2;
+            let vm = virtualmachine::VirtualMachine::new(vm_config);
+            let plic = Arc::new(Plic::new(&vm.vcpus));
+        
+            let get_threshold_offset = |ctx_id: u64| -> u64 {
+                PLIC_BASE_ADDR + CONTEXT_BASE + 
+                    ctx_id * CONTEXT_PER_HART + CONTEXT_THRESHOLD
+            };
+            let get_claim_offset = |ctx_id: u64| -> u64 {
+                PLIC_BASE_ADDR + CONTEXT_BASE + 
+                    ctx_id * CONTEXT_PER_HART + CONTEXT_CLAIM
+            };
+            let local_context_succeed = 
+                |mut write: u32, mut read: u32, ctx_id: u64| {
+                    plic.mmio_callback(get_threshold_offset(ctx_id), &mut write, true);
+                    plic.mmio_callback(get_threshold_offset(ctx_id), &mut read, false);
+                    assert_eq!(read, write & ((1 << PRIORITY_PER_ID) - 1));
+                    
+                    plic.mmio_callback(get_claim_offset(ctx_id), &mut write, true);
+                    plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
+                    // Write to CLAIM is ignored
+                    assert_eq!(read, 0);
+            };
+            local_context_succeed(0xff, 0, 0);
+            local_context_succeed(0, 0, 0);
+            local_context_succeed(0x7, 0, 1);
+            local_context_succeed(0xf, 0, 1);
+            
+            let get_global_prio_offset = |irq: u32| -> u64 {
+                PLIC_BASE_ADDR + PRIORITY_BASE + (irq as u64) * PRIORITY_PER_ID
+            };
+            let get_enable_offset = |ctx_id: u64, offset: u64| -> u64 {
+                PLIC_BASE_ADDR + ENABLE_BASE + ctx_id * ENABLE_PER_HART + offset
+            };
+            let local_claim_succeed = 
+                |irq: u32, mut read: u32, ctx_id: u64| {
+                    // Init global priority & local enable
+                    let mut mask = 0xffffffff;
+                    plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
+                    plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
+
+                    plic.trigger_irq(irq, true);
+                    plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
+                    plic.trigger_irq(irq, false);
+                    assert_eq!(read, irq);
+            };
+            local_claim_succeed(1, 0xdead, 0);
+            local_claim_succeed(31, 0xdead, 0);
+            
+            let local_claim_failed = 
+                |irq: u32, mut read: u32, ctx_id: u64| {
+                    // Init global priority & local enable
+                    let mut mask = 0xffffffff;
+                    plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
+                    plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
+
+                    // Set global priority to 0, so no IRQ will be selected
+                    mask = 0;
+                    plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
+                    
+                    plic.trigger_irq(irq, true);
+                    plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
+                    plic.trigger_irq(irq, false);
+                    assert_eq!(read, 0);
+                    
+                    // Set local enable to 0, so no IRQ will be selected
+                    mask = 0;
+                    plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
+                    
+                    plic.trigger_irq(irq, true);
+                    plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
+                    plic.trigger_irq(irq, false);
+                    assert_eq!(read, 0);
+                    
+                    // Out-of-range IRQ
+                    plic.trigger_irq(32, true);
+                    plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
+                    plic.trigger_irq(32, false);
+                    assert_eq!(read, 0);
+            };
+            local_claim_failed(1, 0xdead, 0);
+            local_claim_failed(31, 0xdead, 0);
+        }
+        
+        #[test]
+        fn test_plic_multithread() {
+            let mut vm_config = test_vm_config_create();
+            vm_config.vcpu_count = 2;
+            let vm = virtualmachine::VirtualMachine::new(vm_config);
+            let plic = Arc::new(Plic::new(&vm.vcpus));
+            
+            let thread_test = |plic: &Arc<Plic>, irq: u32| {
+                let get_global_prio_offset = |irq: u32| -> u64 {
+                    PLIC_BASE_ADDR + PRIORITY_BASE + (irq as u64) * PRIORITY_PER_ID
+                };
+                let get_enable_offset = |ctx_id: u64, offset: u64| -> u64 {
+                    PLIC_BASE_ADDR + ENABLE_BASE + ctx_id * ENABLE_PER_HART + offset
+                };
+                let get_claim_offset = |ctx_id: u64| -> u64 {
+                    PLIC_BASE_ADDR + CONTEXT_BASE + 
+                        ctx_id * CONTEXT_PER_HART + CONTEXT_CLAIM
+                };
+                let local_claim_succeed = 
+                    |irq: u32, mut read: u32, ctx_id: u64| {
+                        // Init global priority & local enable
+                        let mut mask = 0xffffffff;
+                        plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
+                        plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
+
+                        plic.trigger_irq(irq, true);
+                        plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
+                        plic.trigger_irq(irq, false);
+                        assert_eq!(read, irq);
+                    };
+                local_claim_succeed(irq, 0xdead, 0);
+            };
+
+            let p1 = plic.clone();
+            let handle1 = thread::spawn(move || {
+                for irq in 1..16 {
+                    thread_test(&p1, irq);
+                }
+            });
+            
+            let p2 = plic.clone();
+            let handle2 = thread::spawn(move || {
+                for irq in 16..32 {
+                    thread_test(&p2, irq);
+                }
+            });
+
+            handle1.join().ok();
+            handle2.join().ok();
         }
     }
 }
