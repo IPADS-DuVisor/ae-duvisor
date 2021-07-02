@@ -440,6 +440,8 @@ mod tests {
             };
             local_enable_succeed(0xff, 0xdead, 0, 0);
             local_enable_succeed(0xf, 0xdead, 1, 0);
+            local_enable_succeed(0xff, 0xdead, 2, 0);
+            local_enable_succeed(0xf, 0xdead, 3, 0);
             
             let local_enable_failed = 
                 |mut write: u32, mut read: u32, ctx_id: u64, offset: u64| {
@@ -452,6 +454,8 @@ mod tests {
             };
             local_enable_failed(0xff, 0xdead, 0, 0x8);
             local_enable_failed(0xf, 0xdead, 1, 0x8);
+            local_enable_failed(0xff, 0xdead, 2, 0x8);
+            local_enable_failed(0xf, 0xdead, 3, 0x8);
         }
         
         #[test]
@@ -481,9 +485,9 @@ mod tests {
                     assert_eq!(read, 0);
             };
             local_context_succeed(0xff, 0, 0);
-            local_context_succeed(0, 0, 0);
-            local_context_succeed(0x7, 0, 1);
-            local_context_succeed(0xf, 0, 1);
+            local_context_succeed(0, 0, 1);
+            local_context_succeed(0x7, 0, 2);
+            local_context_succeed(0xf, 0, 3);
             
             let get_global_prio_offset = |irq: u32| -> u64 {
                 PLIC_BASE_ADDR + PRIORITY_BASE + (irq as u64) * PRIORITY_PER_ID
