@@ -2,16 +2,31 @@ use crate::mm::utils::*;
 use crate::vcpu::utils::*;
 use crate::plat::uhe::csr::csr_constants::*;
 use crate::irq::delegation::delegation_constants::*;
+use crate::plat::uhe::ioctl::ioctl_constants::*;
+use error_code::*;
+use sbi_number::*;
 
-pub const SBI_EXT_0_1_SET_TIMER: u64 = 0x0;
-pub const SBI_EXT_0_1_CONSOLE_PUTCHAR: u64 = 0x1;
-pub const SBI_EXT_0_1_CONSOLE_GETCHAR: u64 = 0x2;
-pub const SBI_EXT_0_1_CLEAR_IPI: u64 = 0x3;
-pub const SBI_EXT_0_1_SEND_IPI: u64 = 0x4;
-pub const SBI_EXT_0_1_REMOTE_FENCE_I: u64 = 0x5;
-pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA: u64 = 0x6;
-pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID: u64 = 0x7;
-pub const SBI_EXT_0_1_SHUTDOWN: u64 = 0x8;
+pub mod sbi_number {
+    pub const SBI_EXT_0_1_SET_TIMER: u64 = 0x0;
+    pub const SBI_EXT_0_1_CONSOLE_PUTCHAR: u64 = 0x1;
+    pub const SBI_EXT_0_1_CONSOLE_GETCHAR: u64 = 0x2;
+    pub const SBI_EXT_0_1_CLEAR_IPI: u64 = 0x3;
+    pub const SBI_EXT_0_1_SEND_IPI: u64 = 0x4;
+    pub const SBI_EXT_0_1_REMOTE_FENCE_I: u64 = 0x5;
+    pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA: u64 = 0x6;
+    pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID: u64 = 0x7;
+    pub const SBI_EXT_0_1_SHUTDOWN: u64 = 0x8;
+}
+
+#[allow(unused)]
+pub mod error_code {
+    pub const SBI_SUCCESS: i64 = 0;
+    pub const SBI_ERR_FAILURE: i64 = -1;
+    pub const SBI_ERR_NOT_SUPPORTED: i64 = -2;
+    pub const SBI_ERR_INVALID_PARAM: i64 = -3;
+    pub const SBI_ERR_DENIED: i64 = -4;
+    pub const SBI_ERR_INVALID_ADDRESS: i64 = -5;
+}
 
 #[allow(unused)]
 extern "C"
@@ -41,9 +56,14 @@ impl Ecall {
         }
     }
 
-    pub fn ecall_handler(&mut self) -> i32 {
+    /* 
+     * Emulation for the ecall from VS-mode, however part of the ecall cannot 
+     * be finished in U-mode for now. So pass the ioctl_fd to call kernel
+     * module. 
+     */
+    pub fn ecall_handler(&mut self, ioctl_fd: i32) -> i32 {
         let ext_id = self.ext_id;
-        let mut ret: i32 = 1;
+        let ret: i32;
 
         match ext_id {
             SBI_EXT_0_1_SET_TIMER => {
@@ -73,24 +93,38 @@ impl Ecall {
             },
             SBI_EXT_0_1_CLEAR_IPI => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                ret = self.unsupported_sbi();
             },
             SBI_EXT_0_1_SEND_IPI => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                ret = self.unsupported_sbi();
             },
             SBI_EXT_0_1_SHUTDOWN => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                ret = self.unsupported_sbi();
             },
-            SBI_EXT_0_1_REMOTE_FENCE_I => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
-            },
-            SBI_EXT_0_1_REMOTE_SFENCE_VMA => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
-            },
-            SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+            SBI_EXT_0_1_REMOTE_FENCE_I | SBI_EXT_0_1_REMOTE_SFENCE_VMA 
+                    | SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID=> {
+                /* 
+                 * All of these three SBIs will be directly emulated as 
+                 * SBI_EXT_0_1_REMOTE_FENCE_I for now.
+                 */
+                unsafe {
+                    let ecall_ret: [u64;2] = [0, 0];
+                    let ret_ptr = (&ecall_ret) as *const u64;
+
+                    // call ioctl IOCTL_REMOTE_FENCE to kernel module
+                    let _res = libc::ioctl(ioctl_fd, IOCTL_REMOTE_FENCE,
+                            ret_ptr);
+                                        
+                    self.ret[0] = ecall_ret[0];
+                    self.ret[1] = ecall_ret[1];
+                }
+                ret = 0;
             },
             _ => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                ret = self.unsupported_sbi();
             },
         }
 
@@ -104,6 +138,13 @@ impl Ecall {
 
         // success and return with a0 = 0
         self.ret[0] = 0;
+
+        0
+    }
+
+    fn unsupported_sbi(&mut self) -> i32{
+        // SBI error and return with a0 = SBI_ERR_NOT_SUPPORTED
+        self.ret[0] = SBI_ERR_NOT_SUPPORTED as u64;
 
         0
     }

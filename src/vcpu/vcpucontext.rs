@@ -1,11 +1,5 @@
 #![allow(unused)]
-
-#[repr(C)]
-pub struct GpRegs {
-    pub x_reg: [u64; 32]
-}
-
-impl GpRegs {
+pub mod gp_reg_constants {
     pub const ZERO : usize = 0;
     pub const RA : usize = 1;
     pub const SP : usize = 2;
@@ -38,7 +32,14 @@ impl GpRegs {
     pub const T4 : usize = 29;
     pub const T5 : usize = 30;
     pub const T6 : usize = 31;
+}
 
+#[repr(C)]
+pub struct GpRegs {
+    pub x_reg: [u64; 32]
+}
+
+impl GpRegs {
     pub fn new() -> Self {
         Self {
             x_reg: [0; 32],

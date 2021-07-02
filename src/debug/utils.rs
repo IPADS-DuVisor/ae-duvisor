@@ -1,4 +1,3 @@
-#[cfg(test)]
 pub mod configtest {
     use crate::mm::utils::*;
     use crate::init::cmdline::VMConfig;

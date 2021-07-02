@@ -7,11 +7,11 @@
 extern crate clap;
 
 pub mod vm;
-mod vcpu;
-mod mm;
-mod irq;
-mod plat;
-mod debug;
+pub mod vcpu;
+pub mod mm;
+pub mod irq;
+pub mod plat;
+pub mod debug;
 use vm::virtualmachine::VirtualMachine;
 
 pub mod init;
