@@ -47,9 +47,9 @@ impl GpRegs {
     }
 }
 
-// SysReg for Guest
+/* SysReg for Guest */
 #[repr(C)]
-pub struct SysRegs { //scounteren?
+pub struct SysRegs {
     pub huvsstatus: u64,
     pub huvsip: u64,
     pub huvsie: u64,
@@ -84,17 +84,17 @@ pub struct HypRegs {
     pub huideleg: u64,
     pub huie: u64, 
 
-    // TODO: scounteren & hucounteren
+    /* TODO: scounteren & hucounteren */
     pub hucounteren: u64,
     pub hutval: u64,
     pub huvip: u64,
     pub huip: u64,
-    // TODO: hip & hie in doc
+    /* TODO: hip & hie in doc */
 
-    // TODO: In doc: Direct IRQ to VM, not needed in HU-mode?
+    /* TODO: In doc: Direct IRQ to VM, not needed in HU-mode? */
     pub hugeip: u64,
 
-    // TODO: In doc: Direct IRQ to VM, not needed in HU-mode?
+    /* TODO: In doc: Direct IRQ to VM, not needed in HU-mode? */
     pub hugeie: u64,
 
     pub hutimedelta: u64,
@@ -102,10 +102,10 @@ pub struct HypRegs {
     pub hutinst: u64,
     pub hugatp: u64,
     pub utvec: u64,
-    pub uepc: u64, // for sepc
-    pub uscratch: u64, // for sscratch
-    pub utval: u64, // for stval
-    pub ucause: u64, // for scause
+    pub uepc: u64, /* for sepc */
+    pub uscratch: u64, /* for sscratch */
+    pub utval: u64, /* for stval */
+    pub ucause: u64, /* for scause */
 }
 
 impl HypRegs {
@@ -173,7 +173,7 @@ impl GuestCtx {
     }
 }
 
-// Context for both ULH & VM
+/* Context for both ULH & VM */
 #[repr(C)]
 pub struct VcpuCtx {
     pub host_ctx: HostCtx,
