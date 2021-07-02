@@ -1,11 +1,5 @@
 #![allow(unused)]
-
-#[repr(C)]
-pub struct GpRegs {
-    pub x_reg: [u64; 32]
-}
-
-impl GpRegs {
+pub mod gp_reg_constants {
     pub const ZERO : usize = 0;
     pub const RA : usize = 1;
     pub const SP : usize = 2;
@@ -38,7 +32,14 @@ impl GpRegs {
     pub const T4 : usize = 29;
     pub const T5 : usize = 30;
     pub const T6 : usize = 31;
+}
 
+#[repr(C)]
+pub struct GpRegs {
+    pub x_reg: [u64; 32]
+}
+
+impl GpRegs {
     pub fn new() -> Self {
         Self {
             x_reg: [0; 32],
@@ -46,9 +47,9 @@ impl GpRegs {
     }
 }
 
-// SysReg for Guest
+/* SysReg for Guest */
 #[repr(C)]
-pub struct SysRegs { //scounteren?
+pub struct SysRegs {
     pub huvsstatus: u64,
     pub huvsip: u64,
     pub huvsie: u64,
@@ -83,17 +84,17 @@ pub struct HypRegs {
     pub huideleg: u64,
     pub huie: u64, 
 
-    // TODO: scounteren & hucounteren
+    /* TODO: scounteren & hucounteren */
     pub hucounteren: u64,
     pub hutval: u64,
     pub huvip: u64,
     pub huip: u64,
-    // TODO: hip & hie in doc
+    /* TODO: hip & hie in doc */
 
-    // TODO: In doc: Direct IRQ to VM, not needed in HU-mode?
+    /* TODO: In doc: Direct IRQ to VM, not needed in HU-mode? */
     pub hugeip: u64,
 
-    // TODO: In doc: Direct IRQ to VM, not needed in HU-mode?
+    /* TODO: In doc: Direct IRQ to VM, not needed in HU-mode? */
     pub hugeie: u64,
 
     pub hutimedelta: u64,
@@ -101,10 +102,10 @@ pub struct HypRegs {
     pub hutinst: u64,
     pub hugatp: u64,
     pub utvec: u64,
-    pub uepc: u64, // for sepc
-    pub uscratch: u64, // for sscratch
-    pub utval: u64, // for stval
-    pub ucause: u64, // for scause
+    pub uepc: u64, /* for sepc */
+    pub uscratch: u64, /* for sscratch */
+    pub utval: u64, /* for stval */
+    pub ucause: u64, /* for scause */
 }
 
 impl HypRegs {
@@ -172,7 +173,7 @@ impl GuestCtx {
     }
 }
 
-// Context for both ULH & VM
+/* Context for both ULH & VM */
 #[repr(C)]
 pub struct VcpuCtx {
     pub host_ctx: HostCtx,

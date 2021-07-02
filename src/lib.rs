@@ -7,12 +7,12 @@
 extern crate clap;
 
 pub mod vm;
+pub mod vcpu;
+pub mod mm;
+pub mod irq;
+pub mod plat;
+pub mod debug;
 pub mod devices;
-mod vcpu;
-mod mm;
-mod irq;
-mod plat;
-mod debug;
 use vm::virtualmachine::VirtualMachine;
 
 pub mod init;
@@ -21,8 +21,16 @@ use init::cmdline;
 
 pub fn run(config: cmdline::VMConfig) {
     let mut vm = VirtualMachine::new(config);
-    vm.vm_init();
+    let ret = vm.vm_init();
+
+    if ret.len() == 0 {
+        /* No kernel data has been loaded */
+        panic!("VM init failed");
+    }
+
     vm.vm_run();
+
     vm.vm_destroy();
+
     println!("Finish vm running...");
 }

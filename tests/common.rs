@@ -1,1 +1,1 @@
-// Common setup for integration tests
+/* Common setup for integration tests */

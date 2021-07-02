@@ -32,7 +32,7 @@ impl GpaRegion {
 mod tests {
     use super::*;
 
-    // Check new() of GpaBlock
+    /* Check new() of GpaBlock */
     #[test]
     fn test_gpa_block_new() {
         let gpa = 0x4000;

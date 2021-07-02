@@ -16,7 +16,7 @@ fn cc_build_filename(filename : &str){
 }
 
 fn main() {
-    // Prepare src/guestentry/asm_offset.h
+    /* Prepare src/guestentry/asm_offset.h */
     prepare_asm_offset_header();
 
     cc::Build::new()

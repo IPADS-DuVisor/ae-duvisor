@@ -3,8 +3,8 @@ use ioctl_constants::*;
 
 #[derive(Clone)]
 pub struct HpmRegion {
-    pub hpm_vptr: u64, // VA
-    pub base_address: u64, // HPA
+    pub hpm_vptr: u64, /* VA */
+    pub base_address: u64, /* HPA */
     pub length: u64,
     pub offset: u64,
 }
@@ -67,12 +67,12 @@ impl HpmAllocator {
         }
     }
 
-    // Call PMP for hpa region
+    /* Call PMP for hpa region */
     pub fn pmp_alloc(&mut self) -> Option<HpmRegion> {
         let fd = self.ioctl_fd;
-        let test_buf: u64; // va
-        let test_buf_pfn: u64; // hpa
-        let test_buf_size: usize = 128 << 20; // 128 MB for now
+        let test_buf: u64; /* va */
+        let test_buf_pfn: u64; /* hpa */
+        let test_buf_size: usize = 512 << 20; /* 512 MB for now */
         let version: u64 = 0;
 
         println!("pmp_alloc fd {}", fd);
@@ -82,13 +82,13 @@ impl HpmAllocator {
             println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", 
                 version);
 
-            // get va
+            /* get va */
             let addr = 0 as *mut libc::c_void;
             let mmap_ptr = libc::mmap(addr, test_buf_size, 
                 libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, fd, 0);
             assert_ne!(mmap_ptr, libc::MAP_FAILED);
 
-            // get hpa
+            /* get hpa */
             test_buf = mmap_ptr as u64;
             test_buf_pfn = test_buf;
             let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
@@ -128,7 +128,7 @@ impl HpmAllocator {
         let result_pa: u64;
         let result_length: u64;
 
-        // get 128 MB for now
+        /* get 512 MB for now */
         if self.hpm_region_list.len() == 0 {
             let hpm_region = self.pmp_alloc().unwrap();
             self.hpm_region_list.push(hpm_region);
@@ -147,7 +147,7 @@ impl HpmAllocator {
 
             result.push(HpmRegion::new(result_va, result_pa, result_length));
 
-            // increase the offset
+            /* increase the offset */
             target_hpm_region.offset += length;
 
             println!("target_hpm_region - offset: {}", 
@@ -187,7 +187,7 @@ mod tests {
             assert_eq!(hpm_region.length, length);
         }
 
-        // Check new() of GStageMmu
+        /* Check new() of GStageMmu */
         #[test]
         fn test_allocator_alloc() { 
             let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -216,7 +216,7 @@ mod tests {
             assert_eq!(region_length, length);
         }
 
-        // Check hpa_to_va when hpa is out of bound
+        /* Check hpa_to_va when hpa is out of bound */
         #[test]
         fn test_hpa_to_va_oob_invalid() {
             let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -227,7 +227,7 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            // Valid HPA: [base_addr, base_addr + 0x2000)
+            /* Valid HPA: [base_addr, base_addr + 0x2000) */
             let length = 0x2000;
             let mut allocator = HpmAllocator::new(ioctl_fd);
             let result_wrap = allocator.hpm_alloc(length);
@@ -250,7 +250,7 @@ mod tests {
             }
         }
 
-        // Check hpa_to_va when hpa is equal to the upper boundary
+        /* Check hpa_to_va when hpa is equal to the upper boundary */
         #[test]
         fn test_hpa_to_va_oob_invalid_eq() {
             let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -261,7 +261,7 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            // Valid HPA: [base_addr, base_addr + 0x2000)
+            /* Valid HPA: [base_addr, base_addr + 0x2000) */
             let length = 0x2000;
             let mut allocator = HpmAllocator::new(ioctl_fd);
 
@@ -285,7 +285,7 @@ mod tests {
             }
         }
 
-        // Check hpa_to_va when hpa is valid
+        /* Check hpa_to_va when hpa is valid */
         #[test]
         fn test_hpa_to_va_oob_valid() {
             let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -296,7 +296,7 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            // Valid HPA: [base_addr, base_addr + 0x2000)
+            /* Valid HPA: [base_addr, base_addr + 0x2000) */
             let length = 0x2000;
             let mut allocator = HpmAllocator::new(ioctl_fd);
 
@@ -320,7 +320,7 @@ mod tests {
             }
         }
 
-        // Check hpa_to_va when hpa is equal to the lower bound
+        /* Check hpa_to_va when hpa is equal to the lower bound */
         #[test]
         fn test_hpa_to_va_oob_valid_eq() {
             let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -331,7 +331,7 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
 
-            // Valid HPA: [base_addr, base_addr + 0x2000)
+            /* Valid HPA: [base_addr, base_addr + 0x2000) */
             let length = 0x2000;
             let mut allocator = HpmAllocator::new(ioctl_fd);
 
@@ -354,7 +354,7 @@ mod tests {
             }
         }
 
-        // Check va_to_hpa when va is out of bound
+        /* Check va_to_hpa when va is out of bound */
         #[test]
         fn test_va_to_hpa_oob_invalid() {
             let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -387,7 +387,7 @@ mod tests {
             }
         }
 
-        // Check va_to_hpa when va is equal to the upper bound
+        /* Check va_to_hpa when va is equal to the upper bound */
         #[test]
         fn test_va_to_hpa_oob_invalid_eq() {
             let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -420,7 +420,7 @@ mod tests {
             }
         }
 
-        // Check va_to_hpa when va is valid
+        /* Check va_to_hpa when va is valid */
         #[test]
         fn test_va_to_hpa_oob_valid() {
             let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -453,7 +453,7 @@ mod tests {
             }
         }
 
-        // Check va_to_hpa when va is equal to the lower bound
+        /* Check va_to_hpa when va is equal to the lower bound */
         #[test]
         fn test_va_to_hpa_oob_valid_eq() {
             let file_path = CString::new("/dev/laputa_dev").unwrap();
