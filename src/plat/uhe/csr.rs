@@ -1,8 +1,8 @@
-// HU CSR
+/* HU CSR */
 
 #[allow(unused)]
 pub mod csr_constants {
-    // HUSTATUS
+    /* HUSTATUS */
     pub const HUSTATUS_UIE_SHIFT: u64 = 0;
     pub const HUSTATUS_UPIE_SHIFT: u64 = 4;
     pub const HUSTATUS_SPV_SHIFT: u64 = 7;

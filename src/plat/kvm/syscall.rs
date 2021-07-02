@@ -1,1 +1,1 @@
-// KVM syscall
+/* KVM syscall */

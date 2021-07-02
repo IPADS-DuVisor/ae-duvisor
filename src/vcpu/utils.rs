@@ -235,7 +235,7 @@ pub const MHPMCOUNTER29H: u64 = 0xB9D;
 pub const MHPMCOUNTER30H: u64 = 0xB9E;
 pub const MHPMCOUNTER31H: u64 = 0xB9F;
 
-// HU-EXTENSION CSRS
+/* HU-EXTENSION CSRS */
 pub const VTIMECMP:  u64 = 0x401;
 pub const VTIMECTL:  u64 = 0x402;
 pub const VTIMECMPH: u64 = 0x481;
@@ -275,7 +275,7 @@ pub const HUCOUNTEREN_TM    : u64 = (1 << 1);
 pub const HUCOUNTEREN_IR    : u64 = (1 << 2);
 pub const HUCOUNTEREN_HPM3  : u64 = (1 << 3);
 
-/// atomic read from CSR
+/* atomic read from CSR */
 
 pub macro_rules! csrr {
     ( $r:ident ) => {{
@@ -286,7 +286,7 @@ pub macro_rules! csrr {
     }};
 }
 
-/// atomic write to CSR
+/* atomic write to CSR */
 
 pub macro_rules! csrw {
     ( $r:ident, $x:expr ) => {{
@@ -295,7 +295,7 @@ pub macro_rules! csrw {
     }};
 }
 
-/// atomic write to CSR from immediate
+/* atomic write to CSR from immediate */
 
 pub macro_rules! csrwi {
     ( $r:ident, $x:expr ) => {{
@@ -304,7 +304,7 @@ pub macro_rules! csrwi {
     }};
 }
 
-/// atomic read and set bits in CSR
+/* atomic read and set bits in CSR */
 
 pub macro_rules! csrs {
     ( $r:ident, $x:expr ) => {{
@@ -313,7 +313,7 @@ pub macro_rules! csrs {
     }};
 }
 
-/// atomic read and set bits in CSR using immediate
+/* atomic read and set bits in CSR using immediate */
 
 pub macro_rules! csrsi {
     ( $r:ident, $x:expr ) => {{
@@ -322,7 +322,7 @@ pub macro_rules! csrsi {
     }};
 }
 
-/// atomic read and clear bits in CSR
+/* atomic read and clear bits in CSR */
 
 pub macro_rules! csrc {
     ( $r:ident, $x:expr ) => {{
@@ -331,7 +331,7 @@ pub macro_rules! csrc {
     }};
 }
 
-/// atomic read and clear bits in CSR using immediate
+/* atomic read and clear bits in CSR using immediate */
 
 pub macro_rules! csrci {
     ( $r:ident, $x:expr ) => {{

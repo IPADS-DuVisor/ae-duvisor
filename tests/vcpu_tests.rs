@@ -24,18 +24,18 @@ fn test_vcpu_add_all_gprs() {
     };
     assert!(cmdline::VMConfig::verify_args(&vm_config));
 
-    // TODO: VirtualMachine::new, there should be assert codes. When vm initialization failure,
-    // such as memory allocation failure or exceeding vm number failure, occurs, 
-    // VirtualMachine::new should assert ABORT, and the tests will failed.
+    /* TODO: VirtualMachine::new, there should be assert codes. When vm initialization failure, */
+    /* such as memory allocation failure or exceeding vm number failure, occurs,  */
+    /* VirtualMachine::new should assert ABORT, and the tests will failed. */
 
-    // TODO: use constants to specify gpr
-    // TODO: laputa::set_one_gregs(vcpu_num: u64, gpr_num: u64, val: u64)
+    /* TODO: use constants to specify gpr */
+    /* TODO: laputa::set_one_gregs(vcpu_num: u64, gpr_num: u64, val: u64) */
 
-    // TODO: use constants to specify exit reason
-    // TODO: laputa::get_exit_reason(vcpu_num: u64), get exit reason of vcpu with number vcpu_num
+    /* TODO: use constants to specify exit reason */
+    /* TODO: laputa::get_exit_reason(vcpu_num: u64), get exit reason of vcpu with number vcpu_num */
 
-    // TODO: use constants to specify gpr
-    // TODO: laputa::get_one_greg(vcpu_num: u64, gpr_num: u64)
+    /* TODO: use constants to specify gpr */
+    /* TODO: laputa::get_one_greg(vcpu_num: u64, gpr_num: u64) */
 
     assert_eq!(0, 0);
 }
@@ -60,6 +60,9 @@ rusty_fork_test! {
 
         let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
+        /* a1 could be set to the address of fdt, so clear it */
+        vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = 0;
+
         vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
             = entry_point;
 
@@ -74,7 +77,7 @@ rusty_fork_test! {
 
     #[test]
     fn test_vmem_ro() { 
-        let exit_reason_ans = 2; // g-stage page fault for no permission
+        let exit_reason_ans = 2; /* g-stage page fault for no permission */
         let exit_reason;
         let mut vm_config = test_vm_config_create();
         let elf_path: &str = "./tests/integration/vmem_W_Ro.img";
@@ -99,7 +102,7 @@ rusty_fork_test! {
 
         vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
 
-        // read-only
+        /* read-only */
         flag = PTE_USER | PTE_VALID | PTE_READ;
         vm.vm_state.lock().unwrap().gsmmu.map_protect(ro_address, flag);
 
@@ -117,7 +120,7 @@ rusty_fork_test! {
 
     #[test]
     fn test_vmem_nx() { 
-        let exit_reason_ans = 2; // g-stage page fault for no permission
+        let exit_reason_ans = 2; /* g-stage page fault for no permission */
         let exit_reason;
         let mut vm_config = test_vm_config_create();
         let elf_path: &str = "./tests/integration/vmem_X_nonX.img";
@@ -142,7 +145,7 @@ rusty_fork_test! {
 
         vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
 
-        // non-execute
+        /* non-execute */
         flag = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
         vm.vm_state.lock().unwrap().gsmmu.map_protect(nx_address, flag);
 
@@ -246,7 +249,7 @@ rusty_fork_test! {
         let exit_reason;
         let mut vm_config = test_vm_config_create();
 
-        // cancel the three mmio regions
+        /* cancel the three mmio regions */
         vm_config.mmio_regions = Vec::new();
 
         let elf_path: &str 
@@ -280,7 +283,7 @@ rusty_fork_test! {
         let sum;
         let mut vm_config = test_vm_config_create();
 
-        // cancel the three mmio regions
+        /* cancel the three mmio regions */
         vm_config.mmio_regions = Vec::new();
         
         let elf_path: &str = "./tests/integration/vmem_ld_sd_sum.img";
@@ -331,10 +334,10 @@ rusty_fork_test! {
         let t0: u64;
         let t1: u64;
 
-        // Sum up the chars in "Hello Ecall\n"
+        /* Sum up the chars in "Hello Ecall\n" */
         let t0_ans: u64 = 1023;
 
-        // all the ecall should should return 0 
+        /* all the ecall should should return 0 */ 
         let t1_ans: u64 = 0;
 
         t0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
@@ -366,7 +369,7 @@ rusty_fork_test! {
 
         let a0: u64;
 
-        // correct a0 after time irq\n"
+        /* correct a0 after time irq\n" */
         let a0_ans: u64 = 0xcafe;
 
         a0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs

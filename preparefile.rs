@@ -114,13 +114,13 @@ fn create_hyp_list() -> Vec<ContextOffset> {
     hyp_list
 }
 
-// VcpuCtx - VcpuCtx.##Ctx.##Regs.reg
+/* VcpuCtx - VcpuCtx.##Ctx.##Regs.reg */
 fn create_ctx_reg_offset(mut offset_list: Vec<ContextOffset>, 
     gp_list: &Vec<ContextOffset>, sys_list: &Vec<ContextOffset>,
     hyp_list: &Vec<ContextOffset>) -> Vec<ContextOffset>{
     let vcpu = VcpuCtx::new();
 
-    // HOST_GP & GUEST_GP
+    /* HOST_GP & GUEST_GP */
     for i in gp_list {
         let mut full_name = "HOST_".to_string();
         let reg_name = i.name.to_string();
@@ -136,7 +136,7 @@ fn create_ctx_reg_offset(mut offset_list: Vec<ContextOffset>,
         offset_list.push(ContextOffset::new(full_name, offset));
     }
 
-    // HOST_HYP & GUEST_HYP
+    /* HOST_HYP & GUEST_HYP */
     for i in hyp_list {
         let mut full_name = "HOST_".to_string();
         let reg_name = i.name.to_string();
@@ -152,7 +152,7 @@ fn create_ctx_reg_offset(mut offset_list: Vec<ContextOffset>,
         offset_list.push(ContextOffset::new(full_name, offset));
     }
 
-    // GUEST_SYS
+    /* GUEST_SYS */
     for i in sys_list {
         let mut full_name = "GUEST_".to_string();
         let reg_name = i.name.to_string();
@@ -165,7 +165,7 @@ fn create_ctx_reg_offset(mut offset_list: Vec<ContextOffset>,
     offset_list
 }
 
-// VcpuCtx - VcpuCtx.####Ctx.GpRegs
+/* VcpuCtx - VcpuCtx.####Ctx.GpRegs */
 fn create_ctx_gp_offset(mut offset_list: Vec<ContextOffset>) -> Vec<ContextOffset>{
     let vcpu = VcpuCtx::new();
     
