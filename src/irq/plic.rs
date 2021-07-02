@@ -117,7 +117,7 @@ impl Plic {
     
     fn select_local_pending_irq(&self, ctx: &mut PlicContext) -> u32 {
         let mut best_irq_prio: u8 = 0;
-        let (mut i, mut j, mut irq): (u32, u32, u32);
+        let mut irq: u32;
         let mut best_irq: u32 = 0;
         
         let state = self.plic_state.read().unwrap();
@@ -170,15 +170,15 @@ impl Plic {
         let irq: u32 = (offset >> 2) as u32;
         if irq == 0 || irq >= self.plic_state.read().unwrap().num_irq { return; }
         
-        let mut state = self.plic_state.write().unwrap();
+        let state = self.plic_state.read().unwrap();
         *data = state.irq_priority[irq as usize] as u32;
     }
     
     fn write_local_enable(&self, ctx_id: usize, offset: u64, data: u32) {
         let mut irq_prio: u8;
-        let (mut i, mut irq, mut irq_mask): (u32, u32, u32);
+        let (mut irq, mut irq_mask): (u32, u32);
         let irq_word: u32 = (offset >> 2) as u32;
-        let (mut old_val, mut new_val, mut xor_val): (u32, u32, u32);
+        let (old_val, mut new_val, xor_val): (u32, u32, u32);
         
         let state = self.plic_state.read().unwrap();
         if state.num_irq_word < irq_word { return; }
@@ -227,7 +227,7 @@ impl Plic {
         let state = self.plic_state.read().unwrap();
         if state.num_irq_word < irq_word { return; }
         
-        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
+        let ctx = self.plic_contexts[ctx_id].lock().unwrap();
         *data = ctx.irq_enable[irq_word as usize]
     }
     
@@ -264,7 +264,7 @@ impl Plic {
             CONTEXT_CLAIM => {
                 let best_irq: u32 = self.select_local_pending_irq(&mut *ctx);
                 let best_irq_word: u32 = best_irq / 32;
-                let best_irq_mask: u32 = (1 << (best_irq % 32));
+                let best_irq_mask: u32 = 1 << (best_irq % 32);
 
                 // unset irq
 
@@ -416,7 +416,7 @@ mod tests {
             let mut vm_config = test_vm_config_create();
             vm_config.vcpu_count = 2;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
-            let plic = Plic::new(&vm.vcpus);
+            let _plic = Plic::new(&vm.vcpus);
         }
         
         #[test]
