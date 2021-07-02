@@ -11,3 +11,5 @@ Cargo.lock
 /tests/*.img
 /src/vcpu/asm_offset.h
 .gdbinit
+/.cargo
+/vendor
