@@ -9,4 +9,5 @@ pub mod ioctl_constants {
     pub const IOCTL_LAPUTA_UNREGISTER_VCPU: u64 = 0x6B05;
     pub const IOCTL_LAPUTA_QUERY_PFN: u64 = 0xc0086b06;
     pub const IOCTL_LAPUTA_RELEASE_PFN: u64 = 0x40086b07;
+    pub const IOCTL_REMOTE_FENCE: u64 = 0x80106b08;
 }

@@ -272,7 +272,9 @@ impl VirtualCpu {
         target_ecall.ret[0] = a0;
         target_ecall.ret[1] = a1;
 
-        ret = target_ecall.ecall_handler();
+        /* Part of SBIs should emulated via IOCTL */
+        let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd as i32;
+        ret = target_ecall.ecall_handler(fd);
 
         // save the result
         self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
