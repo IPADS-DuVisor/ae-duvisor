@@ -60,12 +60,12 @@ rusty_fork_test! {
 
         let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-        vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+        vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
             = entry_point;
 
         vm.vm_run();
             
-        sum += vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+        sum += vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10];
 
         vm.vm_destroy();
 
@@ -103,12 +103,12 @@ rusty_fork_test! {
         flag = PTE_USER | PTE_VALID | PTE_READ;
         vm.vm_state.lock().unwrap().gsmmu.map_protect(ro_address, flag);
 
-        vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+        vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
             = entry_point;
             
         vm.vm_run();
             
-        exit_reason = vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.gp_regs
+        exit_reason = vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.gp_regs
             .x_reg[0];
         vm.vm_destroy();
 
@@ -146,12 +146,12 @@ rusty_fork_test! {
         flag = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
         vm.vm_state.lock().unwrap().gsmmu.map_protect(nx_address, flag);
 
-        vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+        vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
             = entry_point;
         
         vm.vm_run();
         
-        exit_reason = vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.gp_regs
+        exit_reason = vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.gp_regs
         .x_reg[0];
 
         vm.vm_destroy();
@@ -197,12 +197,12 @@ rusty_fork_test! {
         vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
             flag);
 
-        vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+        vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
             = entry_point;
             
         vm.vm_run();
             
-        load_value = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+        load_value = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
             .x_reg[5];
 
         vm.vm_destroy();
@@ -225,12 +225,12 @@ rusty_fork_test! {
 
         let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-        vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+        vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
             = entry_point;
 
         vm.vm_run();
         
-        exit_reason = vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.gp_regs
+        exit_reason = vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.gp_regs
             .x_reg[0];
         println!("exit reason {:x}", exit_reason);
 
@@ -259,12 +259,12 @@ rusty_fork_test! {
 
         let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-        vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+        vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
             = entry_point;
 
         vm.vm_run();
         
-        exit_reason = vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.gp_regs
+        exit_reason = vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.gp_regs
             .x_reg[0];
         println!("exit reason {:x}", exit_reason);
 
@@ -298,12 +298,12 @@ rusty_fork_test! {
 
         let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-        vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+        vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
             = entry_point;
 
         vm.vm_run();
         
-        sum = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+        sum = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
             .x_reg[29];
         println!("sum {}", sum);
 
@@ -323,7 +323,7 @@ rusty_fork_test! {
 
         let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-        vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+        vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
             = entry_point;
 
         vm.vm_run();
@@ -337,9 +337,9 @@ rusty_fork_test! {
         // all the ecall should should return 0 
         let t1_ans: u64 = 0;
 
-        t0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+        t0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
             .x_reg[5];
-        t1 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+        t1 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
             .x_reg[6];
 
         vm.vm_destroy();
@@ -359,7 +359,7 @@ rusty_fork_test! {
 
         let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-        vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+        vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
             = entry_point;
 
         vm.vm_run();
@@ -369,7 +369,7 @@ rusty_fork_test! {
         // correct a0 after time irq\n"
         let a0_ans: u64 = 0xcafe;
 
-        a0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+        a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
             .x_reg[10];
 
         vm.vm_destroy();

@@ -56,7 +56,7 @@ impl VmSharedState {
 
 pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
-    pub vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>>,
+    pub vcpus: Vec<Arc<virtualcpu::VirtualCpu>>,
     pub vcpu_num: u32,
     pub mem_size: u64,
     pub vm_image: image::VmImage,
@@ -85,7 +85,7 @@ impl VirtualMachine {
         let elf_path = &vm_config.kernel_img_path[..];
         let dtb_path = &vm_config.dtb_path[..];
         let mmio_regions = vm_config.mmio_regions;
-        let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
+        let vcpus: Vec<Arc<virtualcpu::VirtualCpu>> = Vec::new();
         let vm_image = image::VmImage::new(elf_path);
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
@@ -95,7 +95,6 @@ impl VirtualMachine {
 
         let vm_state = VmSharedState::new(ioctl_fd, mem_size, mmio_regions);
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
-        let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
 
         // Create vm struct instance
         let mut vm = Self {
@@ -110,10 +109,9 @@ impl VirtualMachine {
 
         // Create vcpu struct instance
         for i in 0..vcpu_num {
-            let vcpu = virtualcpu::VirtualCpu::new(i,
-                    vm_state_mutex.clone());
-            vcpu_mutex = Arc::new(Mutex::new(vcpu));
-            vm.vcpus.push(vcpu_mutex);
+            let vcpu = Arc::new(virtualcpu::VirtualCpu::new(i,
+                    vm_state_mutex.clone()));
+            vm.vcpus.push(vcpu);
         }
 
         // Return vm instance with vcpus
@@ -268,14 +266,13 @@ impl VirtualMachine {
     pub fn vm_run(&mut self) {
         let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
         let mut handle: thread::JoinHandle<()>;
-        let mut vcpu_mutex;
 
-        for i in &mut self.vcpus {
-            vcpu_mutex = i.clone();
+        for i in &self.vcpus {
+            let vcpu = i.clone();
 
             // Start vcpu threads!
             handle = thread::spawn(move || {
-                vcpu_mutex.lock().unwrap().thread_vcpu_run();
+                vcpu.thread_vcpu_run();
             });
 
             vcpu_handle.push(handle);
@@ -441,7 +438,7 @@ mod tests {
             let mut sum = 0;
 
             for i in &vm.vcpus {
-                sum = sum + i.lock().unwrap().vcpu_id;
+                sum = sum + i.vcpu_id;
             }
 
             assert_eq!(sum, 6); // 0 + 1 + 2 + 3
@@ -458,7 +455,7 @@ mod tests {
 
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                 = entry_point;
 
             vm.vm_run();
@@ -468,7 +465,7 @@ mod tests {
             // correct a0 after time irq\n"
             let a0_ans: u64 = 0xcafe;
 
-            a0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+            a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
                 .x_reg[A0];
 
             vm.vm_destroy();
@@ -487,14 +484,14 @@ mod tests {
 
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                 = entry_point;
 
             vm.vm_run();
 
-            let a1: u64 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.
+            let a1: u64 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.
                           gp_regs.x_reg[A1];
-            let t1: u64 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.
+            let t1: u64 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.
                           gp_regs.x_reg[T1];
 
             // only single time irq
@@ -522,7 +519,7 @@ mod tests {
 
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                 = entry_point;
 
             //println!("Emulation input received:");
@@ -531,12 +528,12 @@ mod tests {
             // t0 should be '\n' to end
             let t0: u64;
             let t0_ans: u64 = 10;
-            t0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
+            t0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[5];
 
             // t1 should sum up the input
             let t1: u64;
             let t1_ans: u64 = 1508;
-            t1 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[6];
+            t1 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[6];
 
             vm.vm_destroy();
 
@@ -555,7 +552,7 @@ mod tests {
 
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                 = entry_point;
 
             //println!("Emulation input received:");
@@ -564,12 +561,12 @@ mod tests {
             // t0 should be '\n' to end
             let t0: u64;
             let t0_ans: u64 = 10;
-            t0 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[5];
+            t0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[5];
 
             // t1 should sum up the input
             let t1: u64;
             let t1_ans: u64 = 16;
-            t1 = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[6];
+            t1 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[6];
 
             vm.vm_destroy();
 
@@ -725,7 +722,7 @@ mod tests {
             vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
                     flag);
 
-            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                     = entry_point;
             
             vm.vm_run();
@@ -778,7 +775,7 @@ mod tests {
             vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
                     flag);
 
-            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                     = entry_point;
             
             vm.vm_run();

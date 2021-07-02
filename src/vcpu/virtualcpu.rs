@@ -60,20 +60,20 @@ extern "C"
 pub struct VirtualCpu {
     pub vcpu_id: u32,
     pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
-    pub vcpu_ctx: VcpuCtx,
-    pub virq: virq::VirtualInterrupt,
-    pub vtimer: vtimer::VirtualTimer,
+    pub vcpu_ctx: Mutex<VcpuCtx>,
+    pub virq: Mutex<virq::VirtualInterrupt>,
+    pub vtimer: Mutex<vtimer::VirtualTimer>,
     // TODO: irq_pending with shared memory
-    pub exit_reason: ExitReason,
+    pub exit_reason: Mutex<ExitReason>,
 }
 
 impl VirtualCpu {
     pub fn new(vcpu_id: u32,
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
-        let vcpu_ctx = VcpuCtx::new();
-        let virq = virq::VirtualInterrupt::new();
-        let vtimer = vtimer::VirtualTimer::new(0, 0);
-        let exit_reason = ExitReason::ExitUnknown;
+        let vcpu_ctx = Mutex::new(VcpuCtx::new());
+        let virq = Mutex::new(virq::VirtualInterrupt::new());
+        let vtimer = Mutex::new(vtimer::VirtualTimer::new(0, 0));
+        let exit_reason = Mutex::new(ExitReason::ExitUnknown);
 
         Self {
             vcpu_id,
@@ -86,11 +86,11 @@ impl VirtualCpu {
     }
 
     // For test case: test_vm_run
-    pub fn test_change_guest_ctx(&mut self) -> u32 {
+    pub fn test_change_guest_ctx(&self) -> u32 {
         // Change guest context
-        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] += 10;
-        self.vcpu_ctx.guest_ctx.sys_regs.huvsscratch += 11;
-        self.vcpu_ctx.guest_ctx.hyp_regs.hutinst += 12;
+        self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10] += 10;
+        self.vcpu_ctx.lock().unwrap().guest_ctx.sys_regs.huvsscratch += 11;
+        self.vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs.hutinst += 12;
 
         // Increse vm_id in vm_state
         self.vm.lock().unwrap().vm_id += 100;
@@ -98,12 +98,12 @@ impl VirtualCpu {
         0
     }
 
-    fn config_hugatp(&mut self) -> u64 {
+    fn config_hugatp(&self) -> u64 {
         let pt_pfn: u64 = 
             self.vm.lock().unwrap().gsmmu.page_table.paddr >> PAGE_SIZE_SHIFT;
         let hugatp: u64 = pt_pfn | HUGATP_MODE_SV48;
 
-        self.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
+        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;
 
         unsafe { csrw!(HUGATP, hugatp); }
 
@@ -112,15 +112,15 @@ impl VirtualCpu {
         hugatp
     }
     
-    fn handle_virtual_inst_fault(&mut self) -> i32 {
+    fn handle_virtual_inst_fault(&self) -> i32 {
         let ret = 0;
-        let _utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
+        let _utval = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
         dbgprintln!("handle_virtual_inst_fault: insn = {:x}", _utval);
         
         ret
     }
 
-    fn handle_u_vtimer_irq(&mut self) -> i32 {
+    fn handle_u_vtimer_irq(&self) -> i32 {
         unsafe {
             dbgprintln!("set IRQ_VS_TIMER irq.");
             // set virtual timer
@@ -138,14 +138,14 @@ impl VirtualCpu {
         return 0;
     }
 
-    fn handle_mmio(&mut self, _fault_addr: u64) -> i32 {
+    fn handle_mmio(&self, _fault_addr: u64) -> i32 {
         dbgprintln!("MMIO has not been finished yet! {:x}", _fault_addr);
         return 0;
     }
 
-    fn handle_stage2_page_fault(&mut self) -> i32 {
-        let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
-        let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
+    fn handle_stage2_page_fault(&self) -> i32 {
+        let hutval = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutval;
+        let utval = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
         let mut fault_addr = (hutval << 2) | (utval & 0x3);
         let mut ret;
 
@@ -188,7 +188,7 @@ impl VirtualCpu {
         }
         match ret {
             ENOPERMIT => {
-                self.exit_reason = ExitReason::ExitEaccess;
+                *self.exit_reason.lock().unwrap() = ExitReason::ExitEaccess;
                 dbgprintln!("Query return ENOPERMIT: {}", ret);
             }
             ENOMAPPING => {
@@ -232,7 +232,7 @@ impl VirtualCpu {
                 }
             }
             _ => {
-                self.exit_reason = ExitReason::ExitEaccess;
+                *self.exit_reason.lock().unwrap() = ExitReason::ExitEaccess;
                 dbgprintln!("Invalid query result: {}", ret);
             }
         }
@@ -240,22 +240,23 @@ impl VirtualCpu {
         ret
     }
 
-    fn handle_supervisor_ecall(&mut self) -> i32 {
+    fn handle_supervisor_ecall(&self) -> i32 {
         let ret: i32;
-        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: 0th arg/ret 1
-        let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg/ret 2
-        let a2 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 2nd arg 
-        let a3 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 3rd arg 
-        let a4 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 4th arg 
-        let a5 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 5th arg 
-        let a6 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; // a6: FID
-        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: EID
+        let mut vcpu_ctx = self.vcpu_ctx.lock().unwrap();
+        let a0 = vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; // a0: 0th arg/ret 1
+        let a1 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 1st arg/ret 2
+        let a2 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 2nd arg 
+        let a3 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 3rd arg 
+        let a4 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 4th arg 
+        let a5 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; // a1: 5th arg 
+        let a6 = vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; // a6: FID
+        let a7 = vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; // a7: EID
 
         // FIXME: for test cases
         if a7 == ECALL_VM_TEST_END {
             ret = 0xdead;
 
-            self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret as u64;
+            vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret as u64;
         
             return ret as i32;
         }
@@ -277,26 +278,26 @@ impl VirtualCpu {
         ret = target_ecall.ecall_handler(fd);
 
         // save the result
-        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
-        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
+        vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
+        vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
 
         // add uepc to start vm on next instruction
-        self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
+        vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
 
         ret
     }
 
-    fn handle_vcpu_exit(&mut self) -> i32 {
+    fn handle_vcpu_exit(&self) -> i32 {
         let mut ret: i32 = -1;
-        let ucause = self.vcpu_ctx.host_ctx.hyp_regs.ucause;
-        self.exit_reason = ExitReason::ExitUnknown;
+        let ucause = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
+        *self.exit_reason.lock().unwrap() = ExitReason::ExitUnknown;
 
         if (ucause & EXC_IRQ_MASK) != 0 {
-            self.exit_reason = ExitReason::ExitIntr;
+            *self.exit_reason.lock().unwrap() = ExitReason::ExitIntr;
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
                 IRQ_U_VTIMER => {
-                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", ucause, self.vcpu_ctx.host_ctx.hyp_regs.uepc);
+                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", ucause, self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
                 }
                 _ => {
@@ -327,17 +328,17 @@ impl VirtualCpu {
             dbgprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
 
             // FIXME: save the exit reason in HOST_A0 before the vcpu down
-            self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
+            self.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
         }
 
         ret
     }
 
-    pub fn thread_vcpu_run(&mut self) -> i32 {
+    pub fn thread_vcpu_run(&self) -> i32 {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
         let mut _res;
 
-        self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
+        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
             | (1 << HUSTATUS_SPVP_SHIFT)) | (1 << HUSTATUS_UPIE_SHIFT) as u64;
 
         unsafe {
@@ -363,8 +364,11 @@ impl VirtualCpu {
             let delta_time :i64 = csrr!(TIME) as i64;
             csrw!(HUTIMEDELTA, -delta_time as u64);
         }
-        let vcpu_ctx_ptr = &self.vcpu_ctx as *const VcpuCtx;
-        let vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
+        // FIXME: deadlock if ptr & ptr_u64 are not declared independently
+        let vcpu_ctx_ptr: *const VcpuCtx;
+        let vcpu_ctx_ptr_u64: u64;
+        vcpu_ctx_ptr = &*self.vcpu_ctx.lock().unwrap() as *const VcpuCtx;
+        vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
         let mut ret: i32 = 0;
         let mut cnt: u64 = 0;
@@ -405,7 +409,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let mut res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -432,7 +436,7 @@ mod tests {
                 println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
                     test_buf_pfn);
 
-                vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[17] = ECALL_VM_TEST_END;
+                vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[17] = ECALL_VM_TEST_END;
 
                 let mut test_buf_ptr = test_buf as *mut i32;
                 *test_buf_ptr = 0x73; // ecall
@@ -458,41 +462,44 @@ mod tests {
             let mut utval: u64 = 0;
             let mut ucause: u64 = 0;
 
-            let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
-            let ptr_u64 = ptr as u64;
+            // FIXME: deadlock if ptr & ptr_u64 are not declared independently
+            let ptr: *const VcpuCtx;
+            let ptr_u64: u64;
+            ptr = &*vcpu.vcpu_ctx.lock().unwrap() as *const VcpuCtx;
+            ptr_u64 = ptr as u64;
             println!("test_handle_stage2_page_fault - ptr_u64: {:x}", ptr_u64);
             let mut ret: i32 = 0;
 
             let target_code = (test_buf_pfn << PAGE_SIZE_SHIFT) as u64;
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = target_code;
 
             hugatp = (test_buf_pfn + 2) | (8 << 60);
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;
 
             while ret == 0 {
                 unsafe {
-                    csrw!(HUGATP, vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                    csrw!(HUGATP, vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp);
                     println!("HUGATP : {:x}", 
-                        vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                        vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp);
 
                     //hustatus.SPP=1 .SPVP=1 uret to VS mode
-                    vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+                    vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = 
                         ((1 << HUSTATUS_SPV_SHIFT) 
                         | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
                     csrw!(UTVEC, exit_guest as u64);
                     enter_guest(ptr_u64);
 
-                    uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
-                    utval = vcpu.vcpu_ctx.host_ctx.hyp_regs.utval;
-                    ucause = vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause;
+                    uepc = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc;
+                    utval = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
+                    ucause = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
 
                     println!("guest hyp uepc 0x{:x}", uepc);
                     println!("guest hyp utval 0x{:x}", utval);
                     println!("guest hyp ucause 0x{:x}", ucause);
 
                     if ucause == 20 {
-                        vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = 
+                        vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = 
                             (test_buf_pfn + 4) | HUGATP_MODE_SV39;
                     }
                 }
@@ -538,19 +545,19 @@ mod tests {
             let vm_mutex = vm.vm_state;
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
 
-            let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, 0);
 
-            let tmp = vcpu.vcpu_ctx.host_ctx.hyp_regs.hutinst;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutinst;
             assert_eq!(tmp, 0);
 
-            let tmp = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, 0);
 
-            let tmp = vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs.hutinst;
             assert_eq!(tmp, 0);
 
-            let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.sys_regs.huvsatp;
             assert_eq!(tmp, 0);
         }
 
@@ -561,29 +568,29 @@ mod tests {
             let vm_config = test_vm_config_create();
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let ans = 17;
 
             // guest ctx
-            vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = ans;
-            let tmp = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+            vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10] = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, ans);
 
-            vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp = ans;
-            let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
+            vcpu.vcpu_ctx.lock().unwrap().guest_ctx.sys_regs.huvsatp = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.sys_regs.huvsatp;
             assert_eq!(tmp, ans);
 
-            vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst = ans;
-            let tmp = vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst;
+            vcpu.vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs.hutinst = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs.hutinst;
             assert_eq!(tmp, ans);
 
             // host ctx
-            vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10] = ans;
-            let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[10] = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, ans);
 
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hutinst = ans;
-            let tmp = vcpu.vcpu_ctx.host_ctx.hyp_regs.hutinst;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutinst = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutinst;
             assert_eq!(tmp, ans);
         }
 
@@ -596,16 +603,15 @@ mod tests {
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
             let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
             let mut handle: thread::JoinHandle<()>;
-            let mut vcpu_mutex;
 
             for i in &mut vm.vcpus {
                 // Get a clone for the closure
-                vcpu_mutex = i.clone();
+                let vcpu = i.clone();
 
                 // Start vcpu threads!
                 handle = thread::spawn(move || {
                     // TODO: thread_vcpu_run
-                    vcpu_mutex.lock().unwrap().test_change_guest_ctx();
+                    vcpu.test_change_guest_ctx();
                 });
 
                 vcpu_handle.push(handle);
@@ -621,11 +627,11 @@ mod tests {
             let sysreg;
             let hypreg;
 
-            gpreg = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+            gpreg = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
                 .x_reg[10];
-            sysreg = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.sys_regs
+            sysreg = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.sys_regs
                 .huvsscratch;
-            hypreg = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.hyp_regs
+            hypreg = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs
                 .hutinst;
 
             assert_eq!(gpreg, 10);
@@ -647,7 +653,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -709,24 +715,27 @@ mod tests {
             let utval: u64;
             let ucause: u64;
 
-            let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
-            let ptr_u64 = ptr as u64;
+            // FIXME: deadlock if ptr & ptr_u64 are not declared independently
+            let ptr: *const VcpuCtx;
+            let ptr_u64: u64;
+            ptr = &*vcpu.vcpu_ctx.lock().unwrap() as *const VcpuCtx;
+            ptr_u64 = ptr as u64;
             println!("the ptr is {:x}", ptr_u64);
 
             let target_code = ((test_buf_pfn << PAGE_SHIFT) 
                 + PAGE_TABLE_REGION_SIZE) as u64;
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = target_code;
                 
 
             hugatp = test_buf_pfn | (8 << 60);
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;
 
             unsafe {
                 csrw!(HUGATP, hugatp);
                 // set hugatp
                 println!("HUGATP : 0x{:x}", hugatp);
                 //hustatus.SPP=1 .SPVP=1 uret to VS mode
-                vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+                vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = 
                     ((1 << HUSTATUS_SPV_SHIFT)
                     | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
@@ -734,11 +743,11 @@ mod tests {
                 csrw!(UTVEC, exit_guest as u64);
                 enter_guest(ptr_u64);
 
-                uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
-                utval = vcpu.vcpu_ctx.host_ctx.hyp_regs.utval;
-                ucause = vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause;
+                uepc = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc;
+                utval = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
+                ucause = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
 
-                let a7 = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[17];
+                let a7 = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[17];
 
                 println!("guest hyp uepc 0x{:x}", uepc);
                 println!("guest hyp utval 0x{:x}", utval);
@@ -759,7 +768,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
             let res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -823,20 +832,24 @@ mod tests {
             let utval: u64;
             let ucause: u64;
 
-            let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
-            let ptr_u64 = ptr as u64;
+            // FIXME: deadlock if ptr & ptr_u64 are not declared independently
+            let ptr: *const VcpuCtx;
+            let ptr_u64: u64;
+            ptr = &*vcpu.vcpu_ctx.lock().unwrap() as *const VcpuCtx;
+            ptr_u64 = ptr as u64;
             println!("the ptr is {:x}", ptr_u64);
 
             let target_code = ((test_buf_pfn << PAGE_SHIFT) 
                 + PAGE_TABLE_REGION_SIZE) as u64;
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = target_code;
 
             hugatp = test_buf_pfn | (8 << 60);
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;
 
-            let mut sum = 0; 
-            for i in 0..vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg.len() {
-                vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[i] = i as u64;
+            let mut sum = 0;
+            let len = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg.len();
+            for i in 0..len {
+                vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[i] = i as u64;
                 sum += i as u64;
             }
 
@@ -848,18 +861,18 @@ mod tests {
                 // set hugatp
                 println!("HUGATP : 0x{:x}", hugatp);
                 //hustatus.SPP=1 .SPVP=1 uret to VS mode
-                vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+                vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = 
                     ((1 << HUSTATUS_SPV_SHIFT) 
                     | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
                 // set utvec to trap handler
                 csrw!(UTVEC, exit_guest as u64);
                 enter_guest(ptr_u64);
 
-                uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
-                utval = vcpu.vcpu_ctx.host_ctx.hyp_regs.utval;
-                ucause = vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause;
+                uepc = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc;
+                utval = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
+                ucause = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
 
-                let a7 = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[17];
+                let a7 = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[17];
 
                 println!("guest hyp uepc 0x{:x}", uepc);
                 println!("guest hyp utval 0x{:x}", utval);
@@ -867,7 +880,7 @@ mod tests {
                 println!("guest hyp a7 0x{:x}", a7);
             }
 
-            assert_eq!(sum, vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]);
+            assert_eq!(sum, vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10]);
             assert_eq!(uepc, ((test_buf_pfn << PAGE_SIZE_SHIFT)
                 + PAGE_TABLE_REGION_SIZE) + size - 4);
             assert_eq!(utval, 0);

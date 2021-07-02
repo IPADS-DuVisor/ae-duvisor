@@ -38,7 +38,7 @@ struct PlicState {
 struct PlicContext {
     // Static configuration
     ctx_id: u32,
-    vcpu: Arc<Mutex<VirtualCpu>>,
+    vcpu: Arc<VirtualCpu>,
     // Local IRQ state
     irq_priority_threshold: u8,
     irq_enable: [u32; MAX_DEVICES / 32],
@@ -75,7 +75,7 @@ impl PlicState {
 }
 
 impl PlicContext {
-    pub fn new(ctx_id: u32, vcpu: Arc<Mutex<VirtualCpu>>) -> Self {
+    pub fn new(ctx_id: u32, vcpu: Arc<VirtualCpu>) -> Self {
         let irq_priority_threshold: u8 = 0;
         let irq_enable = [0; MAX_DEVICES / 32];
         let irq_pending = [0; MAX_DEVICES / 32];
@@ -97,7 +97,7 @@ impl PlicContext {
 }
 
 impl Plic {
-    pub fn new(vcpus: &Vec<Arc<Mutex<VirtualCpu>>>) -> Self {
+    pub fn new(vcpus: &Vec<Arc<VirtualCpu>>) -> Self {
         let plic_state = RwLock::new(PlicState::new());
         let nr_ctx = vcpus.len() * 2;
         let mut plic_contexts: Vec<Mutex<PlicContext>> = 
