@@ -14,6 +14,7 @@ use crate::init::cmdline::VMConfig;
 use crate::vm::image;
 use crate::mm::gparegion::GpaRegion;
 use crate::vm::dtb;
+use crate::devices::tty::Tty;
 
 #[allow(unused)]
 extern "C"
@@ -39,9 +40,8 @@ extern "C"
 #[allow(unused)]
 extern "C"
 {
-    fn hypervisor_load(target_addr: u64) -> u64;
+    fn getchar_emulation() -> i32;
 }
-
 
 // Export to vcpu
 pub struct VmSharedState {
@@ -69,6 +69,10 @@ pub struct VirtualMachine {
     pub vm_image: image::VmImage,
     pub dtb_file: dtb::DeviceTree,
     pub initrd_path: String,
+
+    /* TODO: More consoles, not only tty */
+    pub console: Arc<Mutex<Tty>>,
+    pub io_thread: bool,
 }
 
 impl VirtualMachine {
@@ -96,6 +100,8 @@ impl VirtualMachine {
         let vm_image = image::VmImage::new(elf_path);
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
+        let tty = Tty::new();
+        let io_thread = false;
 
         // get ioctl fd of "/dev/laputa_dev" 
         let ioctl_fd = VirtualMachine::open_ioctl();
@@ -103,6 +109,7 @@ impl VirtualMachine {
         let vm_state = VmSharedState::new(ioctl_fd, mem_size, mmio_regions);
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let mut vcpu_mutex: Arc<Mutex<virtualcpu::VirtualCpu>>;
+        let console = Arc::new(Mutex::new(tty));
 
         // Create vm struct instance
         let mut vm = Self {
@@ -113,12 +120,14 @@ impl VirtualMachine {
             vm_image,
             dtb_file,
             initrd_path,
+            console: console.clone(),
+            io_thread,
         };
 
         // Create vcpu struct instance
         for i in 0..vcpu_num {
             let vcpu = virtualcpu::VirtualCpu::new(i,
-                    vm_state_mutex.clone());
+                    vm_state_mutex.clone(), console.clone());
             vcpu_mutex = Arc::new(Mutex::new(vcpu));
             vm.vcpus.push(vcpu_mutex);
         }
@@ -272,10 +281,33 @@ impl VirtualMachine {
         gpa_start
     }
 
+    pub fn read_poll_startup(&mut self) -> thread::JoinHandle<()>{
+        let handle: thread::JoinHandle<()>;
+        let console = self.console.clone();
+
+        // Start the read-polling thread
+        handle = thread::spawn(move || {
+            loop {
+                unsafe {
+                    let input = getchar_emulation();
+                    let input_char: u8 = (input & 0xff) as u8;
+
+                    let res = console.lock().unwrap().recv_char(input_char as char);
+                    if res == 1 {
+                        println!("Full!");
+                    }   
+                }
+            }
+        });
+
+        handle
+    }
+
     pub fn vm_run(&mut self) {
         let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
         let mut handle: thread::JoinHandle<()>;
         let mut vcpu_mutex;
+        let io_handle: thread::JoinHandle<()>;
 
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
@@ -290,6 +322,12 @@ impl VirtualMachine {
 
         for i in vcpu_handle {
             i.join().unwrap();
+        }
+
+        /* IO thread */
+        if self.io_thread {
+            io_handle = self.read_poll_startup();
+            io_handle.join().unwrap();
         }
     }
 

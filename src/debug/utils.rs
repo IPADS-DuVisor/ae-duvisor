@@ -7,18 +7,18 @@ pub mod configtest {
     const ELF_IMG_PATH: &str = "./tests/integration/vcpu_add_all_gprs.img";
     const DTB_PATH: &str = "./test-files-laputa/hifive-unleashed-a00.dtb";
     const TEST_MMIO_REGION_1: GpaRegion = GpaRegion {
+        gpa: 0x0,
+        length: 0x1000,
+    };
+    const TEST_MMIO_REGION_2: GpaRegion = GpaRegion {
         gpa: 0x18000,
         length: 0x2000,
     };
-    const TEST_MMIO_REGION_2: GpaRegion = GpaRegion {
+    const TEST_MMIO_REGION_3: GpaRegion = GpaRegion {
         gpa: 0x34000,
         length: 0x3000,
     };
-    const TEST_MMIO_REGION_3: GpaRegion = GpaRegion {
-        gpa: 0x77000,
-        length: 0x4000,
-    };
-
+    
     pub fn test_vm_config_create() -> VMConfig {
         let mut test_vm_config: VMConfig = VMConfig {
             vcpu_count: 1,

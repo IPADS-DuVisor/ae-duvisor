@@ -1,0 +1,354 @@
+use crate::vcpu::virtualcpu::VirtualCpu;
+use crate::vcpu::utils::*;
+use crate::irq::delegation::delegation_constants::*;
+use tty_uart_constants::*;
+use crate::mm::utils::*;
+
+#[allow(unused)]
+pub mod tty_uart_constants {
+    /* UART_RX */
+    pub const UART_RX: usize = 0;
+
+    /* UART_TX */
+    pub const UART_TX: usize = 0;
+
+    /* UART_IER */
+    pub const UART_IER: usize = 1;
+    pub const UART_IER_RDI: u8 = 0x1;
+    pub const UART_IER_THRI: u8 = 0x02;
+
+    /* UART_IIR */
+    pub const UART_IIR: usize = 2;
+    pub const UART_IIR_NO_INT: u8 = 0x1;
+    pub const UART_IIR_RDI: u8 = 0x4;
+    pub const UART_IIR_THRI: u8 = 0x2;
+    pub const UART_IIR_TYPE_BITS: u8 = 0xc0;
+
+    /* UART_LCR */
+    pub const UART_LCR: usize = 3;
+    pub const UART_LCR_DLAB: u8 = 0x80;
+
+    /* UART_MCR */
+    pub const UART_MCR: usize = 4;
+    pub const UART_MCR_OUT2: u8 = 0x08;
+
+    /* UART_LSR */
+    pub const UART_LSR: usize = 5;
+    pub const UART_LSR_TEMT: u8 = 0x40;
+    pub const UART_LSR_THRE: u8 = 0x20;
+    pub const UART_LSR_DR: u8 = 0x1;
+
+    /* UART_MSR */
+    pub const UART_MSR: usize = 6;
+    pub const UART_MSR_DCD: u8 = 0x80;
+    pub const UART_MSR_DSR: u8 = 0x20;
+    pub const UART_MSR_CTS: u8 = 0x10;
+
+    /* UART_SCR */
+    pub const UART_SCR: usize = 7;
+
+    /* UART_DLL */
+    pub const UART_DLL: usize = 8; // reuse offset 0
+
+    /* UART_DLM */
+    pub const UART_DLM: usize = 9; // reuse offset 1
+
+    /* UART_FCR */
+    pub const UART_FCR: usize = 10; // reuse offset 2
+    pub const UART_FCR_CLEAR_RCVR: u8 = 0x02;
+    pub const UART_FCR_CLEAR_XMIT: u8 = 0x04;
+}
+
+pub const FIFO_LEN: usize = 64;
+
+pub struct Tty {
+    pub value: [u8; 11],
+    pub recv_buf: [char; FIFO_LEN],
+    pub start: usize,
+    pub end: usize,
+    pub cnt: usize,
+}
+
+fn console_putchar(output: u64) {
+    let ch = output as u8;
+    let ch = ch as char;
+
+    const ESCAPE_LEN: usize = 20;
+    static mut ESCAPE: [char; ESCAPE_LEN] = ['\0'; ESCAPE_LEN];
+    static mut ESCAPE_CNT: usize = 0;
+
+    unsafe {
+        /* the first letter must be ESCAPE */
+        if ESCAPE_CNT == 0 && output == 27 {
+            ESCAPE[0] = ch;
+            ESCAPE_CNT += 1;
+        } else if ESCAPE_CNT == 1 && ch == '[' {
+            ESCAPE[1] = ch;
+            ESCAPE_CNT += 1;
+        } else if ESCAPE_CNT > 1 && ESCAPE_CNT < ESCAPE_LEN && output != 13 { 
+            ESCAPE[ESCAPE_CNT] = ch;
+            ESCAPE_CNT += 1;
+        } else if ESCAPE_CNT > 1 && ESCAPE_CNT < ESCAPE_LEN && output == 13 {
+            // Match the pattern and throw out
+            ESCAPE_CNT = 0;
+        } else {            
+            for i in 0..ESCAPE_CNT {
+                print!("{}", ESCAPE[i]);
+            }
+            print!("{}", ch);
+            ESCAPE_CNT = 0;
+        }
+    }
+}
+
+impl Tty {
+    pub fn new() -> Self {
+        let mut value: [u8; 11] = [0; 11];
+
+        /* ttyS0 init */
+        value[UART_IIR] = UART_IIR_NO_INT;
+        value[UART_MCR] = UART_MCR_OUT2;
+        value[UART_LSR] = UART_LSR_TEMT | UART_LSR_THRE;
+        value[UART_MSR] = UART_MSR_DCD | UART_MSR_DSR | UART_MSR_CTS;
+        let recv_buf: [char; FIFO_LEN] = [0 as char; FIFO_LEN];
+        let start: usize = FIFO_LEN;
+        let end: usize = 0;
+        let cnt: usize = 0;
+
+        Self {
+            value,
+            recv_buf,
+            cnt,
+            start,
+            end,
+        }
+    }
+
+    /* check the cnt and insert or clear the pending bit */
+    pub fn update_huvip(&mut self) {
+        static mut FLAG: i32 = 0;
+        unsafe {
+            if self.cnt > 0 {
+                csrs!(HUVIP, 1 << IRQ_TTY);
+                FLAG = 1;
+            } else {
+                csrc!(HUVIP, 1 << IRQ_TTY);
+                if FLAG == 1 {
+                    FLAG = 0;
+                }
+            }
+        }
+    }
+
+    pub fn update_irq(&mut self) {
+        let mut iir: u8 = 0;
+
+        /* handle clear rx */
+        if self.value[UART_LCR] & UART_FCR_CLEAR_RCVR != 0 {
+            self.value[UART_LCR] &= !UART_FCR_CLEAR_RCVR;
+            self.value[UART_LSR] &= !UART_LSR_DR;
+        }
+
+        /* handle clear tx */
+        if self.value[UART_LCR] & UART_FCR_CLEAR_XMIT != 0 {
+            self.value[UART_LCR] &= !UART_FCR_CLEAR_XMIT;
+            self.value[UART_LSR] |= UART_LSR_TEMT | UART_LSR_THRE;
+        }
+
+        /* Data ready and rcv interrupt enabled ? */
+        if (self.value[UART_IER] & UART_IER_RDI != 0) && (self.value[UART_LSR] & UART_LSR_DR != 0) {
+            iir |= UART_IIR_RDI;
+        }
+
+        /* Transmitter empty and interrupt enabled ? */
+        if (self.value[UART_IER] & UART_IER_THRI != 0) && (self.value[UART_LSR] & UART_LSR_TEMT != 0) {
+            iir |= UART_IIR_THRI;
+        }
+
+        /* Now update the irq line, if necessary */
+        if iir != 0 {
+            self.value[UART_IIR] = UART_IIR_NO_INT;
+            /* insert irq */
+            unsafe {
+                println!("send irq!");
+                csrs!(HUVIP, 1 << IRQ_TTY);
+            }
+        } else {
+            self.value[UART_IIR] = iir;
+        }
+
+        /*
+	     * If the kernel disabled the tx interrupt, we know that there
+	     * is nothing more to transmit, so we can reset our tx logic
+	     * here.
+	     */
+        if self.value[UART_IER] & UART_IER_THRI == 0 {
+            self.flush_tx();
+        }
+    }
+
+    pub fn load_emulation(vcpu: &VirtualCpu, mmio_addr: u64) -> u8 {
+        let offset = mmio_addr - 0x3f8;
+        let mut ret: u8 = 0 as u8;
+
+        match offset as usize {
+            0 => { //0
+                if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
+                    ret = vcpu.console.lock().unwrap().value[UART_DLL];
+                } else {
+                    /* Get input */
+                    let res = vcpu.console.lock().unwrap().get_char();
+
+                    if res.is_some() {
+                        ret = res.unwrap() as u8;
+                    } else {
+                        dbgprintln!("mmio fault: get_char failed");
+                    }
+                }
+            }
+            1 => { //1
+                if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
+                    ret = vcpu.console.lock().unwrap().value[UART_DLL];
+                } else {
+                    ret = vcpu.console.lock().unwrap().value[UART_IER];
+                }
+            }
+            2 => { //2
+                ret = vcpu.console.lock().unwrap().value[UART_IIR] | UART_IIR_TYPE_BITS;
+            }
+            3 => { //3
+                ret = vcpu.console.lock().unwrap().value[UART_LCR];
+            }
+            4 => { //4
+                ret = vcpu.console.lock().unwrap().value[UART_MCR];
+            }
+            5 => { //5
+                ret = vcpu.console.lock().unwrap().value[UART_LSR];
+                if vcpu.console.lock().unwrap().cnt > 0 {
+                    ret |= UART_LSR_DR;
+                }
+            }
+            6 => { //6
+                ret = vcpu.console.lock().unwrap().value[UART_MSR];
+            }
+            7 => { //7
+                ret = vcpu.console.lock().unwrap().value[UART_SCR];
+            }
+            _ => {
+                println!("Unknown tty load offset {}", offset);
+            }
+        }
+
+        vcpu.console.lock().unwrap().update_irq();
+
+        ret
+    }
+
+    pub fn store_emulation(vcpu: &VirtualCpu, mmio_addr: u64, data: u8) -> i32 {
+        let mut ret: i32 = 0;
+        let offset = mmio_addr - 0x3f8;
+
+        match offset as usize {
+            0 => { //0
+                if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
+                    vcpu.console.lock().unwrap().value[UART_DLL] = data;
+                } else {
+                    /* If DLAB=0, just output the char. */
+                    console_putchar(data as u64);
+
+                    /* since the output is finished, notice the guest */
+                    unsafe {
+                        csrs!(HUVIP, 1 << IRQ_TTY);
+                    }
+                }
+            }
+            1 => { //1
+                if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
+                    vcpu.console.lock().unwrap().value[UART_IER] = data & 0x0f;
+                } else {
+                    vcpu.console.lock().unwrap().value[UART_DLM] = data;
+                }
+            }
+            2 => { //2
+                vcpu.console.lock().unwrap().value[UART_FCR] = data;
+            }
+            3 => { //3
+                vcpu.console.lock().unwrap().value[UART_LCR] = data;
+            }
+            4 => { //4
+                vcpu.console.lock().unwrap().value[UART_MCR] = data;
+            }
+            7 => { //7
+                vcpu.console.lock().unwrap().value[UART_SCR] = data;
+            }
+            _ => {
+                println!("Unknown tty store offset {}", offset);
+                ret = 1;
+            }
+        }
+
+        vcpu.console.lock().unwrap().update_irq();
+
+        ret
+    }
+
+    pub fn get_char(&mut self) -> Option<char> {
+        let res: char;
+
+        if self.start == FIFO_LEN {
+            /* Not start yet */
+            return None;
+        } else if self.start == self.end {
+            if self.cnt != FIFO_LEN {
+                /* empty */
+                return None;
+            } else {
+                /* full */
+                res = self.recv_buf[self.start] as char;
+                self.start += 1;
+                self.cnt -= 1;
+            }
+        } else {
+            res = self.recv_buf[self.start] as char;
+            self.start  = (self.start + 1) % FIFO_LEN;
+            self.cnt -= 1;
+        }
+
+        return Some(res);
+    }
+
+    pub fn flush_tx(&mut self) {
+        self.value[UART_LSR] |= UART_LSR_TEMT;
+        self.value[UART_LSR] |= UART_LSR_THRE;
+    }
+
+    pub fn recv_char(&mut self, input: char) -> i32 {
+        if self.start == FIFO_LEN {
+            /* first char */
+            self.start = 0;
+            self.end = 1;
+            self.recv_buf[0] = input;
+            self.cnt += 1;
+            self.value[UART_LCR] |= UART_LSR_DR;
+            return 0;
+        } else if self.start == self.end {
+            if self.cnt == FIFO_LEN {
+                /* full */
+                return 1;
+            } else {
+                /* empty */
+                self.recv_buf[self.start] = input;
+                self.end = (self.end + 1) % FIFO_LEN;
+                self.cnt += 1;
+                self.value[UART_LCR] |= UART_LSR_DR;
+                return 0;
+            }  
+        } else {
+            self.recv_buf[self.end] = input;
+            self.end = (self.end + 1) % FIFO_LEN;
+            self.cnt += 1;
+            self.value[UART_LCR] |= UART_LSR_DR;
+            return 0;
+        }
+    }
+}

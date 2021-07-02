@@ -7,6 +7,7 @@
 extern crate clap;
 
 pub mod vm;
+pub mod devices;
 mod vcpu;
 mod mm;
 mod irq;

@@ -12,6 +12,7 @@ use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
 use crate::plat::opensbi;
 use crate::vcpu::utils::*;
+use crate::devices::tty::Tty;
 
 #[allow(unused)]
 mod errno_constants {
@@ -71,11 +72,13 @@ pub struct VirtualCpu {
     pub vtimer: vtimer::VirtualTimer,
     // TODO: irq_pending with shared memory
     pub exit_reason: ExitReason,
+    pub console: Arc<Mutex<Tty>>,
 }
 
 impl VirtualCpu {
     pub fn new(vcpu_id: u32,
-            vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
+            vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>,
+            console: Arc<Mutex<Tty>>) -> Self {
         let vcpu_ctx = VcpuCtx::new();
         let virq = virq::VirtualInterrupt::new();
         let vtimer = vtimer::VirtualTimer::new(0, 0);
@@ -88,6 +91,7 @@ impl VirtualCpu {
             virq,
             vtimer,
             exit_reason,
+            console,
         }
     }
 
@@ -127,6 +131,19 @@ impl VirtualCpu {
     }
 
     fn handle_u_vtimer_irq(&mut self) -> i32 {
+        /* insert or clear tty irq on each vtimer irq */
+        let cnt = self.console.lock().unwrap().cnt;
+
+        if cnt > 0 {
+            unsafe {
+                csrs!(HUVIP, 1 << IRQ_TTY);
+            }
+        } else {
+            unsafe {
+                csrc!(HUVIP, 1 << IRQ_TTY);
+            }
+        }
+
         unsafe {
             dbgprintln!("set IRQ_VS_TIMER irq.");
             // set virtual timer
@@ -158,12 +175,11 @@ impl VirtualCpu {
                 bit_width: u64) -> i32 {
         let ret: i32;
         let bit_mask: u64 = (1 << bit_width) - 1;
-        let _data: u64 = self.vcpu_ctx.guest_ctx.gp_regs
+        let data: u64 = self.vcpu_ctx.guest_ctx.gp_regs
                 .x_reg[target_reg as usize] & bit_mask;
 
         if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
-            dbgprintln!("tty store emulation has not been implemented yet");
-            ret = 1;
+            ret = Tty::store_emulation(&self, fault_addr, data as u8);
         } else {
             dbgprintln!("Unknown mmio (store)");
             ret = 1;
@@ -172,15 +188,16 @@ impl VirtualCpu {
         return ret;
     }
 
-    fn load_emulation(&mut self, fault_addr: u64, _target_reg: u64,
+    fn load_emulation(&mut self, fault_addr: u64, target_reg: u64,
                 _bit_width: u64) -> i32 {
         let ret: i32;
 
         if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
-            dbgprintln!("tty load emulation has not been implemented yet");
-            ret = 1;
+            let data: u64 = Tty::load_emulation(&self, fault_addr) as u64;
+            self.vcpu_ctx.guest_ctx.gp_regs.x_reg[target_reg as usize] = data;
+            ret = 0;
         } else {
-            dbgprintln!("Unknown mmio (load)");
+            dbgprintln!("Unknown mmio (load) fault_addr: 0x{:x}", fault_addr);
             ret = 1;
         }
 
@@ -255,8 +272,6 @@ impl VirtualCpu {
 
         dbgprintln!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
-
-        fault_addr &= !PAGE_SIZE_MASK;
         
         let gpa_check = self.vm.lock().unwrap().gsmmu.check_gpa(fault_addr);
         if !gpa_check {
@@ -271,6 +286,8 @@ impl VirtualCpu {
 
             return ret;
         }
+
+        fault_addr &= !PAGE_SIZE_MASK;
 
         // map_query
         let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
@@ -507,7 +524,8 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let console = Arc::new(Mutex::new(Tty::new()));
+            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
             let mut res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -626,7 +644,8 @@ mod tests {
             let vm_config = test_vm_config_create();
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let console = Arc::new(Mutex::new(Tty::new()));
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
 
             assert_eq!(vcpu.vcpu_id, vcpu_id);
         }
@@ -638,7 +657,8 @@ mod tests {
             let vm_config = test_vm_config_create();
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let console = Arc::new(Mutex::new(Tty::new()));
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
 
             let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, 0);
@@ -663,7 +683,8 @@ mod tests {
             let vm_config = test_vm_config_create();
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let console = Arc::new(Mutex::new(Tty::new()));
+            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
             let ans = 17;
 
             // guest ctx
@@ -749,7 +770,8 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let console = Arc::new(Mutex::new(Tty::new()));
+            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
             let res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -861,7 +883,8 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex);
+            let console = Arc::new(Mutex::new(Tty::new()));
+            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
             let res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -975,6 +998,29 @@ mod tests {
             assert_eq!(utval, 0);
             assert_eq!(ucause, 10);
         }
+
+        /* #[test]
+        fn test_tty_output() { 
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/tty_output.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+            /* open io_thread */
+            vm.io_thread = true;
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                = entry_point;
+            
+            vm.vm_run();
+
+            vm.vm_destroy();
+
+            assert_eq!(1, 0);
+        } */
     }
 }
 
