@@ -309,6 +309,12 @@ impl VirtualMachine {
         let mut vcpu_mutex;
         let io_handle: thread::JoinHandle<()>;
 
+        /* IO thread */
+        if self.io_thread {
+            io_handle = self.read_poll_startup();
+            vcpu_handle.push(io_handle);
+        }
+
         for i in &mut self.vcpus {
             vcpu_mutex = i.clone();
 
@@ -322,12 +328,6 @@ impl VirtualMachine {
 
         for i in vcpu_handle {
             i.join().unwrap();
-        }
-
-        /* IO thread */
-        if self.io_thread {
-            io_handle = self.read_poll_startup();
-            io_handle.join().unwrap();
         }
     }
 

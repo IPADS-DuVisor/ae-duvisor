@@ -261,6 +261,8 @@ impl VirtualCpu {
             ret = 1;
         }
 
+        self.vcpu_ctx.host_ctx.hyp_regs.uepc = uepc + 4;
+
         return ret;
     }
 
@@ -486,18 +488,12 @@ impl VirtualCpu {
         let vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
         let mut ret: i32 = 0;
-        let mut cnt: u64 = 0;
         while ret == 0 {
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
 
             ret = self.handle_vcpu_exit();
-
-            cnt += 1;
-            if cnt > 1000 {
-                panic!("test stop!");
-            }
         }
         
         unsafe {
@@ -1006,7 +1002,7 @@ mod tests {
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
             /* open io_thread */
-            vm.io_thread = true;
+            //vm.io_thread = true;
 
             vm.vm_init();
 
@@ -1021,6 +1017,68 @@ mod tests {
 
             assert_eq!(1, 0);
         } */
+
+        #[test]
+        fn test_tty_ld() { 
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/tty_ld.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            /* Answer will be saved at 0x3000(gpa) */
+            let retval: u64;
+
+            /* 
+             * Answer should be: 
+             * 0x3f8 = 0x0
+             * 0x3f9 = 0x0
+             * 0x3fa = 0xc0 = UART_IIR_TYPE_BITS
+             * 0x3fb = 0x0
+             * 0x3fc = 0x08 = UART_MCR_OUT2
+             * 0x3fd = 0x60 = UART_LSR_TEMT | UART_LSR_THRE
+             * 0x3fe = 0xb0 = UART_MSR_DCD | UART_MSR_DSR | UART_MSR_CTS
+             * 0x3ff = 0x0
+             */
+            let answer: u64 = 0xb0600800c00000;
+
+            vm.vm_init();
+
+            /* the return value will be stored on this gpa */
+            let target_address = 0x3000;
+
+            // set entry point
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            let res = vm.vm_state.lock().unwrap()
+                .gsmmu.gpa_block_add(target_address, PAGE_SIZE);
+            if !res.is_ok() {
+                panic!("gpa region add failed!");
+            }
+
+            /* get the hva of 0x3000(gpa) */
+            let (hva, hpa) = res.unwrap();
+            dbgprintln!("hva {:x}, hpa {:x}", hva, hpa);
+
+            /* map the page on g-stage */
+            let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
+                    | PTE_EXECUTE;
+            vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
+                    flag);
+
+            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+                    = entry_point;
+            
+            vm.vm_run();
+
+            /* check the return value store by the vm */
+            unsafe {
+                retval = *(hva as *mut u64);
+                dbgprintln!("retval 0x{:x}", retval);
+                assert_eq!(answer, retval);
+            }
+
+            vm.vm_destroy();
+        }
     }
 }
 

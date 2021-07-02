@@ -1,10 +1,8 @@
 #include "asm.h"
 
 BEGIN_FUNC_FILE_NAME()
-	li a0, 0x3f8
-	li a2, 0x48
-
-	sb a2, 0x0(a1)
+	li t0, 0x3f8
+	lb a0, 0x0(t0)
 
 	// test end
 	li a7, ECALL_VM_TEST_END
