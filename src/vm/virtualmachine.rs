@@ -14,6 +14,7 @@ use crate::init::cmdline::VMConfig;
 use crate::vm::image;
 use crate::mm::gparegion::GpaRegion;
 use crate::vm::dtb;
+use crate::irq::plic::Plic;
 
 #[allow(unused)]
 extern "C"
@@ -62,6 +63,7 @@ pub struct VirtualMachine {
     pub vm_image: image::VmImage,
     pub dtb_file: dtb::DeviceTree,
     pub initrd_path: String,
+    pub plic: Arc<Plic>
 }
 
 impl VirtualMachine {
@@ -85,7 +87,7 @@ impl VirtualMachine {
         let elf_path = &vm_config.kernel_img_path[..];
         let dtb_path = &vm_config.dtb_path[..];
         let mmio_regions = vm_config.mmio_regions;
-        let vcpus: Vec<Arc<virtualcpu::VirtualCpu>> = Vec::new();
+        let mut vcpus: Vec<Arc<virtualcpu::VirtualCpu>> = Vec::new();
         let vm_image = image::VmImage::new(elf_path);
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
@@ -96,8 +98,19 @@ impl VirtualMachine {
         let vm_state = VmSharedState::new(ioctl_fd, mem_size, mmio_regions);
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
 
-        // Create vm struct instance
-        let mut vm = Self {
+        // Create vcpu struct instance
+        for i in 0..vcpu_num {
+            let vcpu = Arc::new(virtualcpu::VirtualCpu::new(i,
+                    vm_state_mutex.clone()));
+            vcpus.push(vcpu);
+        }
+        
+        let plic = Arc::new(Plic::new(&vcpus));
+        for vcpu in &vcpus {
+            vcpu.plic.set(plic.clone()).ok();
+        }
+
+        Self {
             vcpus,
             vcpu_num,
             vm_state: vm_state_mutex.clone(),
@@ -105,17 +118,8 @@ impl VirtualMachine {
             vm_image,
             dtb_file,
             initrd_path,
-        };
-
-        // Create vcpu struct instance
-        for i in 0..vcpu_num {
-            let vcpu = Arc::new(virtualcpu::VirtualCpu::new(i,
-                    vm_state_mutex.clone()));
-            vm.vcpus.push(vcpu);
+            plic,
         }
-
-        // Return vm instance with vcpus
-        vm
     }
 
     fn load_file_to_mem(dst: u64, src: u64, size: u64) {

@@ -1,5 +1,5 @@
 use std::vec::Vec;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Weak, Mutex, RwLock};
 
 use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
@@ -38,7 +38,7 @@ struct PlicState {
 struct PlicContext {
     // Static configuration
     ctx_id: u32,
-    vcpu: Arc<VirtualCpu>,
+    vcpu: Weak<VirtualCpu>,
     // Local IRQ state
     irq_priority_threshold: u8,
     irq_enable: [u32; MAX_DEVICES / 32],
@@ -75,7 +75,7 @@ impl PlicState {
 }
 
 impl PlicContext {
-    pub fn new(ctx_id: u32, vcpu: Arc<VirtualCpu>) -> Self {
+    pub fn new(ctx_id: u32, vcpu: Weak<VirtualCpu>) -> Self {
         let irq_priority_threshold: u8 = 0;
         let irq_enable = [0; MAX_DEVICES / 32];
         let irq_pending = [0; MAX_DEVICES / 32];
@@ -104,7 +104,7 @@ impl Plic {
             Vec::with_capacity(nr_ctx as usize);
         for i in 0..nr_ctx {
             let ctx_id = i as u32;
-            let vcpu = vcpus[i / 2].clone();
+            let vcpu = Arc::downgrade(&vcpus[i / 2]);
             let ctx = PlicContext::new(ctx_id, vcpu);
             plic_contexts.push(Mutex::new(ctx));
         }
@@ -150,10 +150,13 @@ impl Plic {
         let best_irq: u32 = self.select_local_pending_irq(&mut *ctx);
         dbgprintln!("update_local_irq best_irq: {}", best_irq);
 
+        let vcpu = ctx.vcpu.upgrade().unwrap();
         if best_irq == 0 {
             // unset irq
+            vcpu.virq.lock().unwrap().set_pending_irq(best_irq);
         } else {
             // set irq
+            vcpu.virq.lock().unwrap().unset_pending_irq(best_irq);
         }
     }
 
@@ -267,6 +270,8 @@ impl Plic {
                 let best_irq_mask: u32 = 1 << (best_irq % 32);
 
                 // unset irq
+                let vcpu = ctx.vcpu.upgrade().unwrap();
+                vcpu.virq.lock().unwrap().unset_pending_irq(best_irq);
 
                 if best_irq != 0 {
                     if (ctx.irq_autoclear[best_irq_word as usize] & 

@@ -12,6 +12,8 @@ use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
 use crate::plat::opensbi;
 use crate::vcpu::utils::*;
+use crate::irq::plic::Plic;
+use std::lazy::SyncOnceCell;
 
 #[allow(unused)]
 mod errno_constants {
@@ -63,6 +65,9 @@ pub struct VirtualCpu {
     pub vcpu_ctx: Mutex<VcpuCtx>,
     pub virq: Mutex<virq::VirtualInterrupt>,
     pub vtimer: Mutex<vtimer::VirtualTimer>,
+    // Cell for late init
+    // TODO: replace plic with irq_chip abstraction
+    pub plic: SyncOnceCell<Arc<Plic>>,
     // TODO: irq_pending with shared memory
     pub exit_reason: Mutex<ExitReason>,
 }
@@ -74,6 +79,7 @@ impl VirtualCpu {
         let virq = Mutex::new(virq::VirtualInterrupt::new());
         let vtimer = Mutex::new(vtimer::VirtualTimer::new(0, 0));
         let exit_reason = Mutex::new(ExitReason::ExitUnknown);
+        let plic = SyncOnceCell::new();
 
         Self {
             vcpu_id,
@@ -81,6 +87,7 @@ impl VirtualCpu {
             vcpu_ctx,
             virq,
             vtimer,
+            plic,
             exit_reason,
         }
     }
