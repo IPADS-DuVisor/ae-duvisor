@@ -36,6 +36,13 @@ extern "C"
     fn vmem_ld_data_end();
 }
 
+#[allow(unused)]
+extern "C"
+{
+    fn hypervisor_load(target_addr: u64) -> u64;
+}
+
+
 // Export to vcpu
 pub struct VmSharedState {
     pub vm_id: u32,

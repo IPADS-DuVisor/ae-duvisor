@@ -43,6 +43,12 @@ extern "C" {
 #[allow(unused)]
 extern "C"
 {
+    fn hypervisor_load(target_addr: u64) -> u64;
+}
+
+#[allow(unused)]
+extern "C"
+{
     fn vcpu_ecall_exit();
     fn vcpu_ecall_exit_end();
     fn vcpu_add_all_gprs();
@@ -138,9 +144,107 @@ impl VirtualCpu {
         return 0;
     }
 
-    fn handle_mmio(&mut self, _fault_addr: u64) -> i32 {
-        dbgprintln!("MMIO has not been finished yet! {:x}", _fault_addr);
+    /* TODO: H(U)LV/H(U)LVX.HU problems on qemu */
+    fn get_vm_inst_by_uepc(_uepc: u64) -> u64 {
         return 0;
+    }
+
+    /* TODO: Cannot get the instruction for now */
+    fn inst_parse(_inst: u64) -> Option<(u64, u64)> {
+        return None;
+    }
+
+    fn store_emulation(&mut self, fault_addr: u64, target_reg: u64,
+                bit_width: u64) -> i32 {
+        let ret: i32;
+        let bit_mask: u64 = (1 << bit_width) - 1;
+        let _data: u64 = self.vcpu_ctx.guest_ctx.gp_regs
+                .x_reg[target_reg as usize] & bit_mask;
+
+        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
+            dbgprintln!("tty store emulation has not been implemented yet");
+            ret = 1;
+        } else {
+            dbgprintln!("Unknown mmio (store)");
+            ret = 1;
+        }
+
+        return ret;
+    }
+
+    fn load_emulation(&mut self, fault_addr: u64, _target_reg: u64,
+                _bit_width: u64) -> i32 {
+        let ret: i32;
+
+        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
+            dbgprintln!("tty load emulation has not been implemented yet");
+            ret = 1;
+        } else {
+            dbgprintln!("Unknown mmio (load)");
+            ret = 1;
+        }
+
+        return ret;
+    }
+
+    /* 
+     * Handlers for mmio require the follow info at least:
+     * - fault address: the fault address
+     * - instruction: the instruction which caused the trap
+     *   - data bit width: for example, SD/LD or SW/LW
+     *   - target register: the register which the data should be stored or 
+     *     loaded
+     * - data access type: load or store (get from ucause or inst)
+     *
+     * TODO: the HLV instructions got some problems on qemu for now.
+     * Take the load inst as 'lb a0, 0x0(a0)' 
+     * and the store inst as 'sb a2, 0x0(a1)'
+     */
+    fn handle_mmio(&mut self, fault_addr: u64) -> i32 {
+        let ucause = self.vcpu_ctx.host_ctx.hyp_regs.ucause;
+        let uepc = self.vcpu_ctx.host_ctx.hyp_regs.uepc;
+        let hutinst = self.vcpu_ctx.host_ctx.hyp_regs.hutinst;
+        let inst: u64;
+        let target_reg: u64;
+        let bit_width: u64;
+        let ret: i32;
+        
+        if hutinst == 0x0 {
+            /* The implementation has not support the function of hutinst */
+            inst = VirtualCpu::get_vm_inst_by_uepc(uepc);
+        } else {
+            inst = hutinst;
+        }
+
+        let inst_res = VirtualCpu::inst_parse(inst);
+        if inst_res.is_none() {
+            /* linux use a0 for load and a2 for store in ttyS0-3f8 */
+            if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
+                // lb a0, 0x0(a0)
+                target_reg = 10;
+                bit_width = 8;
+            } else {
+                // sb a2, 0x0(a1)
+                target_reg = 12;
+                bit_width = 8;
+            }
+        } else {
+            let (_target_reg, _bit_width) = inst_res.unwrap();
+            target_reg = _target_reg;
+            bit_width = _bit_width;
+        }
+
+        if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
+            /* load */
+            ret = self.load_emulation(fault_addr, target_reg, bit_width);
+        } else if ucause == EXC_STORE_GUEST_PAGE_FAULT {
+            /* store */
+            ret = self.store_emulation(fault_addr, target_reg, bit_width);
+        } else {
+            ret = 1;
+        }
+
+        return ret;
     }
 
     fn handle_stage2_page_fault(&mut self) -> i32 {
