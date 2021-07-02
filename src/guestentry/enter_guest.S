@@ -25,6 +25,9 @@ enter_guest:
     ld t0, HOST_HYP_HUTVAL(a0)
     csrw CSR_HUTVAL, t0
 
+    ld t0, HOST_HYP_HUCOUNTEREN(a0)
+    csrw CSR_HUCOUNTEREN, t0
+
     /* Restore UEPC & UCAUSE & UTVAL for trap handler */
     ld t0, HOST_HYP_UEPC(a0)
     csrw CSR_UEPC, t0
@@ -65,6 +68,9 @@ exit_guest:
 
     csrr t0, CSR_HUTVAL
     sd t0, HOST_HYP_HUTVAL(a0)
+
+    csrr t0, CSR_HUCOUNTEREN
+    sd t0, HOST_HYP_HUCOUNTEREN(a0)
 
     /* Save UEPC & UCAUSE & UTVAL for trap handler */
     csrr t0, CSR_UEPC

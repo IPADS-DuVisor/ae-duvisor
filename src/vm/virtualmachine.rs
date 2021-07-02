@@ -101,7 +101,10 @@ impl VirtualMachine {
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
         let tty = Tty::new();
-        let io_thread = false;
+        let mut io_thread = true;
+
+        #[cfg(test)]
+        {io_thread = false;}
 
         /* get ioctl fd of "/dev/laputa_dev" */
         let ioctl_fd = VirtualMachine::open_ioctl();
@@ -199,6 +202,8 @@ impl VirtualMachine {
 
         dbgprintln!("DTB load finish");
 
+        println!("load DTB to 0x{:x}, size 0x{:x}", dtb_gpa, dtb_size);
+
         return Some((dtb_gpa, hva));
     }
 
@@ -209,7 +214,7 @@ impl VirtualMachine {
         let initrd_size: u64 = initrd_end - initrd_gpa;
         
         if initrd_gpa == 0 || initrd_end == 0 {
-            dbgprintln!("No initrd config in DTB");
+            println!("No initrd config in DTB");
             return None;
         }
 
@@ -219,8 +224,12 @@ impl VirtualMachine {
         /* Read initrd data */
         let initrd_data_res = std::fs::read(initrd_path);
         if initrd_data_res.is_err() {
+            println!("[0] init_gpa_block_initrd");
+
             return None;
         }
+
+        println!("[1] init_gpa_block_initrd");
 
         let initrd_data = initrd_data_res.unwrap();
         let initrd_res = self.vm_state.lock().unwrap().gsmmu.gpa_block_add(
@@ -230,12 +239,19 @@ impl VirtualMachine {
             return None;
         }
 
+        println!("[2] init_gpa_block_initrd");
+
+
         let (hva, _hpa) = initrd_res.unwrap();
         let initrd_data_ptr = initrd_data.as_ptr() as u64;
         VirtualMachine::load_file_to_mem(hva + page_offset, initrd_data_ptr,
                 initrd_data.len() as u64);
 
         dbgprintln!("Initrd load finish");
+        println!("[3] init_gpa_block_initrd");
+
+        println!("load initrd to 0x{:x} - 0x{:x}", initrd_gpa, initrd_end);
+
 
         return Some((initrd_gpa, hva + page_offset));
     }
@@ -264,6 +280,8 @@ impl VirtualMachine {
         hva_list.push(hva);
         
         VirtualMachine::load_file_to_mem(hva, img_data_ptr, size);
+
+        println!("load image to 0x{:x}", gpa);
 
         /* return for test */
         hva_list
@@ -295,6 +313,8 @@ impl VirtualMachine {
 
             /* dtb should be pointed by a1 */
             i.lock().unwrap().vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = dtb_gpa;
+
+            i.lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.hucounteren = 0xffffffff;
 
             /* set up the entry point of vm */
             if self.vm_image.file_type == image::IMAGE_TYPE_ELF {
@@ -336,6 +356,8 @@ impl VirtualMachine {
     pub fn read_poll_startup(&mut self) -> thread::JoinHandle<()>{
         let handle: thread::JoinHandle<()>;
         let console = self.console.clone();
+
+        println!("[1] read_poll_startup");
 
         // Start the read-polling thread
         handle = thread::spawn(move || {

@@ -144,7 +144,7 @@ impl VirtualCpu {
         }
 
         unsafe {
-            dbgprintln!("set IRQ_VS_TIMER irq.");
+            //println!("********----------set IRQ_VS_TIMER irq.");
             /* set virtual timer */
             csrs!(HUVIP, 1 << IRQ_VS_TIMER);
 
@@ -373,6 +373,8 @@ impl VirtualCpu {
         let a6 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; /* a6: FID */
         let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; /* a7: EID */
 
+        //println!("a7 0x{:x}", a7);
+
         /* FIXME: for test cases */
         if a7 == ECALL_VM_TEST_END {
             ret = 0xdead;
@@ -429,9 +431,12 @@ impl VirtualCpu {
             return ret;
         }
 
+        //println!("****-----ucause 0x{:x} uepc 0x{:x}", ucause, self.vcpu_ctx.host_ctx.hyp_regs.uepc);
         match ucause {
             EXC_VIRTUAL_INST_FAULT => {
-                ret = self.handle_virtual_inst_fault();
+                self.vcpu_ctx.host_ctx.hyp_regs.uepc = self.vcpu_ctx.host_ctx.hyp_regs.uepc + 4;
+                ret = 0;
+                //ret = self.handle_virtual_inst_fault();
             }
             EXC_INST_GUEST_PAGE_FAULT | EXC_LOAD_GUEST_PAGE_FAULT |
                 EXC_STORE_GUEST_PAGE_FAULT => {

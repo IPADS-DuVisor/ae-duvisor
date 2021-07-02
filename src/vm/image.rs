@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 
-// /* file type for vm image */
+/* file type for vm image */
 pub const IMAGE_TYPE_ELF: u8 = 1;
 pub const IMAGE_TYPE_DATA: u8 = 2;
 
-// /* linux image const */
+/* linux image const */
 pub const RISCV_RAM_GPA_START: u64 = 0x80000000;
 pub const KERNEL_OFFSET: u64 = 0x200000;
 
-// /* Read and parse the vm img file */
+/* Read and parse the vm img file */
 pub struct VmImage {
     pub elf_file: elf::File,
     pub file_data: Vec<u8>,
@@ -17,13 +17,13 @@ pub struct VmImage {
 
 impl VmImage {
     pub fn new(file_path: &str) -> Self {
-        // /* parse ELF file */
+        /* parse ELF file */
         let elf_file: elf::File;
         let elf_wrap = VmImage::elf_parse(file_path);
         let file_type: u8;
 
         if elf_wrap.is_none() {
-            // /* VM image is not ELF */
+            /* VM image is not ELF */
             elf_file = elf::File::new();
             file_type = IMAGE_TYPE_DATA;
         } else {

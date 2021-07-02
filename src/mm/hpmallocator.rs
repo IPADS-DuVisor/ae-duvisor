@@ -79,8 +79,8 @@ impl HpmAllocator {
         unsafe {
             let version_ptr = (&version) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
-            println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", 
-                version);
+            //println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", 
+                //version);
 
             /* get va */
             let addr = 0 as *mut libc::c_void;
@@ -93,8 +93,8 @@ impl HpmAllocator {
             test_buf_pfn = test_buf;
             let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
-            println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
-                test_buf_pfn);
+            //println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
+                //test_buf_pfn);
         }
 
         let hpm_vptr = test_buf as u64;
@@ -150,13 +150,13 @@ impl HpmAllocator {
             /* increase the offset */
             target_hpm_region.offset += length;
 
-            println!("target_hpm_region - offset: {}", 
-                target_hpm_region.offset);
+            //println!("target_hpm_region - offset: {}", 
+                //target_hpm_region.offset);
 
             return Some(result);
         }
 
-        println!("128 MB is not enough!");
+        //println!("128 MB is not enough!");
 
         None
     }
