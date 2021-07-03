@@ -92,15 +92,22 @@ impl VirtualMachine {
 
     pub fn new(vm_config: VMConfig) -> Self {
         let vcpu_num = vm_config.vcpu_count;
-        let mem_size = vm_config.mem_size;
+        let mem_size = vm_config.mem_size << GB_SHIFT;
         let elf_path = &vm_config.kernel_img_path[..];
         let dtb_path = &vm_config.dtb_path[..];
-        let mmio_regions = vm_config.mmio_regions;
+        let mut mmio_regions = vm_config.mmio_regions;
         let vcpus: Vec<Arc<Mutex<virtualcpu::VirtualCpu>>> = Vec::new();
         let vm_image = image::VmImage::new(elf_path);
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
         let tty = Tty::new();
+
+        /* mmio default config */
+        let mmio_region = GpaRegion {
+            gpa: 0x0,
+            length: 0x1000,
+        };
+        mmio_regions.push(mmio_region);
 
         #[cfg(test)]
         let io_thread = false;

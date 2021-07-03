@@ -1,5 +1,4 @@
 pub mod configtest {
-    use crate::mm::utils::*;
     use crate::init::cmdline::VMConfig;
     use crate::mm::gparegion::GpaRegion;
 
@@ -21,7 +20,7 @@ pub mod configtest {
     pub fn test_vm_config_create() -> VMConfig {
         let mut test_vm_config: VMConfig = VMConfig {
             vcpu_count: 1,
-            mem_size: 1 << TB_SHIFT,
+            mem_size: 1024,
             machine_type: String::from(""),
             kernel_img_path: String::from(ELF_IMG_PATH),
             initrd_path: String::from(""),
