@@ -251,9 +251,13 @@ impl VirtualCpu {
 
         if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
             /* load */
+            /* check the input and update huvip */
+            self.console.lock().unwrap().update_huvip();
+
             ret = self.load_emulation(fault_addr, target_reg, bit_width);
         } else if ucause == EXC_STORE_GUEST_PAGE_FAULT {
             /* store */
+
             ret = self.store_emulation(fault_addr, target_reg, bit_width);
         } else {
             ret = 1;
