@@ -1,6 +1,5 @@
 use crate::vm::virtualmachine;
 use crate::irq::virq;
-use crate::irq::vtimer;
 use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
 use vcpucontext::*;
@@ -64,7 +63,6 @@ pub struct VirtualCpu {
     pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
     pub vcpu_ctx: Mutex<VcpuCtx>,
     pub virq: Mutex<virq::VirtualInterrupt>,
-    pub vtimer: Mutex<vtimer::VirtualTimer>,
     // Cell for late init
     // TODO: replace plic with irq_chip abstraction
     pub plic: SyncOnceCell<Arc<Plic>>,
@@ -77,7 +75,6 @@ impl VirtualCpu {
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>) -> Self {
         let vcpu_ctx = Mutex::new(VcpuCtx::new());
         let virq = Mutex::new(virq::VirtualInterrupt::new());
-        let vtimer = Mutex::new(vtimer::VirtualTimer::new(0, 0));
         let exit_reason = Mutex::new(ExitReason::ExitUnknown);
         let plic = SyncOnceCell::new();
 
@@ -86,7 +83,6 @@ impl VirtualCpu {
             vm: vm_mutex_ptr,
             vcpu_ctx,
             virq,
-            vtimer,
             plic,
             exit_reason,
         }
@@ -128,11 +124,10 @@ impl VirtualCpu {
     }
 
     fn handle_u_vtimer_irq(&self) -> i32 {
+        dbgprintln!("set IRQ_VS_TIMER irq.");
+        // set virtual timer
+        self.virq.lock().unwrap().set_pending_irq(IRQ_VS_TIMER);
         unsafe {
-            dbgprintln!("set IRQ_VS_TIMER irq.");
-            // set virtual timer
-            csrs!(HUVIP, 1 << IRQ_VS_TIMER);
-
             /* 
              * FIXME: There may be unexpected pending bit IRQ_U_VTIMER when 
              * traped to kernel disable timer.
@@ -282,7 +277,7 @@ impl VirtualCpu {
 
         /* Part of SBIs should emulated via IOCTL */
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd as i32;
-        ret = target_ecall.ecall_handler(fd);
+        ret = target_ecall.ecall_handler(fd, &self);
 
         // save the result
         vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
@@ -380,6 +375,9 @@ impl VirtualCpu {
         let mut ret: i32 = 0;
         let mut cnt: u64 = 0;
         while ret == 0 {
+            // Flush pending irqs into HUVIP
+            self.virq.lock().unwrap().flush_pending_irq();
+
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }

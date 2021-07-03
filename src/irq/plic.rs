@@ -3,6 +3,7 @@ use std::sync::{Arc, Weak, Mutex, RwLock};
 
 use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
+use crate::irq::delegation::delegation_constants::IRQ_VS_EXT;
 
 const MAX_DEVICES: usize = 32;
 
@@ -37,7 +38,6 @@ struct PlicState {
 
 struct PlicContext {
     // Static configuration
-    ctx_id: u32,
     vcpu: Weak<VirtualCpu>,
     // Local IRQ state
     irq_priority_threshold: u8,
@@ -75,7 +75,7 @@ impl PlicState {
 }
 
 impl PlicContext {
-    pub fn new(ctx_id: u32, vcpu: Weak<VirtualCpu>) -> Self {
+    pub fn new(vcpu: Weak<VirtualCpu>) -> Self {
         let irq_priority_threshold: u8 = 0;
         let irq_enable = [0; MAX_DEVICES / 32];
         let irq_pending = [0; MAX_DEVICES / 32];
@@ -84,7 +84,6 @@ impl PlicContext {
         let irq_autoclear = [0; MAX_DEVICES / 32];
         
         PlicContext {
-            ctx_id,
             vcpu,
             irq_priority_threshold,
             irq_enable,
@@ -103,9 +102,8 @@ impl Plic {
         let mut plic_contexts: Vec<Mutex<PlicContext>> = 
             Vec::with_capacity(nr_ctx as usize);
         for i in 0..nr_ctx {
-            let ctx_id = i as u32;
             let vcpu = Arc::downgrade(&vcpus[i / 2]);
-            let ctx = PlicContext::new(ctx_id, vcpu);
+            let ctx = PlicContext::new(vcpu);
             plic_contexts.push(Mutex::new(ctx));
         }
 
@@ -153,10 +151,10 @@ impl Plic {
         let vcpu = ctx.vcpu.upgrade().unwrap();
         if best_irq == 0 {
             // unset irq
-            vcpu.virq.lock().unwrap().set_pending_irq(best_irq);
+            vcpu.virq.lock().unwrap().set_pending_irq(IRQ_VS_EXT);
         } else {
             // set irq
-            vcpu.virq.lock().unwrap().unset_pending_irq(best_irq);
+            vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
         }
     }
 
@@ -271,7 +269,7 @@ impl Plic {
 
                 // unset irq
                 let vcpu = ctx.vcpu.upgrade().unwrap();
-                vcpu.virq.lock().unwrap().unset_pending_irq(best_irq);
+                vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
 
                 if best_irq != 0 {
                     if (ctx.irq_autoclear[best_irq_word as usize] & 

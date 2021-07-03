@@ -1,5 +1,6 @@
 use crate::mm::utils::*;
 use crate::vcpu::utils::*;
+use crate::vcpu::virtualcpu::VirtualCpu;
 use crate::plat::uhe::csr::csr_constants::*;
 use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::ioctl::ioctl_constants::*;
@@ -61,7 +62,7 @@ impl Ecall {
      * be finished in U-mode for now. So pass the ioctl_fd to call kernel
      * module. 
      */
-    pub fn ecall_handler(&mut self, ioctl_fd: i32) -> i32 {
+    pub fn ecall_handler(&mut self, ioctl_fd: i32, vcpu: &VirtualCpu) -> i32 {
         let ext_id = self.ext_id;
         let ret: i32;
 
@@ -70,14 +71,14 @@ impl Ecall {
                 // TODO: add rust feature to tell between rv64 and rv32
                 // TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if rv32
                 let next_cycle = self.arg[0];
+                
+                // linux thinks that the IRQ_S_TIMER will be cleared when ecall SBI_EXT_0_1_SET_TIMER
+                // For record, opensbi thinks that IRQ_M_TIMER should be cleared by software.
+                // Qemu and xv6 think that IRQ_M_TIMER should be clear when writing timecmp.
+                // I think that IRQ_U_VTIMER should be cleared by software.
+                // That's a drawback of riscv, unlike GIC which can provide the same interface for eoi. 
+                vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_TIMER);
                 unsafe {
-                    // linux thinks that the IRQ_S_TIMER will be cleared when ecall SBI_EXT_0_1_SET_TIMER
-                    // For record, opensbi thinks that IRQ_M_TIMER should be cleared by software.
-                    // Qemu and xv6 think that IRQ_M_TIMER should be clear when writing timecmp.
-                    // I think that IRQ_U_VTIMER should be cleared by software.
-                    // That's a drawback of riscv, unlike GIC which can provide the same interface for eoi. 
-                    csrc!(HUVIP, 1 << IRQ_VS_TIMER);
-
                     // set timer ctl register to enable u vtimer
                     csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
                     csrw!(VTIMECMP, next_cycle);
