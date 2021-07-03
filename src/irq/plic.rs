@@ -207,15 +207,12 @@ impl Plic {
             }
             if (new_val & irq_mask) != 0 && 
                 (state.irq_level[irq_word as usize] & irq_mask) != 0 {
-                ctx.irq_pending[irq_word as usize] = 
-                    ctx.irq_pending[irq_word as usize] | irq_mask;
+                ctx.irq_pending[irq_word as usize] |= irq_mask;
                 ctx.irq_pending_priority[irq as usize] = irq_prio as u32;
             } else if (new_val & irq_mask) == 0 {
-                ctx.irq_pending[irq_word as usize] = 
-                    ctx.irq_pending[irq_word as usize] & !irq_mask;
+                ctx.irq_pending[irq_word as usize] &= !irq_mask;
                 ctx.irq_pending_priority[irq as usize] = 0;
-                ctx.irq_claimed[irq_word as usize] = 
-                    ctx.irq_claimed[irq_word as usize] & !irq_mask;
+                ctx.irq_claimed[irq_word as usize] &= !irq_mask;
             }
         }
 
@@ -274,16 +271,12 @@ impl Plic {
                 if best_irq != 0 {
                     if (ctx.irq_autoclear[best_irq_word as usize] & 
                         best_irq_mask) != 0 {
-                        ctx.irq_pending[best_irq_word as usize] = 
-                            ctx.irq_pending[best_irq_word as usize] & !best_irq_mask;
+                        ctx.irq_pending[best_irq_word as usize] &= !best_irq_mask;
                         ctx.irq_pending_priority[best_irq as usize] = 0;
-                        ctx.irq_claimed[best_irq_word as usize] = 
-                            ctx.irq_claimed[best_irq_word as usize] & !best_irq_mask;
-                        ctx.irq_autoclear[best_irq_word as usize] = 
-                            ctx.irq_autoclear[best_irq_word as usize] & !best_irq_mask;
+                        ctx.irq_claimed[best_irq_word as usize] &= !best_irq_mask;
+                        ctx.irq_autoclear[best_irq_word as usize] &= !best_irq_mask;
                     } else {
-                        ctx.irq_claimed[best_irq_word as usize] = 
-                            ctx.irq_claimed[best_irq_word as usize] | best_irq_mask;
+                        ctx.irq_claimed[best_irq_word as usize] |= best_irq_mask;
                     }
                 }
                 self.update_local_irq(&mut *ctx);
@@ -364,12 +357,10 @@ impl Plic {
 
         if level {
             let mut state = self.plic_state.write().unwrap();
-            state.irq_level[irq_word as usize] = 
-                state.irq_level[irq_word as usize] | irq_mask;
+            state.irq_level[irq_word as usize] |= irq_mask;
         } else {
             let mut state = self.plic_state.write().unwrap();
-            state.irq_level[irq_word as usize] = 
-                state.irq_level[irq_word as usize] & !irq_mask;
+            state.irq_level[irq_word as usize] &= !irq_mask;
         }
         dbgprintln!("\t\ttrigger_irq: irq_prio {:x} irq_word {:x} irq_mask {:x}",
             irq_prio, irq_word, irq_mask);
@@ -380,19 +371,15 @@ impl Plic {
             
             if (ctx.irq_enable[irq_word as usize] & irq_mask) != 0 {
                 if level {
-                    ctx.irq_pending[irq_word as usize] = 
-                        ctx.irq_pending[irq_word as usize] | irq_mask;
+                    ctx.irq_pending[irq_word as usize] |= irq_mask;
                     ctx.irq_pending_priority[irq as usize] = irq_prio as u32;
                     dbgprintln!("\t\ttrigger_irq irq_pending: {:x}, irq_mask: {:x}", 
                         ctx.irq_pending[irq_word as usize], irq_mask);
                 } else {
-                    ctx.irq_pending[irq_word as usize] = 
-                        ctx.irq_pending[irq_word as usize] & !irq_mask;
+                    ctx.irq_pending[irq_word as usize] &= !irq_mask;
                     ctx.irq_pending_priority[irq as usize] = 0;
-                    ctx.irq_claimed[irq_word as usize] = 
-                        ctx.irq_claimed[irq_word as usize] & !irq_mask;
-                    ctx.irq_autoclear[irq_word as usize] = 
-                        ctx.irq_autoclear[irq_word as usize] & !irq_mask;
+                    ctx.irq_claimed[irq_word as usize] &= !irq_mask;
+                    ctx.irq_autoclear[irq_word as usize] &= !irq_mask;
                 }
                 self.update_local_irq(&mut *ctx);
                 irq_marked = true;
