@@ -48,13 +48,13 @@ pub mod tty_uart_constants {
     pub const UART_SCR: usize = 7;
 
     /* UART_DLL */
-    pub const UART_DLL: usize = 8; // reuse offset 0
+    pub const UART_DLL: usize = 8; /* reuse offset 0 */
 
     /* UART_DLM */
-    pub const UART_DLM: usize = 9; // reuse offset 1
+    pub const UART_DLM: usize = 9; /* reuse offset 1 */
 
     /* UART_FCR */
-    pub const UART_FCR: usize = 10; // reuse offset 2
+    pub const UART_FCR: usize = 10; /* reuse offset 2 */
     pub const UART_FCR_CLEAR_RCVR: u8 = 0x02;
     pub const UART_FCR_CLEAR_XMIT: u8 = 0x04;
 }
@@ -89,7 +89,7 @@ fn console_putchar(output: u64) {
             ESCAPE[ESCAPE_CNT] = ch;
             ESCAPE_CNT += 1;
         } else if ESCAPE_CNT > 1 && ESCAPE_CNT < ESCAPE_LEN && output == 13 {
-            // Match the pattern and throw out
+            /* Match the pattern and throw out */
             ESCAPE_CNT = 0;
         } else {            
             for i in 0..ESCAPE_CNT {
@@ -192,7 +192,7 @@ impl Tty {
         let mut ret: u8 = 0 as u8;
 
         match offset as usize {
-            0 => { //0
+            UART_RX => { /* 0x3f8 */
                 if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
                     ret = vcpu.console.lock().unwrap().value[UART_DLL];
                 } else {
@@ -206,32 +206,32 @@ impl Tty {
                     }
                 }
             }
-            1 => { //1
+            UART_IER => { /* 0x3f9 */
                 if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
                     ret = vcpu.console.lock().unwrap().value[UART_DLL];
                 } else {
                     ret = vcpu.console.lock().unwrap().value[UART_IER];
                 }
             }
-            2 => { //2
+            UART_IIR => { /* 0x3fa */
                 ret = vcpu.console.lock().unwrap().value[UART_IIR] | UART_IIR_TYPE_BITS;
             }
-            3 => { //3
+            UART_LCR => { /* 0x3fb */
                 ret = vcpu.console.lock().unwrap().value[UART_LCR];
             }
-            4 => { //4
+            UART_MCR => { /* 0x3fc */
                 ret = vcpu.console.lock().unwrap().value[UART_MCR];
             }
-            5 => { //5
+            UART_LSR => { /* 0x3fd */
                 ret = vcpu.console.lock().unwrap().value[UART_LSR];
                 if vcpu.console.lock().unwrap().cnt > 0 {
                     ret |= UART_LSR_DR;
                 }
             }
-            6 => { //6
+            UART_MSR => { /* 0x3fe */
                 ret = vcpu.console.lock().unwrap().value[UART_MSR];
             }
-            7 => { //7
+            UART_SCR => { /* 0x3ff */
                 ret = vcpu.console.lock().unwrap().value[UART_SCR];
             }
             _ => {
@@ -249,7 +249,7 @@ impl Tty {
         let offset = mmio_addr - 0x3f8;
 
         match offset as usize {
-            0 => { //0
+            UART_TX => { /* 0x3f8 */
                 if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
                     vcpu.console.lock().unwrap().value[UART_DLL] = data;
                 } else {
@@ -262,24 +262,28 @@ impl Tty {
                     }
                 }
             }
-            1 => { //1
+            UART_IER => { /* 0x3f9 */
                 if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
                     vcpu.console.lock().unwrap().value[UART_IER] = data & 0x0f;
                 } else {
                     vcpu.console.lock().unwrap().value[UART_DLM] = data;
                 }
             }
-            2 => { //2
+            UART_IIR => { /* 0x3fa UART_FCR */
                 vcpu.console.lock().unwrap().value[UART_FCR] = data;
+                dbgprintln!("fcr {:x}", data);
             }
-            3 => { //3
+            UART_LCR => { /* 0x3fb */
                 vcpu.console.lock().unwrap().value[UART_LCR] = data;
+                dbgprintln!("lcr {:x}", data);
             }
-            4 => { //4
+            UART_MCR => { /* 0x3fc */
                 vcpu.console.lock().unwrap().value[UART_MCR] = data;
+                dbgprintln!("mcr {:x}", data);
             }
-            7 => { //7
+            UART_SCR => { /* 0x3ff */
                 vcpu.console.lock().unwrap().value[UART_SCR] = data;
+                dbgprintln!("scr {:x}", data);
             }
             _ => {
                 println!("Unknown tty store offset {}", offset);

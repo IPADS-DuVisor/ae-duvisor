@@ -1,20 +1,20 @@
 use std::process;
 use colored::*;
 use laputa::init::cmdline;
-use laputa::debug::utils::configtest::test_vm_config_create;
-use laputa::mm::gparegion::GpaRegion;
+/* use laputa::debug::utils::configtest::test_vm_config_create;
+use laputa::mm::gparegion::GpaRegion; */
 
 fn main() {
-    /* let vm_config = cmdline::VMConfig::new().unwrap_or_else(|err| {
+    let vm_config = cmdline::VMConfig::new().unwrap_or_else(|err| {
         eprintln!("{}: {}", "error".bright_red(), err);
         process::exit(1);
     });
 
     if !cmdline::VMConfig::verify_args(&vm_config) {
         process::exit(1);
-    } */
+    }
 
-    let mut vm_config = test_vm_config_create();
+    /* let mut vm_config = test_vm_config_create();
     let elf_path: &str = "./test-files-laputa/Image";
     vm_config.kernel_img_path = String::from(elf_path);
     let dtb_path: &str = "./test-files-laputa/vmlinux.dtb";
@@ -31,7 +31,7 @@ fn main() {
     };
 
     vm_config.mmio_regions.push(TEST_MMIO_REGION_1);
-    vm_config.vcpu_count = 1;
+    vm_config.vcpu_count = 1; */
 
     laputa::run(vm_config);
 }

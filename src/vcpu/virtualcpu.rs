@@ -123,8 +123,8 @@ impl VirtualCpu {
     
     fn handle_virtual_inst_fault(&mut self) -> i32 {
         let ret = 0;
-        let _utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
-        dbgprintln!("handle_virtual_inst_fault: insn = {:x}", _utval);
+
+        self.vcpu_ctx.host_ctx.hyp_regs.uepc = self.vcpu_ctx.host_ctx.hyp_regs.uepc + 4;
         
         ret
     }
@@ -144,7 +144,6 @@ impl VirtualCpu {
         }
 
         unsafe {
-            //println!("********----------set IRQ_VS_TIMER irq.");
             /* set virtual timer */
             csrs!(HUVIP, 1 << IRQ_VS_TIMER);
 
@@ -373,8 +372,6 @@ impl VirtualCpu {
         let a6 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; /* a6: FID */
         let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; /* a7: EID */
 
-        //println!("a7 0x{:x}", a7);
-
         /* FIXME: for test cases */
         if a7 == ECALL_VM_TEST_END {
             ret = 0xdead;
@@ -431,12 +428,10 @@ impl VirtualCpu {
             return ret;
         }
 
-        //println!("****-----ucause 0x{:x} uepc 0x{:x}", ucause, self.vcpu_ctx.host_ctx.hyp_regs.uepc);
         match ucause {
             EXC_VIRTUAL_INST_FAULT => {
-                self.vcpu_ctx.host_ctx.hyp_regs.uepc = self.vcpu_ctx.host_ctx.hyp_regs.uepc + 4;
+                self.handle_virtual_inst_fault();
                 ret = 0;
-                //ret = self.handle_virtual_inst_fault();
             }
             EXC_INST_GUEST_PAGE_FAULT | EXC_LOAD_GUEST_PAGE_FAULT |
                 EXC_STORE_GUEST_PAGE_FAULT => {
@@ -516,6 +511,7 @@ mod tests {
     use std::thread;
     use rusty_fork::rusty_fork_test;
     use crate::debug::utils::configtest::test_vm_config_create;
+    use crate::devices::tty::tty_uart_constants::*;
 
     rusty_fork_test! {
         #[test]
@@ -1000,14 +996,12 @@ mod tests {
             assert_eq!(ucause, 10);
         }
 
-        /* #[test]
-        fn test_tty_output() { 
+        #[test]
+        fn test_tty_sd() { 
             let mut vm_config = test_vm_config_create();
-            let elf_path: &str = "./tests/integration/tty_output.img";
+            let elf_path: &str = "./tests/integration/tty_store.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-            /* open io_thread */
-            //vm.io_thread = true;
 
             vm.vm_init();
 
@@ -1018,15 +1012,36 @@ mod tests {
             
             vm.vm_run();
 
+            /* Answer */
+            let ans_dlm = 0xfe;
+            let ans_fcr = 0x6;
+            let ans_lcr = 0x80;
+            let ans_mcr = 0x8;
+            let ans_scr = 0x0;
+            let ans_ier = 0xf;
+
+            /* test data */
+            let dlm = vm.console.lock().unwrap().value[UART_DLM];
+            let fcr = vm.console.lock().unwrap().value[UART_FCR];
+            let lcr = vm.console.lock().unwrap().value[UART_LCR];
+            let mcr = vm.console.lock().unwrap().value[UART_MCR];
+            let scr = vm.console.lock().unwrap().value[UART_SCR];
+            let ier = vm.console.lock().unwrap().value[UART_IER];
+
             vm.vm_destroy();
 
-            assert_eq!(1, 0);
-        } */
+            assert_eq!(dlm, ans_dlm);
+            assert_eq!(fcr, ans_fcr);
+            assert_eq!(lcr, ans_lcr);
+            assert_eq!(mcr, ans_mcr);
+            assert_eq!(scr, ans_scr);
+            assert_eq!(ier, ans_ier);
+        }
 
         #[test]
         fn test_tty_ld() { 
             let mut vm_config = test_vm_config_create();
-            let elf_path: &str = "./tests/integration/tty_ld.img";
+            let elf_path: &str = "./tests/integration/tty_load.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 

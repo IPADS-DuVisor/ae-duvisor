@@ -203,8 +203,6 @@ impl MachineMeta {
             cells = size_cells;
         }
 
-        println!("initrd_parse - cells {}", cells);
-
         for i in 0..cells {
             prop_value = (prop_value << 32) + (value_u32_list[i as usize] as u64);
         }
