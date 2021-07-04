@@ -16,13 +16,13 @@ fn cc_build_filename(filename : &str){
 }
 
 fn main() {
-    // Prepare src/guestentry/asm_offset.h
+    /* Prepare src/guestentry/asm_offset.h */
     prepare_asm_offset_header();
 
     cc::Build::new()
         .file("src/guestentry/enter_guest.S")
         .compile("enter_guest");
-    
+
     cc::Build::new()
         .file("src/plat/opensbi/uart.c")
         .compile("uart");

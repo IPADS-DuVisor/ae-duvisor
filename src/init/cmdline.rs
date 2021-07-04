@@ -30,7 +30,7 @@ impl VMConfig {
         let yaml = load_yaml!("../clap_config.yml");
         let matches = App::from_yaml(yaml).get_matches();
 
-        // We get VM arguments from vm_config file. 
+        /* We get VM arguments from vm_config file. */ 
         if matches.is_present("vm_config") {
             let vm_config_path = matches.value_of("vm_config").unwrap().to_string();
             println!("vm_config_path = {}", vm_config_path);
@@ -43,37 +43,37 @@ impl VMConfig {
                                                          &mut vm_config) {
                 return Err("Failed to parse vm config file!");
             }
-        } else { // We get VM arguments from command line.
-            // Get machine type 
+        } else { /* We get VM arguments from command line. */
+            /* Get machine type */ 
             if matches.is_present("machine") {
                 vm_config.machine_type = matches.value_of("machine").unwrap().to_string();
             }
 
-            // Get vcpu count
+            /* Get vcpu count */
             vm_config.vcpu_count = value_t!(matches.value_of("smp"), u32).unwrap_or(0);
             if vm_config.vcpu_count == 0 {
                 return Err("please set vcpu count by using --smp or config files.");
             }
 
-            // Get memory size
+            /* Get memory size */
             vm_config.mem_size = value_t!(matches.value_of("memory"), u64).unwrap_or(0);
             if vm_config.mem_size == 0 {
                 return Err("please set memory size by using --memory or config files.");
             }
 
-            // Get kernel_image_path 
+            /* Get kernel_image_path */ 
             if matches.is_present("kernel") {
                 vm_config.kernel_img_path = matches.value_of("kernel").unwrap().to_string();
             } else {
                 return Err("please set kernel image by using --kernel or config files.");
             }
 
-            // Get dtb_path 
+            /* Get dtb_path */ 
             if matches.is_present("dtb") {
                 vm_config.dtb_path = matches.value_of("dtb").unwrap().to_string()
             }
 
-            // Get initrd_path 
+            /* Get initrd_path */ 
             if matches.is_present("initrd") {
                 vm_config.initrd_path = matches.value_of("initrd").unwrap().to_string();
             }

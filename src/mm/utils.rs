@@ -1,5 +1,5 @@
 pub const PAGE_SIZE_SHIFT: u64 = 12;
-pub const PAGE_TABLE_REGION_SIZE: u64 = 32 << MB_SHIFT; // 32MB for now
+pub const PAGE_TABLE_REGION_SIZE: u64 = 32 << MB_SHIFT; /* 32MB for now */
 pub const PAGE_SIZE: u64 = 1u64 << PAGE_SIZE_SHIFT;
 pub const PAGE_SIZE_MASK: u64 = PAGE_SIZE - 1;
 pub const PAGE_SHIFT: u64 = 12;
@@ -27,7 +27,6 @@ pub macro_rules! dbgprintln {
 }
 
 pub fn page_size_round_up(length: u64) -> u64 {
-    println!("length 0x{:x}", length);
     if length & PAGE_SIZE_MASK == 0 {
         return length;
     }

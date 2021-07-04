@@ -23,7 +23,7 @@ impl MmioManager {
         self.gpa_regions.push(gpa_region);
     }
 
-    // TODO: check mmio region list and reorder them
+    /* TODO: check mmio region list and reorder them */
     pub fn check_valid(&self) -> bool {
         return true;
     }
@@ -33,7 +33,7 @@ impl MmioManager {
 mod tests {
     use super::*;
 
-    // Check new() of GpaBlock
+    /* Check new() of GpaBlock */
     #[test]
     fn test_mmio_add() {
         let mut gpa: u64 = 0;

@@ -36,10 +36,17 @@ extern "C"
 }
 
 pub struct Ecall {
-    pub ext_id: u64, // EID - a7
-    pub func_id: u64, // FID - a6
-    pub arg: [u64; 6], // args - a0~a5
-    pub ret: [u64; 2], // return - a0, a1
+    /* EID - a7 */
+    pub ext_id: u64,
+
+    /* FID - a6 */
+    pub func_id: u64,
+
+    /* args - a0~a5 */
+    pub arg: [u64; 6],
+
+    /* return - a0, a1 */
+    pub ret: [u64; 2],
 }
 
 impl Ecall {
@@ -68,18 +75,20 @@ impl Ecall {
 
         match ext_id {
             SBI_EXT_0_1_SET_TIMER => {
-                // TODO: add rust feature to tell between rv64 and rv32
-                // TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if rv32
+                /* TODO: add rust feature to tell between rv64 and rv32 */
+                /* TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if rv32 */
                 let next_cycle = self.arg[0];
                 
-                // linux thinks that the IRQ_S_TIMER will be cleared when ecall SBI_EXT_0_1_SET_TIMER
-                // For record, opensbi thinks that IRQ_M_TIMER should be cleared by software.
-                // Qemu and xv6 think that IRQ_M_TIMER should be clear when writing timecmp.
-                // I think that IRQ_U_VTIMER should be cleared by software.
-                // That's a drawback of riscv, unlike GIC which can provide the same interface for eoi. 
+                /*
+                 * linux thinks that the IRQ_S_TIMER will be cleared when ecall SBI_EXT_0_1_SET_TIMER
+                 * For record, opensbi thinks that IRQ_M_TIMER should be cleared by software.
+                 * Qemu and xv6 think that IRQ_M_TIMER should be clear when writing timecmp.
+                 * I think that IRQ_U_VTIMER should be cleared by software.
+                 * That's a drawback of riscv, unlike GIC which can provide the same interface for eoi. 
+                 */
                 vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_TIMER);
                 unsafe {
-                    // set timer ctl register to enable u vtimer
+                    /* set timer ctl register to enable u vtimer */
                     csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
                     csrw!(VTIMECMP, next_cycle);
                 }
@@ -114,7 +123,7 @@ impl Ecall {
                     let ecall_ret: [u64;2] = [0, 0];
                     let ret_ptr = (&ecall_ret) as *const u64;
 
-                    // call ioctl IOCTL_REMOTE_FENCE to kernel module
+                    /* call ioctl IOCTL_REMOTE_FENCE to kernel module */
                     let _res = libc::ioctl(ioctl_fd, IOCTL_REMOTE_FENCE,
                             ret_ptr);
                                         
@@ -137,14 +146,14 @@ impl Ecall {
         let ch = ch as char;
         print!("{}", ch);
 
-        // success and return with a0 = 0
+        /* success and return with a0 = 0 */
         self.ret[0] = 0;
 
         0
     }
 
     fn unsupported_sbi(&mut self) -> i32{
-        // SBI error and return with a0 = SBI_ERR_NOT_SUPPORTED
+        /* SBI error and return with a0 = SBI_ERR_NOT_SUPPORTED */
         self.ret[0] = SBI_ERR_NOT_SUPPORTED as u64;
 
         0
@@ -153,13 +162,13 @@ impl Ecall {
     fn console_getchar(&mut self) -> i32{
         let ret: i32;
 
-        // Cannot switch the backend process to the front.
-        // So test_ecall_getchar() have to get chars from here. 
+        /* Cannot switch the backend process to the front. */
+        /* So test_ecall_getchar() have to get chars from here.  */
         #[cfg(test)]
         {
             let virtual_input: [i32; 16];
 
-            // input "getchar succeed\n"
+            /* input "getchar succeed\n" */
             virtual_input = [103, 101, 116, 99, 104, 97, 114, 32, 115, 117, 99,
                 99, 101, 101, 100, 10];
     
@@ -170,7 +179,7 @@ impl Ecall {
                 INDEX += 1;
             }
 
-            // success and return with a0 = 0
+            /* success and return with a0 = 0 */
             self.ret[0] = ret as u64;
 
             return 0;
@@ -182,7 +191,7 @@ impl Ecall {
                 ret = getchar_emulation();
             }
     
-            // success and return with a0 = 0
+            /* success and return with a0 = 0 */
             self.ret[0] = ret as u64;
     
             0
