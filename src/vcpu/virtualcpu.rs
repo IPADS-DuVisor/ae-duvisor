@@ -224,8 +224,31 @@ impl VirtualCpu {
         let inst: u64;
         let target_reg: u64;
         let bit_width: u64;
+        let mut inst_width: u64 = 4;
         let ret: i32;
+
+        // ffffffe0002e568a
+        // ffffffe0002e53ba
+        // ffffffe0002e57d6
+        // ffffffe0002e55c0
+        // ffffffe000713502
+        // ffffffe000713514
+        // ffffffe000713522
+        // ffffffe0007134f8
+        // ffffffe0002e543e
+        let is_plic_mmio = |fault_addr: u64| -> bool {
+            if 0xc000000 <= fault_addr && fault_addr < (0xc000000 + 0x1000000) {
+                return true;
+            } else {
+                return false;
+            }
+        };
         
+        if is_plic_mmio(fault_addr) {
+            println!("handle_mmio: plic_toggle uepc {:x} ucause {:x}, hutinst {:x}", 
+                uepc, ucause, hutinst);
+        }
+
         if hutinst == 0x0 {
             /* The implementation has not support the function of hutinst */
             inst = VirtualCpu::get_vm_inst_by_uepc(uepc);
@@ -253,19 +276,42 @@ impl VirtualCpu {
 
         if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
             /* load */
+            if is_plic_mmio(fault_addr) {
+                let mut data: u32 = 0;
+                self.plic.get().unwrap().mmio_callback(fault_addr, &mut data, false);
+                if (uepc == 0xffffffe0007134f8) {
+                    self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[13] = data as u64;
+                } else {
+                    self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[15] = data as u64;
+                }
+                ret = 0;
+                inst_width = 2;
+            } else {
             /* check the input and update huvip */
             self.console.lock().unwrap().update_huvip();
 
             ret = self.load_emulation(fault_addr, target_reg, bit_width);
+            }
         } else if ucause == EXC_STORE_GUEST_PAGE_FAULT {
             /* store */
-
+            if is_plic_mmio(fault_addr) {
+                let mut data: u32 = 0;
+                if uepc == 0xffffffe0002e543e {
+                    data = self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[15] as u32;
+                } else {
+                    data = self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[9] as u32;
+                }
+                self.plic.get().unwrap().mmio_callback(fault_addr, &mut data, true);
+                ret = 0;
+                inst_width = 2;
+            } else {
             ret = self.store_emulation(fault_addr, target_reg, bit_width);
+            }
         } else {
             ret = 1;
         }
 
-        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = uepc + 4;
+        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = uepc + inst_width;
 
         return ret;
     }
@@ -276,6 +322,12 @@ impl VirtualCpu {
         let mut fault_addr = (hutval << 2) | (utval & 0x3);
         let mut ret;
 
+        //if self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc == 0xffffffe0002e543e ||
+        //    (fault_addr >= 0xc000000 && fault_addr < 0xc000000 + 0x4000000) {
+        //    println!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
+        //        hutval, utval, fault_addr);
+        //}
+
         dbgprintln!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
         
@@ -284,9 +336,9 @@ impl VirtualCpu {
             /* Maybe mmio or illegal gpa */
             let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
 
-            if !mmio_check {
-                panic!("Invalid gpa!");
-            }
+            //if !mmio_check {
+            //    panic!("Invalid gpa!");
+            //}
 
             ret = self.handle_mmio(fault_addr);
 
@@ -418,6 +470,10 @@ impl VirtualCpu {
         let mut ret: i32 = -1;
         let ucause = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
         *self.exit_reason.lock().unwrap() = ExitReason::ExitUnknown;
+        
+        if self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc == 0xffffffe0002e543e {
+            println!("vmexit: ucause: {:x}", ucause);
+        }
 
         if (ucause & EXC_IRQ_MASK) != 0 {
             *self.exit_reason.lock().unwrap() = ExitReason::ExitIntr;
