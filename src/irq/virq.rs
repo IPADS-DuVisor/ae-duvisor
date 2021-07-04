@@ -26,12 +26,13 @@ impl VirtualInterrupt {
     }
 
     pub fn flush_pending_irq(&mut self) {
-        for i in 0..self.irq_pending.len() {
+        //for i in 0..self.irq_pending.len() {
+        for i in 0..8 {
             if self.irq_pending[i] {
                 unsafe {
                     csrs!(HUVIP, 1 << i);
                 }
-                self.irq_pending[i] = false;
+                //self.irq_pending[i] = false;
             } else {
                 unsafe {
                     csrc!(HUVIP, 1 << i);

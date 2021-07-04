@@ -227,15 +227,15 @@ impl VirtualCpu {
         let mut inst_width: u64 = 4;
         let ret: i32;
 
-        // ffffffe0002e568a sw a3
         // ffffffe0002e53ba sw a2
-        // ffffffe0002e57d6 sw a4
+        // ffffffe0002e543e sw a5
         // ffffffe0002e55c0 sw a4
+        // ffffffe0002e568a sw a3
+        // ffffffe0002e57d6 sw a4
         // ffffffe000713502 sw s1
         // ffffffe000713514 lw a5
         // ffffffe000713522 sw s1
         // ffffffe0007134f8 lw a3
-        // ffffffe0002e543e sw a5
         let is_plic_mmio = |fault_addr: u64| -> bool {
             if 0xc000000 <= fault_addr && fault_addr < (0xc000000 + 0x1000000) {
                 return true;
