@@ -102,10 +102,10 @@ pub struct HypRegs {
     pub hutinst: u64,
     pub hugatp: u64,
     pub utvec: u64,
-    pub uepc: u64, /* for sepc */
-    pub uscratch: u64, /* for sscratch */
-    pub utval: u64, /* for stval */
-    pub ucause: u64, /* for scause */
+    pub uepc: u64, /* For sepc */
+    pub uscratch: u64, /* For sscratch */
+    pub utval: u64, /* For stval */
+    pub ucause: u64, /* For scause */
 }
 
 impl HypRegs {

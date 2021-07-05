@@ -275,8 +275,7 @@ pub const HUCOUNTEREN_TM    : u64 = (1 << 1);
 pub const HUCOUNTEREN_IR    : u64 = (1 << 2);
 pub const HUCOUNTEREN_HPM3  : u64 = (1 << 3);
 
-/* atomic read from CSR */
-
+/* Atomic read from CSR */
 pub macro_rules! csrr {
     ( $r:ident ) => {{
         let value: u64;
@@ -286,8 +285,7 @@ pub macro_rules! csrr {
     }};
 }
 
-/* atomic write to CSR */
-
+/* Atomic write to CSR */
 pub macro_rules! csrw {
     ( $r:ident, $x:expr ) => {{
         let x: u64 = $x;
@@ -295,8 +293,7 @@ pub macro_rules! csrw {
     }};
 }
 
-/* atomic write to CSR from immediate */
-
+/* Atomic write to CSR from immediate */
 pub macro_rules! csrwi {
     ( $r:ident, $x:expr ) => {{
         const X: u64 = $x;
@@ -304,8 +301,7 @@ pub macro_rules! csrwi {
     }};
 }
 
-/* atomic read and set bits in CSR */
-
+/* Atomic read and set bits in CSR */
 pub macro_rules! csrs {
     ( $r:ident, $x:expr ) => {{
         let x: u64 = $x;
@@ -313,8 +309,7 @@ pub macro_rules! csrs {
     }};
 }
 
-/* atomic read and set bits in CSR using immediate */
-
+/* Atomic read and set bits in CSR using immediate */
 pub macro_rules! csrsi {
     ( $r:ident, $x:expr ) => {{
         const X: u64 = $x;
@@ -322,8 +317,7 @@ pub macro_rules! csrsi {
     }};
 }
 
-/* atomic read and clear bits in CSR */
-
+/* Atomic read and clear bits in CSR */
 pub macro_rules! csrc {
     ( $r:ident, $x:expr ) => {{
         let x: u64 = $x;
@@ -331,8 +325,7 @@ pub macro_rules! csrc {
     }};
 }
 
-/* atomic read and clear bits in CSR using immediate */
-
+/* Atomic read and clear bits in CSR using immediate */
 pub macro_rules! csrci {
     ( $r:ident, $x:expr ) => {{
         const X: u64 = $x;

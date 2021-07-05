@@ -48,13 +48,13 @@ pub mod tty_uart_constants {
     pub const UART_SCR: usize = 7;
 
     /* UART_DLL */
-    pub const UART_DLL: usize = 8; /* reuse offset 0 */
+    pub const UART_DLL: usize = 8; /* Reuse offset 0 */
 
     /* UART_DLM */
-    pub const UART_DLM: usize = 9; /* reuse offset 1 */
+    pub const UART_DLM: usize = 9; /* Reuse offset 1 */
 
     /* UART_FCR */
-    pub const UART_FCR: usize = 10; /* reuse offset 2 */
+    pub const UART_FCR: usize = 10; /* Reuse offset 2 */
     pub const UART_FCR_CLEAR_RCVR: u8 = 0x02;
     pub const UART_FCR_CLEAR_XMIT: u8 = 0x04;
 }
@@ -78,7 +78,7 @@ fn console_putchar(output: u64) {
     static mut ESCAPE_CNT: usize = 0;
 
     unsafe {
-        /* the first letter must be ESCAPE */
+        /* The first letter must be ESCAPE */
         if ESCAPE_CNT == 0 && output == 27 {
             ESCAPE[0] = ch;
             ESCAPE_CNT += 1;
@@ -105,7 +105,7 @@ impl Tty {
     pub fn new() -> Self {
         let mut value: [u8; 11] = [0; 11];
 
-        /* ttyS0 init */
+        /* TtyS0 init */
         value[UART_IIR] = UART_IIR_NO_INT;
         value[UART_MCR] = UART_MCR_OUT2;
         value[UART_LSR] = UART_LSR_TEMT | UART_LSR_THRE;
@@ -124,7 +124,7 @@ impl Tty {
         }
     }
 
-    /* check the cnt and insert or clear the pending bit */
+    /* Check the cnt and insert or clear the pending bit */
     pub fn update_huvip(&mut self) {
         static mut FLAG: i32 = 0;
         unsafe {
@@ -143,13 +143,13 @@ impl Tty {
     pub fn update_irq(&mut self) {
         let mut iir: u8 = 0;
 
-        /* handle clear rx */
+        /* Handle clear rx */
         if self.value[UART_LCR] & UART_FCR_CLEAR_RCVR != 0 {
             self.value[UART_LCR] &= !UART_FCR_CLEAR_RCVR;
             self.value[UART_LSR] &= !UART_LSR_DR;
         }
 
-        /* handle clear tx */
+        /* Handle clear tx */
         if self.value[UART_LCR] & UART_FCR_CLEAR_XMIT != 0 {
             self.value[UART_LCR] &= !UART_FCR_CLEAR_XMIT;
             self.value[UART_LSR] |= UART_LSR_TEMT | UART_LSR_THRE;
@@ -168,7 +168,7 @@ impl Tty {
         /* Now update the irq line, if necessary */
         if iir != 0 {
             self.value[UART_IIR] = UART_IIR_NO_INT;
-            /* insert irq */
+            /* Insert irq */
             unsafe {
                 println!("send irq!");
                 csrs!(HUVIP, 1 << IRQ_TTY);
@@ -256,7 +256,7 @@ impl Tty {
                     /* If DLAB=0, just output the char. */
                     console_putchar(data as u64);
 
-                    /* since the output is finished, notice the guest */
+                    /* Since the output is finished, notice the guest */
                     unsafe {
                         csrs!(HUVIP, 1 << IRQ_TTY);
                     }
@@ -304,10 +304,10 @@ impl Tty {
             return None;
         } else if self.start == self.end {
             if self.cnt != FIFO_LEN {
-                /* empty */
+                /* Empty */
                 return None;
             } else {
-                /* full */
+                /* Full */
                 res = self.recv_buf[self.start] as char;
                 self.start += 1;
                 self.cnt -= 1;
@@ -328,7 +328,7 @@ impl Tty {
 
     pub fn recv_char(&mut self, input: char) -> i32 {
         if self.start == FIFO_LEN {
-            /* first char */
+            /* First char */
             self.start = 0;
             self.end = 1;
             self.recv_buf[0] = input;
@@ -337,10 +337,10 @@ impl Tty {
             return 0;
         } else if self.start == self.end {
             if self.cnt == FIFO_LEN {
-                /* full */
+                /* Full */
                 return 1;
             } else {
-                /* empty */
+                /* Empty */
                 self.recv_buf[self.start] = input;
                 self.end = (self.end + 1) % FIFO_LEN;
                 self.cnt += 1;

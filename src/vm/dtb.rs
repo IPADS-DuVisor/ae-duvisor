@@ -77,7 +77,7 @@ impl MachineMeta {
 
         let mut file_data = res.unwrap();
 
-        /* set address-cells */
+        /* Set address-cells */
         if item.name().unwrap().contains("address-cells") {
             self.address_cells.pop();
             self.address_cells.push(item.value_u32_list(&mut file_data).unwrap()[0]);
@@ -85,7 +85,7 @@ impl MachineMeta {
             return;
         }
 
-        /* set size-cells */
+        /* Set size-cells */
         if item.name().unwrap().contains("size-cells") {
             self.size_cells.pop();
             self.size_cells.push(item.value_u32_list(&mut file_data).unwrap()[0]);
@@ -93,7 +93,7 @@ impl MachineMeta {
             return;
         }
 
-        /* address_cells and size_cells shall be set first */
+        /* Address_cells and size_cells shall be set first */
         let ac_len = self.address_cells.len();
         let sc_len = self.size_cells.len();
         assert_eq!(ac_len, sc_len);
@@ -127,7 +127,7 @@ impl MachineMeta {
         match prop {
             "memory" => {
                 dbgprintln!("match memory");
-                /* add bus region for memory */
+                /* Add bus region for memory */
                 if  prop_name == "reg" {
                     let values = item.value_u32_list(&mut file_data).unwrap();
                     dbgprintln!("MEMORY REG {:x?}", values);
@@ -187,7 +187,7 @@ impl MachineMeta {
                 size = (size << 32) + (value_u32_list[(i * t + address_cells + k) as usize] as u64);
             }
 
-            /* add memory region */
+            /* Add memory region */
             self.soc_regions.push(BusRegion::new(offset, size));
             dbgprintln!("add soc region {:x} {:x}", offset, size);
         }
@@ -239,7 +239,7 @@ impl MachineMeta {
                 size = (size << 32) + (value_u32_list[(i * t + address_cells + k) as usize] as u64);
             }
 
-            /* add memory region */
+            /* Add memory region */
             self.memory_regions.push(BusRegion::new(offset, size));
             dbgprintln!("add memory region {:x} {:x}", offset, size);
         }
@@ -267,26 +267,26 @@ impl DeviceTree {
 
         let root = dtb_reader.struct_items();
 
-        /* parse dtb info */
+        /* Parse dtb info */
         let mut node_path: Vec<&str> = Vec::new();
         let mut name;
         let mut meta_data = MachineMeta::new();
 
         for i in root {
             if i.name().is_err() {
-                /* endnode */
+                /* Endnode */
                 dbgprintln!("Endnode or error");
                 node_path.pop();
                 meta_data.address_cells.pop();
                 meta_data.size_cells.pop();
             } else {
-                /* node or property */
+                /* Node or property */
                 name = i.name().unwrap();
                 if i.node_name().is_err() {
-                    /* property */
+                    /* Property */
                     meta_data.dtb_parse(&i, &node_path, file_path);
                 } else {
-                    /* node */
+                    /* Node */
                     node_path.push(name);
                     dbgprintln!("Node name: {:?}, name: {}", node_path, name);
 
@@ -320,7 +320,7 @@ mod tests {
             let mut offset: u64;
             let mut size: u64;
 
-            /* memory info check */
+            /* Memory info check */
             len = dtb.meta_data.memory_regions.len();
             assert_eq!(len, 1);
 
@@ -329,7 +329,7 @@ mod tests {
             assert_eq!(offset, 0x80000000);
             assert_eq!(size, 0x200000000);
 
-            /* soc info check */
+            /* Soc info check */
             len = dtb.meta_data.soc_regions.len();
             assert_eq!(len, 17);
 
@@ -357,7 +357,7 @@ mod tests {
             let mut offset: u64;
             let mut size: u64;
 
-            /* memory info check */
+            /* Memory info check */
             len = dtb.meta_data.memory_regions.len();
             assert_eq!(len, 3);
 
@@ -376,7 +376,7 @@ mod tests {
             assert_eq!(offset, 0x80600000);
             assert_eq!(size, 0x200000);
 
-            /* soc info check */
+            /* Soc info check */
             len = dtb.meta_data.soc_regions.len();
             assert_eq!(len, 4);
 

@@ -130,7 +130,7 @@ impl VirtualCpu {
     }
 
     fn handle_u_vtimer_irq(&mut self) -> i32 {
-        /* insert or clear tty irq on each vtimer irq */
+        /* Insert or clear tty irq on each vtimer irq */
         let cnt = self.console.lock().unwrap().cnt;
 
         if cnt > 0 {
@@ -144,7 +144,7 @@ impl VirtualCpu {
         }
 
         unsafe {
-            /* set virtual timer */
+            /* Set virtual timer */
             csrs!(HUVIP, 1 << IRQ_VS_TIMER);
 
             /* 
@@ -176,7 +176,7 @@ impl VirtualCpu {
         let data: u64 = self.vcpu_ctx.guest_ctx.gp_regs
                 .x_reg[target_reg as usize] & bit_mask;
 
-        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
+        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
             ret = Tty::store_emulation(&self, fault_addr, data as u8);
         } else {
             dbgprintln!("Unknown mmio (store)");
@@ -190,7 +190,7 @@ impl VirtualCpu {
                 _bit_width: u64) -> i32 {
         let ret: i32;
 
-        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
+        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
             let data: u64 = Tty::load_emulation(&self, fault_addr) as u64;
             self.vcpu_ctx.guest_ctx.gp_regs.x_reg[target_reg as usize] = data;
             ret = 0;
@@ -233,13 +233,13 @@ impl VirtualCpu {
 
         let inst_res = VirtualCpu::inst_parse(inst);
         if inst_res.is_none() {
-            /* linux use a0 for load and a2 for store in ttyS0-3f8 */
+            /* Linux use a0 for load and a2 for store in ttyS0-3f8 */
             if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
-                /* lb a0, 0x0(a0) */
+                /* LB a0, 0x0(a0) */
                 target_reg = 10;
                 bit_width = 8;
             } else {
-                /* sb a2, 0x0(a1) */
+                /* SB a2, 0x0(a1) */
                 target_reg = 12;
                 bit_width = 8;
             }
@@ -250,13 +250,13 @@ impl VirtualCpu {
         }
 
         if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
-            /* load */
-            /* check the input and update huvip */
+            /* Load */
+            /* Check the input and update huvip */
             self.console.lock().unwrap().update_huvip();
 
             ret = self.load_emulation(fault_addr, target_reg, bit_width);
         } else if ucause == EXC_STORE_GUEST_PAGE_FAULT {
-            /* store */
+            /* Store */
 
             ret = self.store_emulation(fault_addr, target_reg, bit_width);
         } else {
@@ -293,7 +293,7 @@ impl VirtualCpu {
 
         fault_addr &= !PAGE_SIZE_MASK;
 
-        /* map_query */
+        /* Map query */
         let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
         if query.is_some() {
             let i = query.unwrap();
@@ -318,12 +318,12 @@ impl VirtualCpu {
             }
             ENOMAPPING => {
                 dbgprintln!("Query return ENOMAPPING: {}", ret);
-                /* find hpa by fault_addr */
+                /* Find hpa by fault_addr */
                 let fault_hpa_query = self.vm.lock().unwrap().gsmmu
                     .gpa_block_query(fault_addr);
 
                 if fault_hpa_query.is_some() {
-                    /* fault gpa is already in a gpa_block and it is valid */
+                    /* Fault gpa is already in a gpa_block and it is valid */
                     let fault_hpa = fault_hpa_query.unwrap();
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
                         | PTE_EXECUTE;
@@ -335,13 +335,13 @@ impl VirtualCpu {
 
                     ret = 0;
                 } else {
-                    /* fault gpa is not in a gpa_block and it is valid */
+                    /* Fault gpa is not in a gpa_block and it is valid */
                     let len = PAGE_SIZE;
                     let res = self.vm.lock().unwrap().gsmmu
                         .gpa_block_add(fault_addr, len);
 
                     if res.is_ok() {
-                        /* map new page to VM if the region exists */
+                        /* Map new page to VM if the region exists */
                         let (_hva, hpa) = res.unwrap();
                         let flag: u64 = PTE_USER | PTE_VALID | PTE_READ 
                             | PTE_WRITE | PTE_EXECUTE;
@@ -367,14 +367,14 @@ impl VirtualCpu {
 
     fn handle_supervisor_ecall(&mut self) -> i32 {
         let ret: i32;
-        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; /* a0: 0th arg/ret 1 */
-        let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* a1: 1st arg/ret 2 */
-        let a2 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* a1: 2nd arg  */
-        let a3 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* a1: 3rd arg */ 
-        let a4 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* a1: 4th arg  */
-        let a5 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* a1: 5th arg  */
-        let a6 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; /* a6: FID */
-        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; /* a7: EID */
+        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; /* A0: 0th arg/ret 1 */
+        let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A1: 1st arg/ret 2 */
+        let a2 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A2: 2nd arg  */
+        let a3 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A3: 3rd arg */ 
+        let a4 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A4: 4th arg  */
+        let a5 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A5: 5th arg  */
+        let a6 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; /* A6: FID */
+        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; /* A7: EID */
 
         /* FIXME: for test cases */
         if a7 == ECALL_VM_TEST_END {
@@ -401,11 +401,11 @@ impl VirtualCpu {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd as i32;
         ret = target_ecall.ecall_handler(fd);
 
-        /* save the result */
+        /* Save the result */
         self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
         self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
 
-        /* add uepc to start vm on next instruction */
+        /* Add uepc to start vm on next instruction */
         self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
 
         ret
@@ -467,22 +467,22 @@ impl VirtualCpu {
             | (1 << HUSTATUS_SPVP_SHIFT)) | (1 << HUSTATUS_UPIE_SHIFT) as u64;
 
         unsafe {
-            /* register vcpu thread to the kernel */
+            /* Register vcpu thread to the kernel */
             _res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
             dbgprintln!("IOCTL_LAPUTA_REGISTER_VCPU : {}", _res);
 
-            /* set hugatp */
+            /* Set hugatp */
             let _hugatp = self.config_hugatp();
             dbgprintln!("Config hugatp: {:x}", _hugatp);
 
-            /* set trap handler */
+            /* Set trap handler */
             csrw!(UTVEC, exit_guest as u64);
 
-            /* enable timer irq */
+            /* Enable timer irq */
             csrw!(HUIE, 1 << IRQ_U_VTIMER);
 
             /* TODO: redesign scounteren register */
-            /* allow VM to directly access time register */
+            /* Allow VM to directly access time register */
 
             /* TODO: introduce RUST feature to distinguish between rv64 and rv32 */
             let delta_time :i64 = csrr!(TIME) as i64;
@@ -556,9 +556,9 @@ mod tests {
                 vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[17] = ECALL_VM_TEST_END;
 
                 let mut test_buf_ptr = test_buf as *mut i32;
-                *test_buf_ptr = 0x73; /* ecall */
+                *test_buf_ptr = 0x73; /* Ecall */
                 test_buf_ptr = (test_buf + 4) as *mut i32;
-                *test_buf_ptr = 0xa001; /* loop */
+                *test_buf_ptr = 0xa001; /* Loop */
 
                 /* 512G 1-level direct mapping */
                 hugatp = test_buf + PAGE_SIZE * 4;
@@ -568,7 +568,7 @@ mod tests {
                     0x1f;
                 println!("PTE : {:x}", *pte_ptr);
 
-                /* delegate vs-ecall and guest page fault */
+                /* Delegate vs-ecall and guest page fault */
                 virtualmachine::VirtualMachine::hu_delegation(fd);
 
                 res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
@@ -596,7 +596,7 @@ mod tests {
                     println!("HUGATP : {:x}", 
                         vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
 
-                    /* hustatus.SPP=1 .SPVP=1 uret to VS mode */
+                    /* HUSTATUS.SPP=1 .SPVP=1 uret to VS mode */
                     vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
                         ((1 << HUSTATUS_SPV_SHIFT) 
                         | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
@@ -688,7 +688,7 @@ mod tests {
             let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
             let ans = 17;
 
-            /* guest ctx */
+            /* Guest ctx */
             vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = ans;
             let tmp = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, ans);
@@ -701,7 +701,7 @@ mod tests {
             let tmp = vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst;
             assert_eq!(tmp, ans);
 
-            /* host ctx */
+            /* Host ctx */
             vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10] = ans;
             let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, ans);
@@ -783,7 +783,7 @@ mod tests {
             println!("---test_vcpu_ecall_exit---");
 
             unsafe {
-                /* ioctl */
+                /* Ioctl */
                 let version_ptr = (&version) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
                 println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", 
@@ -795,14 +795,14 @@ mod tests {
                     libc::MAP_SHARED, fd, 0);
                 assert_ne!(mmap_ptr, libc::MAP_FAILED);
                 
-                test_buf = mmap_ptr as u64; /* va */
-                test_buf_pfn = test_buf; /* pa.pfn */
+                test_buf = mmap_ptr as u64; /* VA */
+                test_buf_pfn = test_buf; /* PA.PFN */
                 let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
                 println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
                     test_buf_pfn);
                 
-                /* set test code */
+                /* Set test code */
                 let start = vcpu_ecall_exit as u64;
                 let end = vcpu_ecall_exit_end as u64;
                 let code_buf = test_buf + PAGE_TABLE_REGION_SIZE;
@@ -810,7 +810,7 @@ mod tests {
                 std::ptr::copy_nonoverlapping(vcpu_ecall_exit as *const u8,
                     code_buf as *mut u8, (end - start) as usize);
 
-                /* set hugatp */
+                /* Set hugatp */
                 hugatp = test_buf;
                 let pte_ptr = (hugatp + 8 * (((test_buf_pfn << PAGE_SIZE_SHIFT)
                      + PAGE_TABLE_REGION_SIZE) >> 30)) as *mut u64;
@@ -823,7 +823,7 @@ mod tests {
                     | 0x1f;
                 println!("PTE : {:x}", *pte_ptr);
 
-                /* delegate vs-ecall and guest page fault */
+                /* Delegate vs-ecall and guest page fault */
                 virtualmachine::VirtualMachine::hu_delegation(fd);
 
                 res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
@@ -848,14 +848,14 @@ mod tests {
 
             unsafe {
                 csrw!(HUGATP, hugatp);
-                /* set hugatp */
+                /* Set hugatp */
                 println!("HUGATP : 0x{:x}", hugatp);
-                /* hustatus.SPP=1 .SPVP=1 uret to VS mode */
+                /* HUSTATUS.SPP=1 .SPVP=1 uret to VS mode */
                 vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
                     ((1 << HUSTATUS_SPV_SHIFT)
                     | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
-                /* set utvec to trap handler */
+                /* Set utvec to trap handler */
                 csrw!(UTVEC, exit_guest as u64);
                 enter_guest(ptr_u64);
 
@@ -897,7 +897,7 @@ mod tests {
             println!("---test_vcpu_add_all_gprs---");
 
             unsafe {
-                /* ioctl */
+                /* Ioctl */
                 let version_ptr = (&version) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
                 println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}",
@@ -909,14 +909,14 @@ mod tests {
                     libc::MAP_SHARED, fd, 0);
                 assert_ne!(mmap_ptr, libc::MAP_FAILED);
                 
-                test_buf = mmap_ptr as u64; /* va */
-                test_buf_pfn = test_buf; /* pa.pfn */
+                test_buf = mmap_ptr as u64; /* VA */
+                test_buf_pfn = test_buf; /* PA.PFN */
                 let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
                 libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
                 println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}",
                     test_buf_pfn);
                 
-                /* set test code */
+                /* Set test code */
                 let start = vcpu_add_all_gprs as u64;
                 let end = vcpu_add_all_gprs_end as u64;
                 size = end - start;
@@ -925,7 +925,7 @@ mod tests {
                 std::ptr::copy_nonoverlapping(vcpu_add_all_gprs as *const u8,
                     code_buf as *mut u8, size as usize);
 
-                /* set hugatp */
+                /* Set hugatp */
                 hugatp = test_buf;
                 let pte_ptr = (hugatp + 8 * (((test_buf_pfn << PAGE_SIZE_SHIFT)
                     + PAGE_TABLE_REGION_SIZE) >> 30)) as *mut u64;
@@ -938,7 +938,7 @@ mod tests {
                     | 0x1f;
                 println!("PTE : {:x}", *pte_ptr);
 
-                /* delegate vs-ecall and guest page fault */
+                /* Delegate vs-ecall and guest page fault */
                 virtualmachine::VirtualMachine::hu_delegation(fd);
 
                 res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
@@ -971,13 +971,13 @@ mod tests {
 
             unsafe {
                 csrw!(HUGATP, hugatp);
-                /* set hugatp */
+                /* Set hugatp */
                 println!("HUGATP : 0x{:x}", hugatp);
-                /* hustatus.SPP=1 .SPVP=1 uret to VS mode */
+                /* HUSTATUS.SPP=1 .SPVP=1 uret to VS mode */
                 vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
                     ((1 << HUSTATUS_SPV_SHIFT) 
                     | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
-                /* set utvec to trap handler */
+                /* Set utvec to trap handler */
                 csrw!(UTVEC, exit_guest as u64);
                 enter_guest(ptr_u64);
 
@@ -1024,7 +1024,7 @@ mod tests {
             let ans_scr = 0x0;
             let ans_ier = 0xf;
 
-            /* test data */
+            /* Test data */
             let dlm = vm.console.lock().unwrap().value[UART_DLM];
             let fcr = vm.console.lock().unwrap().value[UART_FCR];
             let lcr = vm.console.lock().unwrap().value[UART_LCR];
@@ -1067,10 +1067,10 @@ mod tests {
 
             vm.vm_init();
 
-            /* the return value will be stored on this gpa */
+            /* The return value will be stored on this gpa */
             let target_address = 0x3000;
 
-            /* set entry point */
+            /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
             let res = vm.vm_state.lock().unwrap()
@@ -1079,11 +1079,11 @@ mod tests {
                 panic!("gpa region add failed!");
             }
 
-            /* get the hva of 0x3000(gpa) */
+            /* Get the hva of 0x3000(gpa) */
             let (hva, hpa) = res.unwrap();
             dbgprintln!("hva {:x}, hpa {:x}", hva, hpa);
 
-            /* map the page on g-stage */
+            /* Map the page on g-stage */
             let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
                     | PTE_EXECUTE;
             vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
@@ -1094,7 +1094,7 @@ mod tests {
             
             vm.vm_run();
 
-            /* check the return value store by the vm */
+            /* Check the return value store by the vm */
             unsafe {
                 retval = *(hva as *mut u64);
                 dbgprintln!("retval 0x{:x}", retval);
