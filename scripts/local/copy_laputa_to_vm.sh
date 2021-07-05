@@ -27,6 +27,7 @@ sudo mount $PREPARE/ubuntu-vdisk.img ./mnt
 sudo rm -r ./mnt/laputa
 sudo mkdir -p ./mnt/laputa/tests_bin
 sudo cp scripts/local/run_tests.sh $laputa_name ./mnt/laputa
+sudo cp scripts/local/laputa_linux.sh ./mnt/
 sudo cp $laputa_test_names ./mnt/laputa/tests_bin/
 sudo mv ./mnt/laputa/$laputa_name_basename ./mnt/laputa/laputa
 sudo cp -r src ./mnt/laputa/
