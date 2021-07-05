@@ -151,10 +151,11 @@ impl Plic {
         let vcpu = ctx.vcpu.upgrade().unwrap();
         if best_irq == 0 {
             // unset irq
-            vcpu.virq.lock().unwrap().set_pending_irq(IRQ_VS_EXT);
+            vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
         } else {
             // set irq
-            vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
+            vcpu.virq.lock().unwrap().set_pending_irq(IRQ_VS_EXT);
+            //println!("update_local_irq: best_irq = {}", best_irq);
         }
     }
 

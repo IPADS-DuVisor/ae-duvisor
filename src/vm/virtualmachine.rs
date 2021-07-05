@@ -103,12 +103,23 @@ impl VirtualMachine {
         let initrd_path = vm_config.initrd_path;
         let tty = Tty::new();
 
-        /* mmio default config */
-        let mmio_region = GpaRegion {
+        /* Mmio default config for unit tests */
+        #[cfg(test)]
+        mmio_regions.push(GpaRegion {
             gpa: 0x0,
             length: 0x1000,
-        };
-        mmio_regions.push(mmio_region);
+        });
+        
+        #[cfg(not(test))]
+        /* 
+         * Mmio default config for Linux VM
+         * FIXME: read memory range from DTB
+         */
+        mmio_regions.push(GpaRegion {
+            gpa: 0x0,
+            //length: 0x80000000,
+            length: 0x1000,
+        });
 
         #[cfg(test)]
         let io_thread = false;
@@ -950,7 +961,7 @@ mod tests {
 
         #[test]
         fn test_vm_ld_sd_sum() { 
-            println!("---------start test_vm_huge_mapping------------");
+            println!("---------start test_vm_ld_sd_sum------------");
             let mut sum_ans = 0;
             let sum;
             let mut vm_config = test_vm_config_create();

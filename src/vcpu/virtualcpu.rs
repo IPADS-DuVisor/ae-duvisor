@@ -187,13 +187,11 @@ impl VirtualCpu {
         let cnt = self.console.lock().unwrap().cnt;
 
         if cnt > 0 {
-            unsafe {
-                csrs!(HUVIP, 1 << IRQ_TTY);
-            }
+            self.virq.lock().unwrap().set_pending_irq(IRQ_VS_EXT);
+            unsafe { csrs!(HUVIP, 1 << 10); }
         } else {
-            unsafe {
-                csrc!(HUVIP, 1 << IRQ_TTY);
-            }
+            self.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
+            unsafe { csrc!(HUVIP, 1 << 10); }
         }
 
         /* set virtual timer */
@@ -346,7 +344,7 @@ impl VirtualCpu {
             self.plic.get().unwrap().mmio_callback(fault_addr, &mut data, false);
         } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
             /* check the input and update huvip */
-            self.console.lock().unwrap().update_huvip();
+            self.console.lock().unwrap().trigger_irq(self.plic.get().unwrap());
 
             data = Tty::load_emulation(&self, fault_addr) as u32;
             ret = 0;
@@ -382,21 +380,6 @@ impl VirtualCpu {
         let mut inst_len: u64 = 0;
         let ret: i32;
 
-        // ffffffe0002e53ba sw a2
-        // ffffffe0002e543e sw a5
-        // ffffffe0002e55c0 sw a4
-        // ffffffe0002e568a sw a3
-        // ffffffe0002e57d6 sw a4
-        // ffffffe000713502 sw s1
-        // ffffffe000713514 lw a5
-        // ffffffe000713522 sw s1
-        // ffffffe0007134f8 lw a3
-        
-        //if is_plic_mmio(fault_addr) {
-        //    println!("handle_mmio: plic_toggle uepc {:x} ucause {:x}, hutinst {:x}", 
-        //        uepc, ucause, hutinst);
-        //}
-
         if hutinst == 0x0 {
             /* The implementation has not support the function of hutinst */
             inst = self.get_vm_inst_by_uepc(uepc, true);
@@ -407,14 +390,8 @@ impl VirtualCpu {
         /* linux use a0 for load and a2 for store in ttyS0-3f8 */
         if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
             self.parse_load_inst(inst, &mut inst_len, &mut bit_width, &mut target_reg);
-            /* lb a0, 0x0(a0) */
-            //target_reg = 10;
-            //bit_width = 8;
         } else {
             self.parse_store_inst(inst, &mut inst_len, &mut bit_width, &mut target_reg);
-            /* sb a2, 0x0(a1) */
-            //target_reg = 12;
-            //bit_width = 8;
         }
 
         if target_reg > 31 {
@@ -443,12 +420,6 @@ impl VirtualCpu {
         let mut fault_addr = (hutval << 2) | (utval & 0x3);
         let mut ret;
 
-        //if self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc == 0xffffffe0002e543e ||
-        //    (fault_addr >= 0xc000000 && fault_addr < 0xc000000 + 0x4000000) {
-        //    println!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
-        //        hutval, utval, fault_addr);
-        //}
-
         dbgprintln!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
         
@@ -458,7 +429,7 @@ impl VirtualCpu {
             //let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
 
             //if !mmio_check {
-            //    panic!("Invalid gpa!");
+            //    panic!("Invalid gpa! {:x}", fault_addr);
             //}
 
             ret = self.handle_mmio(fault_addr);
@@ -597,7 +568,8 @@ impl VirtualCpu {
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
                 IRQ_U_VTIMER => {
-                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", ucause, self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc);
+                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", 
+                        ucause, self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
                 }
                 _ => {
@@ -639,8 +611,9 @@ impl VirtualCpu {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
         let mut _res;
 
-        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
-            | (1 << HUSTATUS_SPVP_SHIFT)) | (1 << HUSTATUS_UPIE_SHIFT) as u64;
+        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = 
+            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) | 
+            (1 << HUSTATUS_UPIE_SHIFT) as u64;
 
         unsafe {
             /* register vcpu thread to the kernel */
@@ -680,7 +653,7 @@ impl VirtualCpu {
             }
 
             /* Sync pending irqs from HUVIP */
-            self.virq.lock().unwrap().sync_pending_irq();
+            //self.virq.lock().unwrap().sync_pending_irq();
 
             ret = self.handle_vcpu_exit();
         }

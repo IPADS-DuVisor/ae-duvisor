@@ -1,8 +1,8 @@
 use crate::vcpu::virtualcpu::VirtualCpu;
 use crate::vcpu::utils::*;
-use crate::irq::delegation::delegation_constants::*;
 use tty_uart_constants::*;
 use crate::mm::utils::*;
+use crate::irq::plic::Plic;
 
 #[allow(unused)]
 pub mod tty_uart_constants {
@@ -124,23 +124,17 @@ impl Tty {
         }
     }
 
-    /* check the cnt and insert or clear the pending bit */
-    pub fn update_huvip(&mut self) {
-        static mut FLAG: i32 = 0;
-        unsafe {
-            if self.cnt > 0 {
-                csrs!(HUVIP, 1 << IRQ_TTY);
-                FLAG = 1;
-            } else {
-                csrc!(HUVIP, 1 << IRQ_TTY);
-                if FLAG == 1 {
-                    FLAG = 0;
-                }
-            }
+    pub fn trigger_irq(&mut self, plic: &Plic) {
+        if self.cnt > 0 {
+            plic.trigger_irq(1, true);
+            unsafe { csrs!(HUVIP, 1 << 10); }
+        } else {
+            plic.trigger_irq(1, false);
+            unsafe { csrc!(HUVIP, 1 << 10); }
         }
     }
 
-    pub fn update_irq(&mut self) {
+    pub fn update_irq(&mut self, irqchip: &Plic) {
         let mut iir: u8 = 0;
 
         /* handle clear rx */
@@ -169,10 +163,8 @@ impl Tty {
         if iir != 0 {
             self.value[UART_IIR] = UART_IIR_NO_INT;
             /* insert irq */
-            unsafe {
-                println!("send irq!");
-                csrs!(HUVIP, 1 << IRQ_TTY);
-            }
+            irqchip.trigger_irq(1, true);
+            unsafe { csrs!(HUVIP, 1 << 10); }
         } else {
             self.value[UART_IIR] = iir;
         }
@@ -239,7 +231,7 @@ impl Tty {
             }
         }
 
-        vcpu.console.lock().unwrap().update_irq();
+        vcpu.console.lock().unwrap().update_irq(vcpu.plic.get().unwrap());
 
         ret
     }
@@ -257,9 +249,8 @@ impl Tty {
                     console_putchar(data as u64);
 
                     /* since the output is finished, notice the guest */
-                    unsafe {
-                        csrs!(HUVIP, 1 << IRQ_TTY);
-                    }
+                    vcpu.plic.get().unwrap().trigger_irq(1, true);
+                    unsafe { csrs!(HUVIP, 1 << 10); }
                 }
             }
             UART_IER => { /* 0x3f9 */
@@ -291,7 +282,7 @@ impl Tty {
             }
         }
 
-        vcpu.console.lock().unwrap().update_irq();
+        vcpu.console.lock().unwrap().update_irq(vcpu.plic.get().unwrap());
 
         ret
     }
