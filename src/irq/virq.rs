@@ -26,8 +26,17 @@ impl VirtualInterrupt {
     }
 
     pub fn flush_pending_irq(&mut self) {
-        //for i in 0..self.irq_pending.len() {
-        for i in 0..8 {
+        //let huvip: bool;
+        //unsafe {
+        //    static mut FLAG: bool = false;
+        //    huvip = (csrr!(HUVIP) >> 10) == 1;
+        //    if self.irq_pending[10] { FLAG = true; }
+        //    if FLAG && huvip != self.irq_pending[10] {
+        //        println!("mismatch: huvip: {}, pending: {}", huvip, self.irq_pending[10]);
+        //    }
+        //}
+        for i in 0..self.irq_pending.len() {
+        //for i in 0..8 {
             if self.irq_pending[i] {
                 unsafe {
                     csrs!(HUVIP, 1 << i);

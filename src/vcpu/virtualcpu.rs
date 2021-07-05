@@ -653,7 +653,7 @@ impl VirtualCpu {
             }
 
             /* Sync pending irqs from HUVIP */
-            //self.virq.lock().unwrap().sync_pending_irq();
+            self.virq.lock().unwrap().sync_pending_irq();
 
             ret = self.handle_vcpu_exit();
         }

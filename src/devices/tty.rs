@@ -127,10 +127,10 @@ impl Tty {
     pub fn trigger_irq(&mut self, plic: &Plic) {
         if self.cnt > 0 {
             plic.trigger_irq(1, true);
-            unsafe { csrs!(HUVIP, 1 << 10); }
+            //unsafe { csrs!(HUVIP, 1 << 10); }
         } else {
             plic.trigger_irq(1, false);
-            unsafe { csrc!(HUVIP, 1 << 10); }
+            //unsafe { csrc!(HUVIP, 1 << 10); }
         }
     }
 
@@ -164,7 +164,7 @@ impl Tty {
             self.value[UART_IIR] = UART_IIR_NO_INT;
             /* insert irq */
             irqchip.trigger_irq(1, true);
-            unsafe { csrs!(HUVIP, 1 << 10); }
+            //unsafe { csrs!(HUVIP, 1 << 10); }
         } else {
             self.value[UART_IIR] = iir;
         }
@@ -250,7 +250,7 @@ impl Tty {
 
                     /* since the output is finished, notice the guest */
                     vcpu.plic.get().unwrap().trigger_irq(1, true);
-                    unsafe { csrs!(HUVIP, 1 << 10); }
+                    //unsafe { csrs!(HUVIP, 1 << 10); }
                 }
             }
             UART_IER => { /* 0x3f9 */
