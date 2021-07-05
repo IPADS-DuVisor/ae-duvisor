@@ -32,12 +32,22 @@ impl VirtualInterrupt {
                 unsafe {
                     csrs!(HUVIP, 1 << i);
                 }
-                //self.irq_pending[i] = false;
             } else {
                 unsafe {
                     csrc!(HUVIP, 1 << i);
                 }
             }
+        }
+    }
+
+    pub fn sync_pending_irq(&mut self) {
+        let huvip;
+        unsafe {
+            huvip = csrr!(HUVIP);
+        }
+        //for i in 0..self.irq_pending.len() {
+        for i in 0..8 {
+            self.irq_pending[i] = if (huvip & (1 << i)) != 0 { true } else { false };
         }
     }
 }

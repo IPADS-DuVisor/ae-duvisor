@@ -1,3 +1,4 @@
+#![feature(asm)]
 #![feature(llvm_asm)]
 #![feature(global_asm)]
 #![feature(pub_macro_rules)]

@@ -23,6 +23,56 @@ mod errno_constants {
 }
 pub use errno_constants::*;
 
+mod inst_parsing_constants {
+    pub const INST_OPCODE_MASK: u32 =   0x007c;
+    pub const INST_OPCODE_SHIFT: u32 =  2;
+    pub const INST_OPCODE_SYSTEM: u32 = 28;
+    
+    pub const INST_MASK_WFI: u32 =	0xffffff00;
+    pub const INST_MATCH_WFI: u32 =	0x10500000;
+    
+    pub const INST_MATCH_LB: u32 =	0x3;
+    pub const INST_MASK_LB: u32 =	0x707f;
+    pub const INST_MATCH_LH: u32 =	0x1003;
+    pub const INST_MASK_LH: u32 =	0x707f;
+    pub const INST_MATCH_LW: u32 =	0x2003;
+    pub const INST_MASK_LW: u32 =	0x707f;
+    pub const INST_MATCH_LD: u32 =	0x3003;
+    pub const INST_MASK_LD: u32 =	0x707f;
+    pub const INST_MATCH_LBU: u32 =	0x4003;
+    pub const INST_MASK_LBU: u32 =	0x707f;
+    pub const INST_MATCH_LHU: u32 =	0x5003;
+    pub const INST_MASK_LHU: u32 =	0x707f;
+    pub const INST_MATCH_LWU: u32 =	0x6003;
+    pub const INST_MASK_LWU: u32 =	0x707f;
+    pub const INST_MATCH_SB: u32 =	0x23;
+    pub const INST_MASK_SB: u32 =	0x707f;
+    pub const INST_MATCH_SH: u32 =	0x1023;
+    pub const INST_MASK_SH: u32 =	0x707f;
+    pub const INST_MATCH_SW: u32 =	0x2023;
+    pub const INST_MASK_SW: u32 =	0x707f;
+    pub const INST_MATCH_SD: u32 =	0x3023;
+    pub const INST_MASK_SD: u32 =	0x707f;
+    
+    pub const INST_MATCH_C_LD: u32 =	0x6000;
+    pub const INST_MASK_C_LD: u32 =	0xe003;
+    pub const INST_MATCH_C_SD: u32 =	0xe000;
+    pub const INST_MASK_C_SD: u32 =	0xe003;
+    pub const INST_MATCH_C_LW: u32 =	0x4000;
+    pub const INST_MASK_C_LW: u32 =	0xe003;
+    pub const INST_MATCH_C_SW: u32 =	0xc000;
+    pub const INST_MASK_C_SW: u32 =	0xe003;
+    pub const INST_MATCH_C_LDSP: u32 =	0x6002;
+    pub const INST_MASK_C_LDSP: u32 =	0xe003;
+    pub const INST_MATCH_C_SDSP: u32 =	0xe002;
+    pub const INST_MASK_C_SDSP: u32 =	0xe003;
+    pub const INST_MATCH_C_LWSP: u32 =	0x4002;
+    pub const INST_MASK_C_LWSP: u32 =	0xe003;
+    pub const INST_MATCH_C_SWSP: u32 =	0xc002;
+    pub const INST_MASK_C_SWSP: u32 =	0xe003;
+}
+pub use inst_parsing_constants::*;
+
 pub const ECALL_VM_TEST_END: u64 = 0xFF;
 
 pub enum ExitReason {
@@ -161,28 +211,124 @@ impl VirtualCpu {
         return 0;
     }
 
-    /* TODO: H(U)LV/H(U)LVX.HU problems on qemu */
-    fn get_vm_inst_by_uepc(_uepc: u64) -> u64 {
-        return 0;
+    fn get_vm_inst_by_uepc(&self, uepc: u64, read_insn: bool) -> u32 {
+        let val: u32;
+
+        /* FIXME: why KVM swap HSTATUS & STVEC here? */
+
+        if read_insn {
+            unsafe {
+                asm!(
+                    ".option push",
+                    ".option norvc",
+
+                    /* HULVX.HU t0, (t2) */
+                    ".word 0x6433c2f3",
+                    "andi t1, t0, 3",
+                    "addi t1, t1, -3",
+                    "bne t1, zero, 2f",
+                    "addi t2, t2, 2",
+
+                    /* HULVX.HU t1, (t2) */
+                    ".word 0x6433c373",
+                    "sll t1, t1, 16",
+                    "add t0, t0, t1",
+                    "2:",
+                    ".option pop",
+                    out("t0") val,
+                    in("t2") uepc,
+                );
+            }
+            dbgprintln!("HLVX.HU val: {:x}, uepc: {:x}", val, uepc);
+        } else {
+            /* TODO: HLV.D for IPI ECALL emulation */
+            val = 0;
+        }
+        return val;
     }
 
-    /* TODO: Cannot get the instruction for now */
-    fn inst_parse(_inst: u64) -> Option<(u64, u64)> {
-        return None;
+    fn parse_load_inst(&self, inst: u32, inst_len: &mut u64, 
+        bit_width: &mut u64, target_reg: &mut u64) {
+        /* 16BIT_MASK = 0x3 */
+        *inst_len = if inst & 0x3 != 0x3 { 2 } else { 4 };
+        if *inst_len == 2 {
+            /* Compressed instruction */
+            let c_lw_mask = 0b11 | (0b111 << 13); 
+            let c_lw_match = 0b00 | (0b010 << 13); 
+            let c_lw_rd = |inst: u32| -> u32 { (inst >> 2) & 0x7 }; 
+            
+            if (inst & c_lw_mask) == c_lw_match {
+                *target_reg = c_lw_rd(inst) as u64;
+                *bit_width = 4 * 8;
+            } else {
+                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                    inst, inst_len);
+            }
+        } else {
+            /* TODO: refactor get_*_reg */
+            let i_rd_reg = |inst: u32| -> u32 { (inst >> 7) & 0x1f };
+            *target_reg = i_rd_reg(inst) as u64;
+
+            if (inst & INST_MASK_LW) == INST_MATCH_LW {
+                *bit_width = 4 * 8;
+            } else if (inst & INST_MASK_LB) == INST_MATCH_LB {
+                *bit_width = 1 * 8;
+            } else {
+                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                    inst, inst_len);
+            }
+        }
+    }
+
+    fn parse_store_inst(&self, inst: u32, inst_len: &mut u64, 
+        bit_width: &mut u64, target_reg: &mut u64) {
+        /* 16BIT_MASK = 0x3 */
+        *inst_len = if inst & 0x3 != 0x3 { 2 } else { 4 };
+        if *inst_len == 2 {
+            /* Compressed instruction */
+            let c_sw_mask = 0b11 | (0b111 << 13); 
+            let c_sw_match = 0b00 | (0b110 << 13); 
+            let c_sw_rs1 = |inst: u32| -> u32 { (inst >> 7) & 0x7 }; 
+            
+            if (inst & c_sw_mask) == c_sw_match {
+                *target_reg = c_sw_rs1(inst) as u64;
+                *bit_width = 4 * 8;
+            } else {
+                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                    inst, inst_len);
+            }
+        } else {
+            let s_rs2_reg = |inst: u32| -> u32 { (inst >> 20) & 0x1f };
+            *target_reg = s_rs2_reg(inst) as u64;
+
+            if (inst & INST_MASK_SW) == INST_MATCH_SW {
+                *bit_width = 4 * 8;
+            } else if (inst & INST_MASK_SB) == INST_MATCH_SB {
+                *bit_width = 1 * 8;
+            } else {
+                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                    inst, inst_len);
+            }
+        }
     }
 
     fn store_emulation(&self, fault_addr: u64, target_reg: u64,
                 bit_width: u64) -> i32 {
-        let ret: i32;
+        let mut ret: i32 = 0;
         let bit_mask: u64 = (1 << bit_width) - 1;
-        let data: u64 = self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[target_reg as usize] & bit_mask;
+        let mut data: u32 = (self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[target_reg as usize] & bit_mask) as u32;
 
-        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
+        /* TODO: replce with MMIO bus */
+        let is_plic_mmio = if 0xc000000 <= fault_addr && 
+            fault_addr < (0xc000000 + 0x1000000) { true } else { false };
+
+        if is_plic_mmio {
+            self.plic.get().unwrap().mmio_callback(fault_addr, &mut data, true);
+        } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
             ret = Tty::store_emulation(&self, fault_addr, data as u8);
         } else {
-            dbgprintln!("Unknown mmio (store)");
-            ret = 1;
+            panic!("Unknown mmio (store) fault_addr: 0x{:x}", fault_addr);
         }
 
         return ret;
@@ -190,16 +336,25 @@ impl VirtualCpu {
 
     fn load_emulation(&self, fault_addr: u64, target_reg: u64,
                 _bit_width: u64) -> i32 {
-        let ret: i32;
+        let mut ret: i32 = 0;
+        let mut data: u32 = 0;
 
-        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
-            let data: u64 = Tty::load_emulation(&self, fault_addr) as u64;
-            self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[target_reg as usize] = data;
+        let is_plic_mmio = if 0xc000000 <= fault_addr && 
+            fault_addr < (0xc000000 + 0x1000000) { true } else { false };
+
+        if is_plic_mmio {
+            self.plic.get().unwrap().mmio_callback(fault_addr, &mut data, false);
+        } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
+            /* check the input and update huvip */
+            self.console.lock().unwrap().update_huvip();
+
+            data = Tty::load_emulation(&self, fault_addr) as u32;
             ret = 0;
         } else {
-            dbgprintln!("Unknown mmio (load) fault_addr: 0x{:x}", fault_addr);
-            ret = 1;
+            panic!("Unknown mmio (load) fault_addr: 0x{:x}", fault_addr);
         }
+        self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.
+            x_reg[target_reg as usize] = data as u64;
 
         return ret;
     }
@@ -221,10 +376,10 @@ impl VirtualCpu {
         let ucause = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
         let uepc = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc;
         let hutinst = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutinst;
-        let inst: u64;
-        let target_reg: u64;
-        let bit_width: u64;
-        let mut inst_width: u64 = 4;
+        let inst: u32;
+        let mut target_reg: u64 = 0xffff;
+        let mut bit_width: u64 = 0;
+        let mut inst_len: u64 = 0;
         let ret: i32;
 
         // ffffffe0002e53ba sw a2
@@ -236,82 +391,48 @@ impl VirtualCpu {
         // ffffffe000713514 lw a5
         // ffffffe000713522 sw s1
         // ffffffe0007134f8 lw a3
-        let is_plic_mmio = |fault_addr: u64| -> bool {
-            if 0xc000000 <= fault_addr && fault_addr < (0xc000000 + 0x1000000) {
-                return true;
-            } else {
-                return false;
-            }
-        };
         
-        if is_plic_mmio(fault_addr) {
-            println!("handle_mmio: plic_toggle uepc {:x} ucause {:x}, hutinst {:x}", 
-                uepc, ucause, hutinst);
-        }
+        //if is_plic_mmio(fault_addr) {
+        //    println!("handle_mmio: plic_toggle uepc {:x} ucause {:x}, hutinst {:x}", 
+        //        uepc, ucause, hutinst);
+        //}
 
         if hutinst == 0x0 {
             /* The implementation has not support the function of hutinst */
-            inst = VirtualCpu::get_vm_inst_by_uepc(uepc);
+            inst = self.get_vm_inst_by_uepc(uepc, true);
         } else {
-            inst = hutinst;
+            inst = hutinst as u32;
         }
 
-        let inst_res = VirtualCpu::inst_parse(inst);
-        if inst_res.is_none() {
-            /* linux use a0 for load and a2 for store in ttyS0-3f8 */
-            if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
-                /* lb a0, 0x0(a0) */
-                target_reg = 10;
-                bit_width = 8;
-            } else {
-                /* sb a2, 0x0(a1) */
-                target_reg = 12;
-                bit_width = 8;
-            }
+        /* linux use a0 for load and a2 for store in ttyS0-3f8 */
+        if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
+            self.parse_load_inst(inst, &mut inst_len, &mut bit_width, &mut target_reg);
+            /* lb a0, 0x0(a0) */
+            //target_reg = 10;
+            //bit_width = 8;
         } else {
-            let (_target_reg, _bit_width) = inst_res.unwrap();
-            target_reg = _target_reg;
-            bit_width = _bit_width;
+            self.parse_store_inst(inst, &mut inst_len, &mut bit_width, &mut target_reg);
+            /* sb a2, 0x0(a1) */
+            //target_reg = 12;
+            //bit_width = 8;
+        }
+
+        if target_reg > 31 {
+            println!("handle_mmio: uepc {:x} ucause {:x}, hutinst {:x}", 
+                uepc, ucause, hutinst);
         }
 
         if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
             /* load */
-            if is_plic_mmio(fault_addr) {
-                let mut data: u32 = 0;
-                self.plic.get().unwrap().mmio_callback(fault_addr, &mut data, false);
-                if (uepc == 0xffffffe0007134f8) {
-                    self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[13] = data as u64;
-                } else {
-                    self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[15] = data as u64;
-                }
-                ret = 0;
-                inst_width = 2;
-            } else {
-            /* check the input and update huvip */
-            self.console.lock().unwrap().update_huvip();
-
             ret = self.load_emulation(fault_addr, target_reg, bit_width);
-            }
         } else if ucause == EXC_STORE_GUEST_PAGE_FAULT {
             /* store */
-            if is_plic_mmio(fault_addr) {
-                let mut data: u32 = 0;
-                if uepc == 0xffffffe0002e543e {
-                    data = self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[15] as u32;
-                } else {
-                    data = self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[9] as u32;
-                }
-                self.plic.get().unwrap().mmio_callback(fault_addr, &mut data, true);
-                ret = 0;
-                inst_width = 2;
-            } else {
             ret = self.store_emulation(fault_addr, target_reg, bit_width);
-            }
         } else {
             ret = 1;
         }
 
-        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = uepc + inst_width;
+        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = uepc + inst_len;
 
         return ret;
     }
@@ -334,7 +455,7 @@ impl VirtualCpu {
         let gpa_check = self.vm.lock().unwrap().gsmmu.check_gpa(fault_addr);
         if !gpa_check {
             /* Maybe mmio or illegal gpa */
-            let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
+            //let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
 
             //if !mmio_check {
             //    panic!("Invalid gpa!");
@@ -471,10 +592,6 @@ impl VirtualCpu {
         let ucause = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
         *self.exit_reason.lock().unwrap() = ExitReason::ExitUnknown;
         
-        if self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc == 0xffffffe0002e543e {
-            println!("vmexit: ucause: {:x}", ucause);
-        }
-
         if (ucause & EXC_IRQ_MASK) != 0 {
             *self.exit_reason.lock().unwrap() = ExitReason::ExitIntr;
             let ucause = ucause & (!EXC_IRQ_MASK);
@@ -555,12 +672,15 @@ impl VirtualCpu {
         
         let mut ret: i32 = 0;
         while ret == 0 {
-            // Flush pending irqs into HUVIP
+            /* Flush pending irqs into HUVIP */
             self.virq.lock().unwrap().flush_pending_irq();
 
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
+
+            /* Sync pending irqs from HUVIP */
+            self.virq.lock().unwrap().sync_pending_irq();
 
             ret = self.handle_vcpu_exit();
         }
