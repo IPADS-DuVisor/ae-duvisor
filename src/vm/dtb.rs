@@ -207,7 +207,7 @@ impl MachineMeta {
             prop_value = (prop_value << 32) + (value_u32_list[i as usize] as u64);
         }
 
-        println!("initrd_parse - prop_value 0x{:x}", prop_value);
+        dbgprintln!("initrd_parse - prop_value 0x{:x}", prop_value);
 
         if value_type == MachineMeta::INITRD_START {
             self.initrd_region.start = prop_value;

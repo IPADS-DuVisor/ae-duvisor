@@ -209,7 +209,7 @@ impl VirtualMachine {
         let dtb_data_ptr = self.dtb_file.file_data.as_ptr() as u64;
         VirtualMachine::load_file_to_mem(hva, dtb_data_ptr, dtb_size);
 
-        println!("Load DTB to 0x{:x}, size 0x{:x}", dtb_gpa, dtb_size);
+        println!("Load DTB to 0x{:x}, size 0x{:x}", dtb_gpa, dtb_size);
 
         return Some((dtb_gpa, hva));
     }
@@ -225,7 +225,7 @@ impl VirtualMachine {
             return None;
         }
 
-        let page_offset: u64 = initrd_gpa & 0xfff;
+        let page_offset: u64 = initrd_gpa & PAGE_SIZE_MASK;
         let initrd_path: &str = &self.initrd_path[..];
 
         /* Read initrd data */
@@ -249,8 +249,8 @@ impl VirtualMachine {
 
         dbgprintln!("Initrd load finish");
 
-        println!("load initrd to 0x{:x} - 0x{:x}", initrd_gpa, initrd_end);
-
+        println!("Load initrd to 0x{:x}, size 0x{:x}", initrd_gpa,
+            initrd_end - initrd_gpa);
 
         return Some((initrd_gpa, hva + page_offset));
     }
@@ -280,7 +280,7 @@ impl VirtualMachine {
         
         VirtualMachine::load_file_to_mem(hva, img_data_ptr, size);
 
-        println!("Load image to 0x{:x}", gpa);
+        println!("Load kernel to 0x{:x}, size 0x{:x}", gpa, size);
 
         /* Return for test */
         hva_list

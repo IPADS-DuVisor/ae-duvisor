@@ -1,4 +1,3 @@
-use crate::vcpu::virtualcpu::VirtualCpu;
 use crate::vcpu::utils::*;
 use crate::irq::delegation::delegation_constants::*;
 use tty_uart_constants::*;
@@ -170,7 +169,7 @@ impl Tty {
             self.value[UART_IIR] = UART_IIR_NO_INT;
             /* Insert irq */
             unsafe {
-                println!("send irq!");
+                dbgprintln!("send irq!");
                 csrs!(HUVIP, 1 << IRQ_TTY);
             }
         } else {
@@ -187,17 +186,17 @@ impl Tty {
         }
     }
 
-    pub fn load_emulation(vcpu: &VirtualCpu, mmio_addr: u64) -> u8 {
+    pub fn load_emulation(&mut self, mmio_addr: u64) -> u8 {
         let offset = mmio_addr - 0x3f8;
         let mut ret: u8 = 0 as u8;
 
         match offset as usize {
             UART_RX => { /* 0x3f8 */
-                if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
-                    ret = vcpu.console.lock().unwrap().value[UART_DLL];
+                if self.value[UART_LCR] & UART_LCR_DLAB != 0 {
+                    ret = self.value[UART_DLL];
                 } else {
                     /* Get input */
-                    let res = vcpu.console.lock().unwrap().get_char();
+                    let res = self.get_char();
 
                     if res.is_some() {
                         ret = res.unwrap() as u8;
@@ -207,51 +206,51 @@ impl Tty {
                 }
             }
             UART_IER => { /* 0x3f9 */
-                if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
-                    ret = vcpu.console.lock().unwrap().value[UART_DLL];
+                if self.value[UART_LCR] & UART_LCR_DLAB != 0 {
+                    ret = self.value[UART_DLL];
                 } else {
-                    ret = vcpu.console.lock().unwrap().value[UART_IER];
+                    ret = self.value[UART_IER];
                 }
             }
             UART_IIR => { /* 0x3fa */
-                ret = vcpu.console.lock().unwrap().value[UART_IIR] | UART_IIR_TYPE_BITS;
+                ret = self.value[UART_IIR] | UART_IIR_TYPE_BITS;
             }
             UART_LCR => { /* 0x3fb */
-                ret = vcpu.console.lock().unwrap().value[UART_LCR];
+                ret = self.value[UART_LCR];
             }
             UART_MCR => { /* 0x3fc */
-                ret = vcpu.console.lock().unwrap().value[UART_MCR];
+                ret = self.value[UART_MCR];
             }
             UART_LSR => { /* 0x3fd */
-                ret = vcpu.console.lock().unwrap().value[UART_LSR];
-                if vcpu.console.lock().unwrap().cnt > 0 {
+                ret = self.value[UART_LSR];
+                if self.cnt > 0 {
                     ret |= UART_LSR_DR;
                 }
             }
             UART_MSR => { /* 0x3fe */
-                ret = vcpu.console.lock().unwrap().value[UART_MSR];
+                ret = self.value[UART_MSR];
             }
             UART_SCR => { /* 0x3ff */
-                ret = vcpu.console.lock().unwrap().value[UART_SCR];
+                ret = self.value[UART_SCR];
             }
             _ => {
                 println!("Unknown tty load offset {}", offset);
             }
         }
 
-        vcpu.console.lock().unwrap().update_irq();
+        self.update_irq();
 
         ret
     }
 
-    pub fn store_emulation(vcpu: &VirtualCpu, mmio_addr: u64, data: u8) -> i32 {
+    pub fn store_emulation(&mut self, mmio_addr: u64, data: u8) -> i32 {
         let mut ret: i32 = 0;
         let offset = mmio_addr - 0x3f8;
 
         match offset as usize {
             UART_TX => { /* 0x3f8 */
-                if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
-                    vcpu.console.lock().unwrap().value[UART_DLL] = data;
+                if self.value[UART_LCR] & UART_LCR_DLAB != 0 {
+                    self.value[UART_DLL] = data;
                 } else {
                     /* If DLAB=0, just output the char. */
                     console_putchar(data as u64);
@@ -263,26 +262,26 @@ impl Tty {
                 }
             }
             UART_IER => { /* 0x3f9 */
-                if vcpu.console.lock().unwrap().value[UART_LCR] & UART_LCR_DLAB != 0 {
-                    vcpu.console.lock().unwrap().value[UART_IER] = data & 0x0f;
+                if self.value[UART_LCR] & UART_LCR_DLAB != 0 {
+                    self.value[UART_IER] = data & 0x0f;
                 } else {
-                    vcpu.console.lock().unwrap().value[UART_DLM] = data;
+                    self.value[UART_DLM] = data;
                 }
             }
             UART_IIR => { /* 0x3fa UART_FCR */
-                vcpu.console.lock().unwrap().value[UART_FCR] = data;
+                self.value[UART_FCR] = data;
                 dbgprintln!("fcr {:x}", data);
             }
             UART_LCR => { /* 0x3fb */
-                vcpu.console.lock().unwrap().value[UART_LCR] = data;
+                self.value[UART_LCR] = data;
                 dbgprintln!("lcr {:x}", data);
             }
             UART_MCR => { /* 0x3fc */
-                vcpu.console.lock().unwrap().value[UART_MCR] = data;
+                self.value[UART_MCR] = data;
                 dbgprintln!("mcr {:x}", data);
             }
             UART_SCR => { /* 0x3ff */
-                vcpu.console.lock().unwrap().value[UART_SCR] = data;
+                self.value[UART_SCR] = data;
                 dbgprintln!("scr {:x}", data);
             }
             _ => {
@@ -291,7 +290,7 @@ impl Tty {
             }
         }
 
-        vcpu.console.lock().unwrap().update_irq();
+        self.update_irq();
 
         ret
     }

@@ -43,12 +43,6 @@ extern "C" {
 #[allow(unused)]
 extern "C"
 {
-    fn hypervisor_load(target_addr: u64) -> u64;
-}
-
-#[allow(unused)]
-extern "C"
-{
     fn vcpu_ecall_exit();
     fn vcpu_ecall_exit_end();
     fn vcpu_add_all_gprs();
@@ -124,7 +118,7 @@ impl VirtualCpu {
     fn handle_virtual_inst_fault(&mut self) -> i32 {
         let ret = 0;
 
-        self.vcpu_ctx.host_ctx.hyp_regs.uepc = self.vcpu_ctx.host_ctx.hyp_regs.uepc + 4;
+        self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
         
         ret
     }
@@ -160,7 +154,11 @@ impl VirtualCpu {
     }
 
     /* TODO: H(U)LV/H(U)LVX.HU problems on qemu */
-    fn get_vm_inst_by_uepc(_uepc: u64) -> u64 {
+    fn get_vm_inst_by_uepc(&mut self) -> u64 {
+        let _uepc = self.vcpu_ctx.host_ctx.hyp_regs.uepc;
+
+        /* TODO: Use uepc and HLV instruction to get the trap inst */
+
         return 0;
     }
 
@@ -177,7 +175,8 @@ impl VirtualCpu {
                 .x_reg[target_reg as usize] & bit_mask;
 
         if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
-            ret = Tty::store_emulation(&self, fault_addr, data as u8);
+            ret = self.console.lock().unwrap()
+                .store_emulation(fault_addr, data as u8);
         } else {
             dbgprintln!("Unknown mmio (store)");
             ret = 1;
@@ -191,7 +190,8 @@ impl VirtualCpu {
         let ret: i32;
 
         if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
-            let data: u64 = Tty::load_emulation(&self, fault_addr) as u64;
+            let data: u64 = self.console.lock().unwrap()
+                .load_emulation(fault_addr) as u64;
             self.vcpu_ctx.guest_ctx.gp_regs.x_reg[target_reg as usize] = data;
             ret = 0;
         } else {
@@ -226,7 +226,7 @@ impl VirtualCpu {
         
         if hutinst == 0x0 {
             /* The implementation has not support the function of hutinst */
-            inst = VirtualCpu::get_vm_inst_by_uepc(uepc);
+            inst = self.get_vm_inst_by_uepc();
         } else {
             inst = hutinst;
         }
@@ -1001,7 +1001,7 @@ mod tests {
         }
 
         #[test]
-        fn test_tty_sd() { 
+        fn test_tty_store() { 
             let mut vm_config = test_vm_config_create();
             let elf_path: &str = "./tests/integration/tty_store.img";
             vm_config.kernel_img_path = String::from(elf_path);
@@ -1043,7 +1043,7 @@ mod tests {
         }
 
         #[test]
-        fn test_tty_ld() { 
+        fn test_tty_load() { 
             let mut vm_config = test_vm_config_create();
             let elf_path: &str = "./tests/integration/tty_load.img";
             vm_config.kernel_img_path = String::from(elf_path);
