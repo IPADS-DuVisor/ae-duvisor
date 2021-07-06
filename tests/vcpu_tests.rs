@@ -18,9 +18,11 @@ fn test_vcpu_add_all_gprs() {
     };
     assert!(cmdline::VMConfig::verify_args(&vm_config));
 
-    /* TODO: VirtualMachine::new, there should be assert codes. When vm initialization failure, */
-    /* such as memory allocation failure or exceeding vm number failure, occurs,  */
-    /* VirtualMachine::new should assert ABORT, and the tests will failed. */
+    /* 
+     * TODO: VirtualMachine::new, there should be assert codes. When vm initialization failure,
+     * such as memory allocation failure or exceeding vm number failure, occurs,
+     * VirtualMachine::new should assert ABORT, and the tests will failed. 
+     */
 
     /* TODO: use constants to specify gpr */
     /* TODO: laputa::set_one_gregs(vcpu_num: u64, gpr_num: u64, val: u64) */

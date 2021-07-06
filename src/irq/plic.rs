@@ -27,19 +27,19 @@ const CONTEXT_END: u64 = REG_SIZE - 1;
 const REG_SIZE: u64 = 0x1000000;
 
 struct PlicState {
-    // Static configuration
+    /* Static configuration */
     num_irq: u32,
     num_irq_word: u32,
     max_prio: u32,
-    // Global IRQ state
+    /* Global IRQ state */
     irq_priority: [u8; MAX_DEVICES],
     irq_level: [u32; MAX_DEVICES / 32],
 }
 
 struct PlicContext {
-    // Static configuration
+    /* Static configuration */
     vcpu: Weak<VirtualCpu>,
-    // Local IRQ state
+    /* Local IRQ state */
     irq_priority_threshold: u8,
     irq_enable: [u32; MAX_DEVICES / 32],
     irq_pending: [u32; MAX_DEVICES / 32],
@@ -150,10 +150,10 @@ impl Plic {
 
         let vcpu = ctx.vcpu.upgrade().unwrap();
         if best_irq == 0 {
-            // unset irq
+            /* Unset irq */
             vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
         } else {
-            // set irq
+            /* Set irq */
             vcpu.virq.lock().unwrap().set_pending_irq(IRQ_VS_EXT);
         }
     }
@@ -189,8 +189,10 @@ impl Plic {
         old_val = ctx.irq_enable[irq_word as usize];
         new_val = data;
 
-        // Bit 0 of word 0, which represents the non-existent interrupt source 0, 
-        // is hardwired to zero.
+        /* 
+         * Bit 0 of word 0, which represents the non-existent interrupt source 0, 
+         * is hardwired to zero.
+         */
         if irq_word == 0 {
             new_val = new_val & !0x1;
         }
@@ -264,7 +266,7 @@ impl Plic {
                 let best_irq_word: u32 = best_irq / 32;
                 let best_irq_mask: u32 = 1 << (best_irq % 32);
 
-                // unset irq
+                /* Unset irq */
                 let vcpu = ctx.vcpu.upgrade().unwrap();
                 vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
 
@@ -342,7 +344,7 @@ impl Plic {
         }
     }
 
-    // Only support level-triggered IRQs
+    /* Only support level-triggered IRQs */
     pub fn trigger_irq(&self, irq: u32, level: bool) {
         let state = self.plic_state.read().unwrap();
         dbgprintln!("trigger_irq: irq {} num_irq {} level {}",
@@ -352,7 +354,7 @@ impl Plic {
         let irq_prio: u8 = state.irq_priority[irq as usize];
         let irq_word: u8 = (irq / 32) as u8;
         let irq_mask: u32 = 1 << (irq % 32);
-        // state.read_unlock()
+        /* state.read_unlock() */
         drop(state);
 
         if level {
@@ -396,7 +398,7 @@ impl Plic {
 mod tests {
     use rusty_fork::rusty_fork_test;
     use crate::vm::*;
-    use crate::debug::utils::configtest::test_vm_config_create;
+    use crate::test::utils::configtest::test_vm_config_create;
     use crate::irq::plic::*;
     use std::thread;
 
@@ -425,7 +427,7 @@ mod tests {
                         &mut write, true);
                     plic.mmio_callback(get_enable_offset(ctx_id, offset), 
                         &mut read, false);
-                    // IRQ #0 is hardwired to 0
+                    /* IRQ #0 is hardwired to 0 */
                     assert_eq!(read, write & !0x1);
             };
             local_enable_succeed(0xff, 0xdead, 0, 0);
@@ -439,7 +441,7 @@ mod tests {
                         &mut write, true);
                     plic.mmio_callback(get_enable_offset(ctx_id, offset), 
                         &mut read, false);
-                    // Only 32 IRQs supported, write to offset > 0x8 is ignored
+                    /* Only 32 IRQs supported, write to offset > 0x8 is ignored */
                     assert_eq!(read, 0xdead);
             };
             local_enable_failed(0xff, 0xdead, 0, 0x8);
@@ -471,7 +473,7 @@ mod tests {
                     
                     plic.mmio_callback(get_claim_offset(ctx_id), &mut write, true);
                     plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
-                    // Write to CLAIM is ignored
+                    /* Write to CLAIM is ignored */
                     assert_eq!(read, 0);
             };
             local_context_succeed(0xff, 0, 0);
@@ -487,7 +489,7 @@ mod tests {
             };
             let local_claim_succeed = 
                 |irq: u32, mut read: u32, ctx_id: u64| {
-                    // Init global priority & local enable
+                    /* Init global priority & local enable */
                     let mut mask = 0xffffffff;
                     plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
                     plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
@@ -502,12 +504,12 @@ mod tests {
             
             let local_claim_failed = 
                 |irq: u32, mut read: u32, ctx_id: u64| {
-                    // Init global priority & local enable
+                    /* Init global priority & local enable */
                     let mut mask = 0xffffffff;
                     plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
                     plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
 
-                    // Set global priority to 0, so no IRQ will be selected
+                    /* Set global priority to 0, so no IRQ will be selected */
                     mask = 0;
                     plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
                     
@@ -516,7 +518,7 @@ mod tests {
                     plic.trigger_irq(irq, false);
                     assert_eq!(read, 0);
                     
-                    // Set local enable to 0, so no IRQ will be selected
+                    /* Set local enable to 0, so no IRQ will be selected */
                     mask = 0;
                     plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
                     
@@ -525,7 +527,7 @@ mod tests {
                     plic.trigger_irq(irq, false);
                     assert_eq!(read, 0);
                     
-                    // Out-of-range IRQ
+                    /* Out-of-range IRQ */
                     plic.trigger_irq(32, true);
                     plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
                     plic.trigger_irq(32, false);
@@ -555,7 +557,7 @@ mod tests {
                 };
                 let local_claim_succeed = 
                     |irq: u32, mut read: u32, ctx_id: u64| {
-                        // Init global priority & local enable
+                        /* Init global priority & local enable */
                         let mut mask = 0xffffffff;
                         plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
                         plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);

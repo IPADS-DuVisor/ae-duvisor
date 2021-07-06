@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-/* file type for vm image */
+/* File type for vm image */
 pub const IMAGE_TYPE_ELF: u8 = 1;
 pub const IMAGE_TYPE_DATA: u8 = 2;
 
-/* linux image const */
+/* Linux image const */
 pub const RISCV_RAM_GPA_START: u64 = 0x80000000;
 pub const KERNEL_OFFSET: u64 = 0x200000;
 
@@ -17,7 +17,7 @@ pub struct VmImage {
 
 impl VmImage {
     pub fn new(file_path: &str) -> Self {
-        /* parse ELF file */
+        /* Parse ELF file */
         let elf_file: elf::File;
         let elf_wrap = VmImage::elf_parse(file_path);
         let file_type: u8;
@@ -59,7 +59,7 @@ impl VmImage {
 
 #[cfg(test)]
 mod tests {
-    use crate::debug::utils::configtest::test_vm_config_create;
+    use crate::test::utils::configtest::test_vm_config_create;
     use crate::vm::*;
     use rusty_fork::rusty_fork_test;
     use libc::c_void;
@@ -123,7 +123,7 @@ mod tests {
             let hva_list = vm.vm_init();
             let length = hva_list.len();
 
-            /* there should not be any data loaded */
+            /* There should not be any data loaded */
             assert_eq!(length, 0);
         }
 
@@ -137,7 +137,7 @@ mod tests {
             let hva_list = vm.vm_init();
             let length = hva_list.len();
 
-            /* there should not be any data loaded */
+            /* There should not be any data loaded */
             assert_eq!(length, 0);
         }
     }

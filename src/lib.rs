@@ -13,7 +13,7 @@ pub mod vcpu;
 pub mod mm;
 pub mod irq;
 pub mod plat;
-pub mod debug;
+pub mod test;
 pub mod devices;
 use vm::virtualmachine::VirtualMachine;
 

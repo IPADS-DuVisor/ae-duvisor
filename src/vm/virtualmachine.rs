@@ -118,7 +118,6 @@ impl VirtualMachine {
         mmio_regions.push(GpaRegion {
             gpa: 0x0,
             length: 0x80000000,
-            //length: 0x1000,
         });
 
         #[cfg(test)]
@@ -127,14 +126,14 @@ impl VirtualMachine {
         #[cfg(not(test))]
         let io_thread = true;
 
-        /* get ioctl fd of "/dev/laputa_dev" */
+        /* Get ioctl fd of "/dev/laputa_dev" */
         let ioctl_fd = VirtualMachine::open_ioctl();
 
         let vm_state = VmSharedState::new(ioctl_fd, mem_size, mmio_regions);
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let console = Arc::new(Mutex::new(tty));
 
-        // Create vcpu struct instance
+        /* Create vcpu struct instances */
         for i in 0..vcpu_num {
             let vcpu = Arc::new(virtualcpu::VirtualCpu::new(i,
                     vm_state_mutex.clone(), console.clone()));
@@ -170,7 +169,7 @@ impl VirtualMachine {
         }
     }
 
-    /* init gpa block according to the elf file return for test */
+    /* Init gpa block according to the elf file return for test */
     pub fn init_gpa_block_elf(&mut self) -> Vec<u64> {
         let mut hva_list: Vec<u64> = Vec::new();
         let mut offset: u64;
@@ -180,7 +179,7 @@ impl VirtualMachine {
         let img_data_ptr = self.vm_image.file_data.as_ptr() as u64;
 
         for i in &self.vm_image.elf_file.phdrs {
-            /* only PT_LOAD should be init */
+            /* Only PT_LOAD should be init */
             if i.progtype != elf::types::PT_LOAD {
                 continue;
             }
@@ -202,7 +201,7 @@ impl VirtualMachine {
             VirtualMachine::load_file_to_mem(hva, ph_data_ptr, size);
         }
 
-        /* return for test */
+        /* Return for test */
         hva_list
     }
 
@@ -221,7 +220,7 @@ impl VirtualMachine {
         let dtb_data_ptr = self.dtb_file.file_data.as_ptr() as u64;
         VirtualMachine::load_file_to_mem(hva, dtb_data_ptr, dtb_size);
 
-        println!("Load DTB to 0x{:x}, size 0x{:x}", dtb_gpa, dtb_size);
+        println!("Load DTB to 0x{:x}, size 0x{:x}", dtb_gpa, dtb_size);
 
         return Some((dtb_gpa, hva));
     }
@@ -237,7 +236,7 @@ impl VirtualMachine {
             return None;
         }
 
-        let page_offset: u64 = initrd_gpa & 0xfff;
+        let page_offset: u64 = initrd_gpa & PAGE_SIZE_MASK;
         let initrd_path: &str = &self.initrd_path[..];
 
         /* Read initrd data */
@@ -261,13 +260,13 @@ impl VirtualMachine {
 
         dbgprintln!("Initrd load finish");
 
-        println!("load initrd to 0x{:x} - 0x{:x}", initrd_gpa, initrd_end);
-
+        println!("Load initrd to 0x{:x}, size 0x{:x}", initrd_gpa,
+            initrd_end - initrd_gpa);
 
         return Some((initrd_gpa, hva + page_offset));
     }
 
-    /* init gpa block according to the kernel data image return for test */
+    /* Init gpa block according to the kernel data image return for test */
     pub fn init_gpa_block_data(&mut self, gpa: u64) -> Vec<u64> {
         let mut hva_list: Vec<u64> = Vec::new();
         let img_data_ptr = self.vm_image.file_data.as_ptr() as u64;
@@ -292,9 +291,9 @@ impl VirtualMachine {
         
         VirtualMachine::load_file_to_mem(hva, img_data_ptr, size);
 
-        println!("Load image to 0x{:x}", gpa);
+        println!("Load kernel to 0x{:x}, size 0x{:x}", gpa, size);
 
-        /* return for test */
+        /* Return for test */
         hva_list
     }
 
@@ -322,13 +321,13 @@ impl VirtualMachine {
             let vcpu_id = i.vcpu_id;
             i.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10] = vcpu_id as u64;
 
-            /* dtb should be pointed by a1 */
+            /* Dtb should be pointed by a1 */
             i.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[11] = dtb_gpa;
 
-            /* enable the access to timer from vm */
+            /* Enable the access to timer from vm */
             i.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hucounteren = 0xffffffff;
 
-            /* set up the entry point of vm */
+            /* Set up the entry point of vm */
             if self.vm_image.file_type == image::IMAGE_TYPE_ELF {
                 kernel_gpa = self.vm_image.elf_file.ehdr.entry;
             }
@@ -343,7 +342,7 @@ impl VirtualMachine {
         }
 
         if self.vm_image.file_type == image::IMAGE_TYPE_ELF {
-            /* init gpa block from the elf file, return for test */
+            /* Init gpa block from the elf file, return for test */
             return self.init_gpa_block_elf();
         } else {
             return self.init_gpa_block_data(kernel_gpa);
@@ -434,7 +433,7 @@ impl VirtualMachine {
             let deleg = [edeleg, ideleg];
             let deleg_ptr = (&deleg) as *const u64;
 
-            /* call ioctl */
+            /* Call ioctl */
             let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG,
                 deleg_ptr);
             dbgprintln!("ioctl result: {}", res);
@@ -449,7 +448,7 @@ mod tests {
     use rusty_fork::rusty_fork_test;
     use crate::mm::gstagemmu::gsmmu_constants;
     use gsmmu_constants::*;
-    use crate::debug::utils::configtest::test_vm_config_create;
+    use crate::test::utils::configtest::test_vm_config_create;
     use libc::c_void;
     use crate::plat::opensbi::emulation::error_code::*;
     use crate::vcpu::vcpucontext::gp_reg_constants::*;
@@ -460,7 +459,7 @@ mod tests {
             let vm_config = test_vm_config_create();
             let vm = virtualmachine::VirtualMachine::new(vm_config);
 
-            /* answer */
+            /* Answer */
             let entry_ans = 0x1000;
             let phnum_ans = 1;
             let offset_ans = 0x1000;
@@ -492,7 +491,7 @@ mod tests {
         }
 
         /* 
-         * test init_gpa_block_elf() by compare the data from hva with img 
+         * Test init_gpa_block_elf() by compare the data from hva with img 
          * file 
          */
         #[test]
@@ -527,7 +526,7 @@ mod tests {
                 target_hva = i;
             }
 
-            /* extract answer from the img file */
+            /* Extract answer from the img file */
             let mut elf_data_ans: u64 = 0x9092908E908A40A9;
             let mut elf_data: u64;
             unsafe {
@@ -598,7 +597,7 @@ mod tests {
 
             let a0: u64;
 
-            /* correct a0 after time irq\n" */
+            /* Correct a0 after time irq\n" */
             let a0_ans: u64 = 0xcafe;
 
             a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
@@ -630,10 +629,10 @@ mod tests {
             let t1: u64 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.
                           gp_regs.x_reg[T1];
 
-            /* only single time irq */
+            /* Only single time irq */
             let a1_ans: u64 = 0xcafe;
 
-            /* the loop has finished */
+            /* The loop has finished */
             let t1_ans: u64 = 0x1000;
             let a1_bad_ans: u64 = 0xdeaf;
 
@@ -660,12 +659,12 @@ mod tests {
 
             vm.vm_run();
 
-            /* t0 should be '\n' to end */
+            /* T0 should be '\n' to end */
             let t0: u64;
             let t0_ans: u64 = 10;
             t0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[5];
 
-            /* t1 should sum up the input */
+            /* T1 should sum up the input */
             let t1: u64;
             let t1_ans: u64 = 1508;
             t1 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[6];
@@ -692,12 +691,12 @@ mod tests {
 
             vm.vm_run();
 
-            /* t0 should be '\n' to end */
+            /* T0 should be '\n' to end */
             let t0: u64;
             let t0_ans: u64 = 10;
             t0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[5];
 
-            /* t1 should sum up the input */
+            /* T1 should sum up the input */
             let t1: u64;
             let t1_ans: u64 = 16;
             t1 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[6];
@@ -792,7 +791,7 @@ mod tests {
             assert_eq!(result, 0);
         }
 
-        /* test the correctness of the data from dtb */
+        /* Test the correctness of the data from dtb */
         #[test]
         fn test_dtb_load_data_vmlinux() {
             let mut vm_config = test_vm_config_create();
@@ -818,7 +817,7 @@ mod tests {
             assert_eq!(result, 0);
         }
 
-        /* check the result of unsupported sbi ecall */
+        /* Check the result of unsupported sbi ecall */
         #[test]
         fn test_ecall_unsupported() { 
             let mut vm_config = test_vm_config_create();
@@ -832,10 +831,10 @@ mod tests {
 
             vm.vm_init();
 
-            /* the return value will be stored on this gpa */
+            /* The return value will be stored on this gpa */
             let target_address = 0x3000;
 
-            /* set entry point */
+            /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
             let res = vm.vm_state.lock().unwrap()
@@ -844,11 +843,11 @@ mod tests {
                 panic!("gpa region add failed!");
             }
 
-            /* get the hva of 0x3000(gpa) */
+            /* Get the hva of 0x3000(gpa) */
             let (hva, hpa) = res.unwrap();
             dbgprintln!("hva {:x}, hpa {:x}", hva, hpa);
 
-            /* map the page on g-stage */
+            /* Map the page on g-stage */
             let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
                     | PTE_EXECUTE;
             vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
@@ -859,7 +858,7 @@ mod tests {
             
             vm.vm_run();
 
-            /* check the return value stored by the vm */
+            /* Check the return value stored by the vm */
             unsafe {
                 for i in 0..3 {
                     retval = *((hva + 16 * i) as *mut u64);
@@ -870,7 +869,7 @@ mod tests {
             vm.vm_destroy();
         }
 
-        /* check the result of remote fence sbi */
+        /* Check the result of remote fence sbi */
         #[test]
         fn test_ecall_remote_fence() { 
             let mut vm_config = test_vm_config_create();
@@ -884,10 +883,10 @@ mod tests {
 
             vm.vm_init();
 
-            /* the return value will be stored on this gpa */
+            /* The return value will be stored on this gpa */
             let target_address = 0x3000;
 
-            /* set entry point */
+            /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
             let res = vm.vm_state.lock().unwrap()
@@ -896,11 +895,11 @@ mod tests {
                 panic!("gpa region add failed!");
             }
 
-            /* get the hva of 0x3000(gpa) */
+            /* Get the hva of 0x3000(gpa) */
             let (hva, hpa) = res.unwrap();
             dbgprintln!("hva {:x}, hpa {:x}", hva, hpa);
 
-            /* map the page on g-stage */
+            /* Map the page on g-stage */
             let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
                     | PTE_EXECUTE;
             vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
@@ -911,7 +910,7 @@ mod tests {
             
             vm.vm_run();
 
-            /* check the return value store by the vm */
+            /* Check the return value store by the vm */
             unsafe {
                 for i in 0..2 {
                     retval = *((hva + 8 * i) as *mut u64);
@@ -932,7 +931,7 @@ mod tests {
             vm_config.mmio_regions.pop();
             vm_config.mmio_regions.pop();
 
-            /* cancel the three mmio regions */
+            /* Cancel the three mmio regions */
             vm_config.mmio_regions = Vec::new();
 
             let elf_path: &str 
@@ -969,7 +968,7 @@ mod tests {
             vm_config.mmio_regions.pop();
             vm_config.mmio_regions.pop();
 
-            /* cancel the three mmio regions */
+            /* Cancel the three mmio regions */
             vm_config.mmio_regions = Vec::new();
             
             let elf_path: &str = "./tests/integration/vmem_ld_sd_sum.img";
@@ -977,7 +976,7 @@ mod tests {
 
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
-            /* sum up 0..100 twice */
+            /* Sum up 0..100 twice */
             for i in 0..100 {
                 sum_ans += i;
             }
@@ -1023,7 +1022,7 @@ mod tests {
             /* Sum up the chars in "Hello Ecall\n" */
             let t0_ans: u64 = 1023;
 
-            /* all the ecall should should return 0 */ 
+            /* All the ecall should should return 0 */ 
             let t1_ans: u64 = 0;
 
             t0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
@@ -1051,7 +1050,7 @@ mod tests {
 
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            /* a1 could be set to the address of fdt, so clear it */
+            /* A1 could be set to the address of fdt, so clear it */
             vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[11] = 0;
 
             vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
@@ -1095,7 +1094,7 @@ mod tests {
 
         #[test]
         fn test_vmem_ro() { 
-            let exit_reason_ans = 2; /* g-stage page fault for no permission */
+            let exit_reason_ans = 2; /* G-stage page fault for no permission */
             let exit_reason;
             let mut vm_config = test_vm_config_create();
             let elf_path: &str = "./tests/integration/vmem_W_Ro.img";
@@ -1120,7 +1119,7 @@ mod tests {
 
             vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
 
-            /* read-only */
+            /* Read-only */
             flag = PTE_USER | PTE_VALID | PTE_READ;
             vm.vm_state.lock().unwrap().gsmmu.map_protect(ro_address, flag);
 
@@ -1138,7 +1137,7 @@ mod tests {
 
         #[test]
         fn test_vmem_nx() { 
-            let exit_reason_ans = 2; /* g-stage page fault for no permission */
+            let exit_reason_ans = 2; /* G-stage page fault for no permission */
             let exit_reason;
             let mut vm_config = test_vm_config_create();
             let elf_path: &str = "./tests/integration/vmem_X_nonX.img";
@@ -1163,7 +1162,7 @@ mod tests {
 
             vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
 
-            /* non-execute */
+            /* Non-execute */
             flag = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
             vm.vm_state.lock().unwrap().gsmmu.map_protect(nx_address, flag);
 
@@ -1198,7 +1197,7 @@ mod tests {
 
             let a0: u64;
 
-            /* correct a0 after time irq\n" */
+            /* Correct a0 after time irq\n" */
             let a0_ans: u64 = 0xcafe;
 
             a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
@@ -1209,7 +1208,7 @@ mod tests {
             assert_eq!(a0_ans, a0);
         }
 
-        /* test the correctness of the data from initrd */
+        /* Test the correctness of the data from initrd */
         #[test]
         fn test_initrd_load_data_vmlinux() {
             let mut vm_config = test_vm_config_create();
@@ -1246,7 +1245,7 @@ mod tests {
             assert_eq!(result, 0);
         }
 
-        /* test the initrd-loading function with a fake rootfs file */
+        /* Test the initrd-loading function with a fake rootfs file */
         #[test]
         fn test_initrd_load_data_fake_file() {
             let mut vm_config = test_vm_config_create();
@@ -1285,7 +1284,7 @@ mod tests {
         }
 
         /* 
-        * test the initrd-loading function with a legal but wrong rootfs 
+        * Test the initrd-loading function with a legal but wrong rootfs 
         * file
         */
         #[test]

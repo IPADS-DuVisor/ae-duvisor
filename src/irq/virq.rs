@@ -2,8 +2,10 @@ use crate::vcpu::utils::*;
 
 #[allow(unused)]
 pub struct VirtualInterrupt {
-    // UVTIMER (#16) is not controlled by vcpu.virq field
-    // FIXME: use a bit array
+    /* 
+     * UVTIMER (#16) is not controlled by vcpu.virq field
+     * FIXME: use a bit array
+     */
     irq_pending: [bool; 16],
 }
 
@@ -26,34 +28,18 @@ impl VirtualInterrupt {
     }
 
     pub fn flush_pending_irq(&mut self) {
-        //let huvip: bool;
-        //unsafe {
-        //    static mut FLAG: bool = false;
-        //    huvip = (csrr!(HUVIP) >> 10) == 1;
-        //    if self.irq_pending[10] { FLAG = true; }
-        //    if FLAG && huvip != self.irq_pending[10] {
-        //        println!("mismatch: huvip: {}, pending: {}", huvip, self.irq_pending[10]);
-        //    }
-        //}
         for i in 0..self.irq_pending.len() {
-        //for i in 0..8 {
             if self.irq_pending[i] {
-                unsafe {
-                    csrs!(HUVIP, 1 << i);
-                }
+                unsafe { csrs!(HUVIP, 1 << i); }
             } else {
-                unsafe {
-                    csrc!(HUVIP, 1 << i);
-                }
+                unsafe { csrc!(HUVIP, 1 << i); }
             }
         }
     }
 
     pub fn sync_pending_irq(&mut self) {
         let huvip: u64;
-        unsafe {
-            huvip = csrr!(HUVIP);
-        }
+        unsafe { huvip = csrr!(HUVIP); }
         for i in 0..self.irq_pending.len() {
             self.irq_pending[i] = if (huvip & (1 << i)) != 0 { true } else { false };
         }
