@@ -11,7 +11,8 @@ pub mod vcpu;
 pub mod mm;
 pub mod irq;
 pub mod plat;
-pub mod debug;
+pub mod test;
+pub mod devices;
 use vm::virtualmachine::VirtualMachine;
 
 pub mod init;
@@ -30,6 +31,6 @@ pub fn run(config: cmdline::VMConfig) {
     vm.vm_run();
 
     vm.vm_destroy();
-    
+
     println!("Finish vm running...");
 }

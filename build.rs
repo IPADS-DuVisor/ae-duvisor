@@ -22,7 +22,7 @@ fn main() {
     cc::Build::new()
         .file("src/guestentry/enter_guest.S")
         .compile("enter_guest");
-    
+
     cc::Build::new()
         .file("src/plat/opensbi/uart.c")
         .compile("uart");

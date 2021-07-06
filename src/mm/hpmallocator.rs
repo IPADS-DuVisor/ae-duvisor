@@ -70,31 +70,32 @@ impl HpmAllocator {
     /* Call PMP for hpa region */
     pub fn pmp_alloc(&mut self) -> Option<HpmRegion> {
         let fd = self.ioctl_fd;
-        let test_buf: u64; /* va */
-        let test_buf_pfn: u64; /* hpa */
+        let test_buf: u64; /* VA */
+        let test_buf_pfn: u64; /* HPA */
+        
+        #[cfg(test)]
+        let test_buf_size: usize = 128 << 20;
+        #[cfg(not(test))]
         let test_buf_size: usize = 512 << 20; /* 512 MB for now */
+        
         let version: u64 = 0;
 
         println!("pmp_alloc fd {}", fd);
         unsafe {
             let version_ptr = (&version) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
-            println!("IOCTL_LAPUTA_GET_API_VERSION -  version : {:x}", 
-                version);
 
-            /* get va */
+            /* Get va */
             let addr = 0 as *mut libc::c_void;
             let mmap_ptr = libc::mmap(addr, test_buf_size, 
                 libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, fd, 0);
             assert_ne!(mmap_ptr, libc::MAP_FAILED);
 
-            /* get hpa */
+            /* Get hpa */
             test_buf = mmap_ptr as u64;
             test_buf_pfn = test_buf;
             let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
-            println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
-                test_buf_pfn);
         }
 
         let hpm_vptr = test_buf as u64;
@@ -128,7 +129,7 @@ impl HpmAllocator {
         let result_pa: u64;
         let result_length: u64;
 
-        /* get 512 MB for now */
+        /* Get 512 MB for now */
         if self.hpm_region_list.len() == 0 {
             let hpm_region = self.pmp_alloc().unwrap();
             self.hpm_region_list.push(hpm_region);
@@ -147,16 +148,11 @@ impl HpmAllocator {
 
             result.push(HpmRegion::new(result_va, result_pa, result_length));
 
-            /* increase the offset */
+            /* Increase the offset */
             target_hpm_region.offset += length;
-
-            println!("target_hpm_region - offset: {}", 
-                target_hpm_region.offset);
 
             return Some(result);
         }
-
-        println!("128 MB is not enough!");
 
         None
     }

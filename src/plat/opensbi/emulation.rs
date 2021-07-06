@@ -41,10 +41,10 @@ pub struct Ecall {
     /* FID - a6 */
     pub func_id: u64,
 
-    /* args - a0~a5 */
+    /* Args - a0~a5 */
     pub arg: [u64; 6],
 
-    /* return - a0, a1 */
+    /* Return - a0, a1 */
     pub ret: [u64; 2],
 }
 
@@ -79,7 +79,7 @@ impl Ecall {
                 let next_cycle = self.arg[0];
                 unsafe {
                     /*
-                     * linux thinks that the IRQ_S_TIMER will be cleared when ecall SBI_EXT_0_1_SET_TIMER
+                     * Linux thinks that the IRQ_S_TIMER will be cleared when ecall SBI_EXT_0_1_SET_TIMER
                      * For record, opensbi thinks that IRQ_M_TIMER should be cleared by software.
                      * Qemu and xv6 think that IRQ_M_TIMER should be clear when writing timecmp.
                      * I think that IRQ_U_VTIMER should be cleared by software.
@@ -87,7 +87,7 @@ impl Ecall {
                      */
                     csrc!(HUVIP, 1 << IRQ_VS_TIMER);
 
-                    /* set timer ctl register to enable u vtimer */
+                    /* Set timer ctl register to enable u vtimer */
                     csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
                     csrw!(VTIMECMP, next_cycle);
                 }
@@ -122,7 +122,7 @@ impl Ecall {
                     let ecall_ret: [u64;2] = [0, 0];
                     let ret_ptr = (&ecall_ret) as *const u64;
 
-                    /* call ioctl IOCTL_REMOTE_FENCE to kernel module */
+                    /* Call ioctl IOCTL_REMOTE_FENCE to kernel module */
                     let _res = libc::ioctl(ioctl_fd, IOCTL_REMOTE_FENCE,
                             ret_ptr);
                                         
@@ -145,7 +145,7 @@ impl Ecall {
         let ch = ch as char;
         print!("{}", ch);
 
-        /* success and return with a0 = 0 */
+        /* Success and return with a0 = 0 */
         self.ret[0] = 0;
 
         0
@@ -167,7 +167,7 @@ impl Ecall {
         {
             let virtual_input: [i32; 16];
 
-            /* input "getchar succeed\n" */
+            /* Input "getchar succeed\n" */
             virtual_input = [103, 101, 116, 99, 104, 97, 114, 32, 115, 117, 99,
                 99, 101, 101, 100, 10];
     
@@ -178,7 +178,7 @@ impl Ecall {
                 INDEX += 1;
             }
 
-            /* success and return with a0 = 0 */
+            /* Success and return with a0 = 0 */
             self.ret[0] = ret as u64;
 
             return 0;
@@ -190,7 +190,7 @@ impl Ecall {
                 ret = getchar_emulation();
             }
     
-            /* success and return with a0 = 0 */
+            /* Success and return with a0 = 0 */
             self.ret[0] = ret as u64;
     
             0

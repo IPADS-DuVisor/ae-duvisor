@@ -12,7 +12,7 @@ extern "C"
 
 
 pub mod gsmmu_constants {
-    /* pte bit */
+    /* Pte bit */
     pub const PTE_VALID: u64 = 1u64 << 0;
     pub const PTE_READ: u64 = 1u64 << 1;
     pub const PTE_WRITE: u64 = 1u64 << 2;
@@ -134,7 +134,7 @@ impl PageTableRegion {
     pub fn page_table_create(&mut self, level: u64) -> *mut u64 {
         let mut size: u64 = PAGE_SIZE;
 
-        /* root page table takes 4 pages in SV39x4 & SV48x4 */
+        /* Root page table takes 4 pages in SV39x4 & SV48x4 */
         if level == 0 {
             size = PAGE_SIZE * 4;
         }
@@ -143,7 +143,7 @@ impl PageTableRegion {
         ptr
     }
 
-    /* alloc page table from &self.region: HpmRegion */
+    /* Alloc page table from &self.region: HpmRegion */
     pub fn page_table_alloc(&mut self, length: u64) -> *mut u64 {
         let u64_size: usize = mem::size_of::<u64>();
         assert_eq!(length % u64_size as u64, 0);
@@ -156,11 +156,11 @@ impl PageTableRegion {
         let offset = self.free_offset;
         let ret_ptr = (self.vaddr + offset) as *mut u64;
 
-        /* clear the new page table */
+        /* Clear the new page table */
         let ptr = ret_ptr as *mut libc::c_void;
         unsafe { libc::memset(ptr, 0, length as usize); }
 
-        /* offset update */
+        /* Offset update */
         self.free_offset += length;
 
         ret_ptr
@@ -170,7 +170,7 @@ impl PageTableRegion {
 #[allow(unused)]
 pub struct GStageMmu {
     pub page_table: PageTableRegion,
-    pub gpa_blocks: Vec<gparegion::GpaBlock>, /* gpa block list */
+    pub gpa_blocks: Vec<gparegion::GpaBlock>, /* Gpa block list */
     pub allocator: hpmallocator::HpmAllocator,
     pub mmio_manager: mmio::MmioManager,
     pub mem_gpa_regions: Vec<gparegion::GpaRegion>,
@@ -187,7 +187,7 @@ impl GStageMmu {
         let mem_gpa_regions = GStageMmu::init_gpa_regions(mem_size,
                 &mmio_manager);
 
-        /* create root table */
+        /* Create root table */
         page_table.page_table_create(0);
 
         Self {
@@ -219,7 +219,7 @@ impl GStageMmu {
 
             if GStageMmu::region_overlap(gpa, length, start_block,
                     length_block) {
-                /* overlapped */
+                /* Overlapped */
                 return true;
             }
         }
@@ -234,7 +234,7 @@ impl GStageMmu {
         let mut gpa_region_gpa: u64 = 0;
         let mut gpa_region_length: u64;
 
-        /* check whether gpa regions are overlapped and reorder them */
+        /* Check whether gpa regions are overlapped and reorder them */
         if !mmio_manager.check_valid() {
             panic!("Invalid mmio config!");
         }
@@ -633,7 +633,7 @@ impl GStageMmu {
 
     pub fn gpa_block_add(&mut self, gpa: u64, mut length: u64)
         -> Result<(u64, u64), u64> {
-        /* gpa block should always be aligned to PAGE_SIZE */
+        /* Gpa block should always be aligned to PAGE_SIZE */
         length = page_size_round_up(length);
 
         if self.gpa_block_overlap(gpa, length) {
@@ -796,7 +796,7 @@ mod tests {
             let pte: u64 = unsafe { *ptr };
 
             /* PTE on L4 should be 0b1000 0000 1011 */
-            /* ppn = 0b10 with PTE_EXECUTE/READ/VALID */
+            /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 2059);
         }
 
@@ -826,7 +826,7 @@ mod tests {
             /* Non-zero [0, 512*4, 512*5, 512*6+1] */
             let pte_index = vec![0, 512*4, 512*5, 512*6+1];
 
-            /* non-zero answer */
+            /* Non-zero answer */
             let base_address = gsmmu.page_table.paddr;
             let l0_pte = ((base_address + 0x4000) >> 2) | PTE_VALID;
             let l1_pte = ((base_address + 0x5000) >> 2) | PTE_VALID;
@@ -894,7 +894,7 @@ mod tests {
             pte = unsafe { *ptr };
 
             /* PTE on L4 should be 0b1000 0000 1011 */
-            /* ppn = 0b10 with PTE_EXECUTE/READ/VALID */
+            /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 2059);
 
             unsafe {
@@ -903,7 +903,7 @@ mod tests {
             pte = unsafe { *ptr };
 
             /* PTE on L4 should be 0b1100 0000 1011 */
-            /* ppn = 0b10 with PTE_EXECUTE/READ/VALID */
+            /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 3083);
         }
 
@@ -977,7 +977,7 @@ mod tests {
             let mut pte: u64 = unsafe { *ptr };
 
             /* PTE on L4 should be 0b1000 0000 1011 */
-            /* ppn = 0b10 with PTE_EXECUTE/READ/VALID */
+            /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 2059);
 
             /* Unmap the page */
@@ -1017,7 +1017,7 @@ mod tests {
             pte = unsafe { *ptr };
 
             /* PTE on L4 should be 0b1000 0000 1011 */
-            /* ppn = 0b10 with PTE_EXECUTE/READ/VALID */
+            /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 2059);
 
             unsafe {
@@ -1026,7 +1026,7 @@ mod tests {
             pte = unsafe { *ptr };
 
             /* PTE on L4 should be 0b1100 0000 1011 */
-            /* ppn = 0b10 with PTE_EXECUTE/READ/VALID */
+            /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 3083);
 
             /* Unmap the range */
@@ -1161,7 +1161,7 @@ mod tests {
             let ptr: *mut u64;
             let mut pte: u64;
 
-            /* pte = 2063 */
+            /* PTE = 2063 */
             gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_WRITE
                 | PTE_EXECUTE); 
 
@@ -1172,7 +1172,7 @@ mod tests {
 
             assert_eq!(pte, 2063);
 
-            /* pte = 2059 */
+            /* PTE = 2059 */
             gsmmu.map_protect(0x1000, PTE_READ | PTE_EXECUTE);
 
             pte = unsafe { *ptr };

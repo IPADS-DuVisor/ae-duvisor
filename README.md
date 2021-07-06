@@ -61,3 +61,14 @@ If you want to debug certain test case, for example, vm::virtualmachine::tests::
 ```
 ./scripts/local/docker_debug_laputa.sh vm::virtualmachine::tests::test_vtimer_sret
 ```
+
+## Example
+You can try linux VM with following commands:
+```
+./scripts/local/boot.sh
+
+./chroot.sh
+
+chmod +x ./laputa_linux.sh
+./laputa_linux.sh
+```

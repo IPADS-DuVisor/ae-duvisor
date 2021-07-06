@@ -28,4 +28,19 @@ proc main_test { } {
             exit -1
         }
     }
+
+    send "./laputa --smp 1 --initrd ./test-files-laputa/rootfs-vm.img --dtb ./test-files-laputa/vmlinux.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt\n"
+    expect {
+        "Busybox Rootfs" {
+                 send "\n ls \n"
+                 exp_continue
+        }
+
+        "rootfs.img" {
+        }
+
+        timeout {
+            exit -1
+        }
+    }
 }
