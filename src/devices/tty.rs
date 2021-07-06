@@ -1,6 +1,6 @@
 use tty_uart_constants::*;
 use crate::mm::utils::*;
-use crate::irq::plic::Plic;
+use crate::devices::plic::Plic;
 
 #[allow(unused)]
 pub mod tty_uart_constants {

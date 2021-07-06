@@ -399,7 +399,7 @@ mod tests {
     use rusty_fork::rusty_fork_test;
     use crate::vm::*;
     use crate::test::utils::configtest::test_vm_config_create;
-    use crate::irq::plic::*;
+    use crate::devices::plic::*;
     use std::thread;
 
     rusty_fork_test! {
