@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use tty_uart_constants::*;
 use crate::mm::utils::*;
-use crate::devices::plic::Plic;
+use crate::irq::irqchip::IrqChip;
 
 #[allow(unused)]
 pub mod tty_uart_constants {
@@ -122,15 +124,15 @@ impl Tty {
         }
     }
 
-    pub fn trigger_irq(&mut self, plic: &Plic) {
+    pub fn trigger_irq(&mut self, irqchip: &Arc<dyn IrqChip>) {
         if self.cnt > 0 {
-            plic.trigger_irq(1, true);
+            irqchip.trigger_irq(1, true);
         } else {
-            plic.trigger_irq(1, false);
+            irqchip.trigger_irq(1, false);
         }
     }
 
-    pub fn update_irq(&mut self, irqchip: &Plic) {
+    pub fn update_irq(&mut self, irqchip: &Arc<dyn IrqChip>) {
         let mut iir: u8 = 0;
 
         /* Handle clear rx */
@@ -174,7 +176,8 @@ impl Tty {
         }
     }
 
-    pub fn load_emulation(&mut self, mmio_addr: u64, irqchip: &Plic) -> u8 {
+    pub fn load_emulation(&mut self, mmio_addr: u64, 
+        irqchip: &Arc<dyn IrqChip>) -> u8 {
         let offset = mmio_addr - 0x3f8;
         let mut ret: u8 = 0 as u8;
 
@@ -231,7 +234,8 @@ impl Tty {
         ret
     }
 
-    pub fn store_emulation(&mut self, mmio_addr: u64, data: u8, irqchip: &Plic) -> i32 {
+    pub fn store_emulation(&mut self, mmio_addr: u64, data: u8, 
+        irqchip: &Arc<dyn IrqChip>) -> i32 {
         let mut ret: i32 = 0;
         let offset = mmio_addr - 0x3f8;
 

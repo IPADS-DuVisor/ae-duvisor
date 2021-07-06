@@ -3,6 +3,7 @@ use std::sync::{Arc, Weak, Mutex, RwLock};
 
 use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
+use crate::irq::irqchip::IrqChip;
 use crate::irq::delegation::delegation_constants::IRQ_VS_EXT;
 
 const MAX_DEVICES: usize = 32;
@@ -288,8 +289,10 @@ impl Plic {
             _ => {}
         }
     }
+}
 
-    pub fn mmio_callback(&self, addr: u64, data: &mut u32, is_write: bool) {
+impl IrqChip for Plic {
+    fn mmio_callback(&self, addr: u64, data: &mut u32, is_write: bool) {
         let ctx_id: u64;
 
         let mut offset = addr & !0x3;
@@ -345,7 +348,7 @@ impl Plic {
     }
 
     /* Only support level-triggered IRQs */
-    pub fn trigger_irq(&self, irq: u32, level: bool) {
+    fn trigger_irq(&self, irq: u32, level: bool) {
         let state = self.plic_state.read().unwrap();
         dbgprintln!("trigger_irq: irq {} num_irq {} level {}",
             irq, state.num_irq, level);

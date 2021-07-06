@@ -14,6 +14,7 @@ use crate::init::cmdline::VMConfig;
 use crate::vm::image;
 use crate::mm::gparegion::GpaRegion;
 use crate::vm::dtb;
+use crate::irq::irqchip::IrqChip;
 use crate::devices::plic::Plic;
 use crate::devices::tty::Tty;
 
@@ -70,7 +71,7 @@ pub struct VirtualMachine {
     pub vm_image: image::VmImage,
     pub dtb_file: dtb::DeviceTree,
     pub initrd_path: String,
-    pub plic: Arc<Plic>,
+    pub irqchip: Arc<dyn IrqChip>,
     /* TODO: More consoles, not only tty */
     pub console: Arc<Mutex<Tty>>,
     pub io_thread: bool,
@@ -140,9 +141,9 @@ impl VirtualMachine {
             vcpus.push(vcpu);
         }
         
-        let plic = Arc::new(Plic::new(&vcpus));
+        let irqchip = Arc::new(Plic::new(&vcpus));
         for vcpu in &vcpus {
-            vcpu.plic.set(plic.clone()).ok();
+            vcpu.irqchip.set(irqchip.clone()).ok();
         }
 
         Self {
@@ -153,7 +154,7 @@ impl VirtualMachine {
             vm_image,
             dtb_file,
             initrd_path,
-            plic,
+            irqchip,
             console,
             io_thread,
         }

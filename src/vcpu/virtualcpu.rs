@@ -11,7 +11,7 @@ use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
 use crate::plat::opensbi;
 use crate::vcpu::utils::*;
-use crate::devices::plic::Plic;
+use crate::irq::irqchip::IrqChip;
 use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
 
@@ -113,10 +113,8 @@ pub struct VirtualCpu {
     pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
     pub vcpu_ctx: Mutex<VcpuCtx>,
     pub virq: Mutex<virq::VirtualInterrupt>,
-    /* Cell for late init
-     * TODO: replace plic with irq_chip abstraction
-     */
-    pub plic: SyncOnceCell<Arc<Plic>>,
+    /* Cell for late init */
+    pub irqchip: SyncOnceCell<Arc<dyn IrqChip>>,
     /* TODO: irq_pending with shared memory */
     pub exit_reason: Mutex<ExitReason>,
     pub console: Arc<Mutex<Tty>>,
@@ -129,14 +127,14 @@ impl VirtualCpu {
         let vcpu_ctx = Mutex::new(VcpuCtx::new());
         let virq = Mutex::new(virq::VirtualInterrupt::new());
         let exit_reason = Mutex::new(ExitReason::ExitUnknown);
-        let plic = SyncOnceCell::new();
+        let irqchip = SyncOnceCell::new();
 
         Self {
             vcpu_id,
             vm: vm_mutex_ptr,
             vcpu_ctx,
             virq,
-            plic,
+            irqchip,
             exit_reason,
             console,
         }
@@ -182,9 +180,9 @@ impl VirtualCpu {
         let cnt = self.console.lock().unwrap().cnt;
 
         if cnt > 0 {
-            self.plic.get().unwrap().trigger_irq(1, true);
+            self.irqchip.get().unwrap().trigger_irq(1, true);
         } else {
-            self.plic.get().unwrap().trigger_irq(1, false);
+            self.irqchip.get().unwrap().trigger_irq(1, false);
         }
 
         /* Set virtual timer */
@@ -312,14 +310,14 @@ impl VirtualCpu {
                 .x_reg[target_reg as usize] & bit_mask) as u32;
 
         /* TODO: replce with MMIO bus */
-        let is_plic_mmio = if 0xc000000 <= fault_addr && 
+        let is_irqchip_mmio = if 0xc000000 <= fault_addr && 
             fault_addr < (0xc000000 + 0x1000000) { true } else { false };
 
-        if is_plic_mmio {
-            self.plic.get().unwrap().mmio_callback(fault_addr, &mut data, true);
-        } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* ttyS0-3F8 */
+        if is_irqchip_mmio {
+            self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data, true);
+        } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
             ret = self.console.lock().unwrap()
-                .store_emulation(fault_addr, data as u8, &self.plic.get().unwrap());
+                .store_emulation(fault_addr, data as u8, &self.irqchip.get().unwrap());
         } else {
             ret = 1;
             panic!("Unknown mmio (store) fault_addr: {:x}, ret {}", fault_addr, ret);
@@ -334,17 +332,17 @@ impl VirtualCpu {
         let bit_mask: u64 = (1 << bit_width) - 1;
         let mut data: u32 = 0;
 
-        let is_plic_mmio = if 0xc000000 <= fault_addr && 
+        let is_irqchip_mmio = if 0xc000000 <= fault_addr && 
             fault_addr < (0xc000000 + 0x1000000) { true } else { false };
 
-        if is_plic_mmio {
-            self.plic.get().unwrap().mmio_callback(fault_addr, &mut data, false);
+        if is_irqchip_mmio {
+            self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data, false);
         } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
             /* Check the input and update huvip */
-            self.console.lock().unwrap().trigger_irq(self.plic.get().unwrap());
+            self.console.lock().unwrap().trigger_irq(&self.irqchip.get().unwrap());
 
             data = self.console.lock().unwrap().
-                load_emulation(fault_addr, &self.plic.get().unwrap()) as u32;
+                load_emulation(fault_addr, &self.irqchip.get().unwrap()) as u32;
         } else {
             ret = 1;
             panic!("Unknown mmio (load) fault_addr: {:x}, ret {}", fault_addr, ret);
