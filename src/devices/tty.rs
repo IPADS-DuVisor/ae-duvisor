@@ -167,10 +167,10 @@ impl Tty {
         }
 
         /*
-	     * If the kernel disabled the tx interrupt, we know that there
-	     * is nothing more to transmit, so we can reset our tx logic
-	     * here.
-	     */
+         * If the kernel disabled the tx interrupt, we know that there
+         * is nothing more to transmit, so we can reset our tx logic
+         * here.
+         */
         if self.value[UART_IER] & UART_IER_THRI == 0 {
             self.flush_tx();
         }
