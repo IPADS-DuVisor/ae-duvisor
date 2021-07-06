@@ -240,12 +240,10 @@ impl GStageMmu {
         }
 
         for i in &mmio_manager.gpa_regions {
-            println!("0: gpa: {:x}, len: {:x}", i.gpa, i.length);
             if gpa_region_gpa < i.gpa {
                 gpa_region_length = i.gpa - gpa_region_gpa;
                 gpa_region = gparegion::GpaRegion::new(gpa_region_gpa,
                     gpa_region_length);
-                println!("1: gpa: {:x}, len: {:x}", gpa_region_gpa, gpa_region_length);
                 gpa_regions.push(gpa_region);
             }
 
@@ -256,7 +254,6 @@ impl GStageMmu {
             gpa_region_length = mem_size - gpa_region_gpa;
             gpa_region = gparegion::GpaRegion::new(gpa_region_gpa,
                 gpa_region_length);
-            println!("2: gpa: {:x}, len: {:x}", gpa_region_gpa, gpa_region_length);
             gpa_regions.push(gpa_region);
         }
 
