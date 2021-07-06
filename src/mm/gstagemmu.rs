@@ -253,9 +253,9 @@ impl GStageMmu {
         }
 
         if gpa_region_gpa < mem_size {
-            //gpa_region_length = mem_size - gpa_region_gpa;
-            gpa_region_length = 0x8000000;
-            gpa_region_gpa = 0x80000000;
+            gpa_region_length = mem_size - gpa_region_gpa;
+            //gpa_region_length = 0x8000000;
+            //gpa_region_gpa = 0x80000000;
             gpa_region = gparegion::GpaRegion::new(gpa_region_gpa,
                 gpa_region_length);
             println!("2: gpa: {:x}, len: {:x}", gpa_region_gpa, gpa_region_length);

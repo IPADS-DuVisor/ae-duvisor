@@ -155,7 +155,6 @@ impl Plic {
         } else {
             // set irq
             vcpu.virq.lock().unwrap().set_pending_irq(IRQ_VS_EXT);
-            //println!("update_local_irq: best_irq = {}", best_irq);
         }
     }
 

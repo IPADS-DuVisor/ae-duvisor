@@ -117,8 +117,8 @@ impl VirtualMachine {
          */
         mmio_regions.push(GpaRegion {
             gpa: 0x0,
-            //length: 0x80000000,
-            length: 0x1000,
+            length: 0x80000000,
+            //length: 0x1000,
         });
 
         #[cfg(test)]

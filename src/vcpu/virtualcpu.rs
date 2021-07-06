@@ -187,11 +187,9 @@ impl VirtualCpu {
         let cnt = self.console.lock().unwrap().cnt;
 
         if cnt > 0 {
-            self.virq.lock().unwrap().set_pending_irq(IRQ_VS_EXT);
-            unsafe { csrs!(HUVIP, 1 << 10); }
+            self.plic.get().unwrap().trigger_irq(1, true);
         } else {
-            self.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
-            unsafe { csrc!(HUVIP, 1 << 10); }
+            self.plic.get().unwrap().trigger_irq(1, false);
         }
 
         /* set virtual timer */
@@ -426,11 +424,11 @@ impl VirtualCpu {
         let gpa_check = self.vm.lock().unwrap().gsmmu.check_gpa(fault_addr);
         if !gpa_check {
             /* Maybe mmio or illegal gpa */
-            //let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
+            let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
 
-            //if !mmio_check {
-            //    panic!("Invalid gpa! {:x}", fault_addr);
-            //}
+            if !mmio_check {
+                panic!("Invalid gpa! {:x}", fault_addr);
+            }
 
             ret = self.handle_mmio(fault_addr);
 
