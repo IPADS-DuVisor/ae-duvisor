@@ -438,7 +438,7 @@ mod tests {
     use rusty_fork::rusty_fork_test;
     use crate::mm::gstagemmu::gsmmu_constants;
     use gsmmu_constants::*;
-    use crate::debug::utils::configtest::test_vm_config_create;
+    use crate::test::utils::configtest::test_vm_config_create;
     use libc::c_void;
     use crate::plat::opensbi::emulation::error_code::*;
     use crate::vcpu::vcpucontext::gp_reg_constants::*;

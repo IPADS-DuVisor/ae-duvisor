@@ -59,7 +59,7 @@ impl VmImage {
 
 #[cfg(test)]
 mod tests {
-    use crate::debug::utils::configtest::test_vm_config_create;
+    use crate::test::utils::configtest::test_vm_config_create;
     use crate::vm::*;
     use rusty_fork::rusty_fork_test;
     use libc::c_void;

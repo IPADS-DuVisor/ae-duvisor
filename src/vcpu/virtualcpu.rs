@@ -217,7 +217,6 @@ impl VirtualCpu {
      */
     fn handle_mmio(&mut self, fault_addr: u64) -> i32 {
         let ucause = self.vcpu_ctx.host_ctx.hyp_regs.ucause;
-        let uepc = self.vcpu_ctx.host_ctx.hyp_regs.uepc;
         let hutinst = self.vcpu_ctx.host_ctx.hyp_regs.hutinst;
         let inst: u64;
         let target_reg: u64;
@@ -263,7 +262,7 @@ impl VirtualCpu {
             ret = 1;
         }
 
-        self.vcpu_ctx.host_ctx.hyp_regs.uepc = uepc + 4;
+        self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
 
         return ret;
     }
@@ -514,7 +513,7 @@ mod tests {
     use super::*;
     use std::thread;
     use rusty_fork::rusty_fork_test;
-    use crate::debug::utils::configtest::test_vm_config_create;
+    use crate::test::utils::configtest::test_vm_config_create;
     use crate::devices::tty::tty_uart_constants::*;
 
     rusty_fork_test! {
