@@ -66,7 +66,7 @@ pub struct Tty {
     pub recv_buf: [char; FIFO_LEN],
     pub start: usize,
     pub end: usize,
-    pub cnt: usize,
+    pub avail_char: usize,
 }
 
 fn console_putchar(output: u64) {
@@ -113,19 +113,19 @@ impl Tty {
         let recv_buf: [char; FIFO_LEN] = [0 as char; FIFO_LEN];
         let start: usize = FIFO_LEN;
         let end: usize = 0;
-        let cnt: usize = 0;
+        let avail_char: usize = 0;
 
         Self {
             value,
             recv_buf,
-            cnt,
+            avail_char,
             start,
             end,
         }
     }
 
     pub fn trigger_irq(&mut self, irqchip: &Arc<dyn IrqChip>) {
-        if self.cnt > 0 {
+        if self.avail_char > 0 {
             irqchip.trigger_irq(1, true);
         } else {
             irqchip.trigger_irq(1, false);
@@ -214,7 +214,7 @@ impl Tty {
             }
             UART_LSR => { /* 0x3fd */
                 ret = self.value[UART_LSR];
-                if self.cnt > 0 {
+                if self.avail_char > 0 {
                     ret |= UART_LSR_DR;
                 }
             }
@@ -292,19 +292,19 @@ impl Tty {
             /* Not start yet */
             return None;
         } else if self.start == self.end {
-            if self.cnt != FIFO_LEN {
+            if self.avail_char != FIFO_LEN {
                 /* Empty */
                 return None;
             } else {
                 /* Full */
                 res = self.recv_buf[self.start] as char;
                 self.start += 1;
-                self.cnt -= 1;
+                self.avail_char -= 1;
             }
         } else {
             res = self.recv_buf[self.start] as char;
             self.start  = (self.start + 1) % FIFO_LEN;
-            self.cnt -= 1;
+            self.avail_char -= 1;
         }
 
         return Some(res);
@@ -321,25 +321,25 @@ impl Tty {
             self.start = 0;
             self.end = 1;
             self.recv_buf[0] = input;
-            self.cnt += 1;
+            self.avail_char += 1;
             self.value[UART_LCR] |= UART_LSR_DR;
             return 0;
         } else if self.start == self.end {
-            if self.cnt == FIFO_LEN {
+            if self.avail_char == FIFO_LEN {
                 /* Full */
                 return 1;
             } else {
                 /* Empty */
                 self.recv_buf[self.start] = input;
                 self.end = (self.end + 1) % FIFO_LEN;
-                self.cnt += 1;
+                self.avail_char += 1;
                 self.value[UART_LCR] |= UART_LSR_DR;
                 return 0;
             }  
         } else {
             self.recv_buf[self.end] = input;
             self.end = (self.end + 1) % FIFO_LEN;
-            self.cnt += 1;
+            self.avail_char += 1;
             self.value[UART_LCR] |= UART_LSR_DR;
             return 0;
         }

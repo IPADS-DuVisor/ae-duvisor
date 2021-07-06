@@ -177,9 +177,9 @@ impl VirtualCpu {
 
     fn handle_u_vtimer_irq(&self) -> i32 {
         /* Insert or clear tty irq on each vtimer irq */
-        let cnt = self.console.lock().unwrap().cnt;
+        let avail_char = self.console.lock().unwrap().avail_char;
 
-        if cnt > 0 {
+        if avail_char > 0 {
             self.irqchip.get().unwrap().trigger_irq(1, true);
         } else {
             self.irqchip.get().unwrap().trigger_irq(1, false);
