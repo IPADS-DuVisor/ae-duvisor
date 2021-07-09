@@ -18,6 +18,12 @@ use crate::irq::irqchip::IrqChip;
 use crate::devices::plic::Plic;
 use crate::devices::tty::Tty;
 
+extern crate devices;
+extern crate sys_util;
+use sys_util::{GuestAddress, GuestMemory};
+use std::fs::{OpenOptions};
+use byteorder::{ReadBytesExt, LittleEndian};
+
 #[allow(unused)]
 extern "C"
 {
@@ -75,6 +81,9 @@ pub struct VirtualMachine {
     /* TODO: More consoles, not only tty */
     pub console: Arc<Mutex<Tty>>,
     pub io_thread: bool,
+    pub mmio_bus: devices::Bus,
+    /* Record GPA <--> HVA mappings */
+    pub guest_mem: GuestMemory,
 }
 
 impl VirtualMachine {
@@ -103,6 +112,23 @@ impl VirtualMachine {
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
         let tty = Tty::new();
+        
+        let mut mmio_bus = devices::Bus::new();
+        let guest_mem = GuestMemory::new().unwrap();
+        
+        let root_image = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/blk-dev.img")
+            .unwrap();
+
+        let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
+        
+        let mmio_device = devices::virtio::MmioDevice::new(
+            guest_mem.clone(), block_box).unwrap();
+
+        mmio_bus.insert(Arc::new(Mutex::new(mmio_device)), 
+            0x10000000, 0x200).unwrap();
 
         /* Mmio default config for unit tests */
         #[cfg(test)]
@@ -137,7 +163,8 @@ impl VirtualMachine {
         /* Create vcpu struct instances */
         for i in 0..vcpu_num {
             let vcpu = Arc::new(virtualcpu::VirtualCpu::new(i,
-                    vm_state_mutex.clone(), console.clone()));
+                    vm_state_mutex.clone(), console.clone(), 
+                    guest_mem.clone(), mmio_bus.clone()));
             vcpus.push(vcpu);
         }
         
@@ -157,6 +184,8 @@ impl VirtualMachine {
             irqchip,
             console,
             io_thread,
+            mmio_bus,
+            guest_mem,
         }
     }
 
@@ -1324,5 +1353,35 @@ mod tests {
 
             assert_ne!(result, 0);
         }
+    }
+
+    #[test]
+    fn test_mmio_bus() {
+        let mut bus = devices::Bus::new();
+        
+        let root_image = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/blk-dev.img")
+            .unwrap();
+
+        let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
+        
+        let guest_mem = GuestMemory::new().unwrap();
+        let mmio_device = devices::virtio::MmioDevice::new(
+            guest_mem.clone(), block_box).unwrap();
+
+        bus.insert(Arc::new(Mutex::new(mmio_device)), 
+            0x10000000, 0x200).unwrap();
+
+        let mut data = [0, 0, 0, 0];
+        let ret = bus.read(0x10000000, &mut data);
+        let mut slice = &data[..];
+        println!("bus.read MAGIC ret {} output {:x}", 
+            ret, slice.read_u32::<LittleEndian>().unwrap());
+
+        guest_mem.insert_region(0x100000, 0x200000, 4096);
+
+        assert!(false);
     }
 }

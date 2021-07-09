@@ -15,6 +15,10 @@ use crate::irq::irqchip::IrqChip;
 use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
 
+extern crate devices;
+extern crate sys_util;
+use sys_util::GuestMemory;
+
 #[allow(unused)]
 mod errno_constants {
     pub const EFAILED: i32 = -1;
@@ -118,12 +122,15 @@ pub struct VirtualCpu {
     /* TODO: irq_pending with shared memory */
     pub exit_reason: Mutex<ExitReason>,
     pub console: Arc<Mutex<Tty>>,
+    pub guest_mem: GuestMemory,
+    pub mmio_bus: devices::Bus,
 }
 
 impl VirtualCpu {
     pub fn new(vcpu_id: u32,
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>,
-            console: Arc<Mutex<Tty>>) -> Self {
+            console: Arc<Mutex<Tty>>, guest_mem: GuestMemory, 
+            mmio_bus: devices::Bus) -> Self {
         let vcpu_ctx = Mutex::new(VcpuCtx::new());
         let virq = Mutex::new(virq::VirtualInterrupt::new());
         let exit_reason = Mutex::new(ExitReason::ExitUnknown);
@@ -137,6 +144,8 @@ impl VirtualCpu {
             irqchip,
             exit_reason,
             console,
+            guest_mem,
+            mmio_bus,
         }
     }
 
@@ -319,8 +328,14 @@ impl VirtualCpu {
             ret = self.console.lock().unwrap()
                 .store_emulation(fault_addr, data as u8, &self.irqchip.get().unwrap());
         } else {
-            ret = 1;
-            panic!("Unknown mmio (store) fault_addr: {:x}, ret {}", fault_addr, ret);
+            let slice = &mut data.to_le_bytes();
+            if self.mmio_bus.write(fault_addr, slice) {
+                ret = 0;
+            } else {
+                ret = 1;
+                panic!("Unknown mmio (store) fault_addr: {:x}, ret {}", 
+                    fault_addr, ret);
+            }
         }
 
         return ret;
@@ -344,8 +359,14 @@ impl VirtualCpu {
             data = self.console.lock().unwrap().
                 load_emulation(fault_addr, &self.irqchip.get().unwrap()) as u32;
         } else {
-            ret = 1;
-            panic!("Unknown mmio (load) fault_addr: {:x}, ret {}", fault_addr, ret);
+            let slice = &mut data.to_le_bytes();
+            if self.mmio_bus.read(fault_addr, slice) {
+                data = u32::from_le_bytes(*slice);
+                ret = 0;
+            } else {
+                ret = 1;
+                panic!("Unknown mmio (load) fault_addr: {:x}, ret {}", fault_addr, ret);
+            }
         }
         self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.
             x_reg[target_reg as usize] = (data as u64) & bit_mask;
@@ -477,12 +498,15 @@ impl VirtualCpu {
 
                     if res.is_ok() {
                         /* Map new page to VM if the region exists */
-                        let (_hva, hpa) = res.unwrap();
+                        let (hva, hpa) = res.unwrap();
                         let flag: u64 = PTE_USER | PTE_VALID | PTE_READ 
                             | PTE_WRITE | PTE_EXECUTE;
 
                         self.vm.lock().unwrap().gsmmu.map_page(
                             fault_addr, hpa, flag);
+
+                        /* Record the HVA <--> GPA mapping*/
+                        self.guest_mem.insert_region(hva, fault_addr, len as usize);
 
                         ret = 0;
                     } else {
@@ -673,7 +697,9 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let mmio_bus = devices::Bus::new();
+            let guest_mem = GuestMemory::new().unwrap();
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let mut res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -796,7 +822,9 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let mmio_bus = devices::Bus::new();
+            let guest_mem = GuestMemory::new().unwrap();
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
 
             assert_eq!(vcpu.vcpu_id, vcpu_id);
         }
@@ -809,7 +837,9 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let mmio_bus = devices::Bus::new();
+            let guest_mem = GuestMemory::new().unwrap();
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
 
             let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, 0);
@@ -835,7 +865,9 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let mmio_bus = devices::Bus::new();
+            let guest_mem = GuestMemory::new().unwrap();
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let ans = 17;
 
             /* Guest ctx */
@@ -921,7 +953,9 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let mmio_bus = devices::Bus::new();
+            let guest_mem = GuestMemory::new().unwrap();
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -1037,7 +1071,9 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let mmio_bus = devices::Bus::new();
+            let guest_mem = GuestMemory::new().unwrap();
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let res;
             let version: u64 = 0;
             let test_buf: u64;
