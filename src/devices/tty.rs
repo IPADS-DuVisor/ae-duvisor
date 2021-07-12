@@ -64,8 +64,8 @@ pub const FIFO_LEN: usize = 64;
 pub struct Tty {
     pub value: [u8; 11],
     pub recv_buf: [char; FIFO_LEN],
-    pub start: usize,
-    pub end: usize,
+    pub recv_buf_head: usize,
+    pub recv_buf_tail: usize,
     pub avail_char: usize,
 }
 
@@ -111,16 +111,16 @@ impl Tty {
         value[UART_LSR] = UART_LSR_TEMT | UART_LSR_THRE;
         value[UART_MSR] = UART_MSR_DCD | UART_MSR_DSR | UART_MSR_CTS;
         let recv_buf: [char; FIFO_LEN] = [0 as char; FIFO_LEN];
-        let start: usize = FIFO_LEN;
-        let end: usize = 0;
+        let recv_buf_head: usize = FIFO_LEN;
+        let recv_buf_tail: usize = 0;
         let avail_char: usize = 0;
 
         Self {
             value,
             recv_buf,
             avail_char,
-            start,
-            end,
+            recv_buf_head,
+            recv_buf_tail,
         }
     }
 
@@ -288,22 +288,22 @@ impl Tty {
     pub fn get_char(&mut self) -> Option<char> {
         let res: char;
 
-        if self.start == FIFO_LEN {
+        if self.recv_buf_head == FIFO_LEN {
             /* Not start yet */
             return None;
-        } else if self.start == self.end {
+        } else if self.recv_buf_head == self.recv_buf_tail {
             if self.avail_char != FIFO_LEN {
                 /* Empty */
                 return None;
             } else {
                 /* Full */
-                res = self.recv_buf[self.start] as char;
-                self.start += 1;
+                res = self.recv_buf[self.recv_buf_head] as char;
+                self.recv_buf_head += 1;
                 self.avail_char -= 1;
             }
         } else {
-            res = self.recv_buf[self.start] as char;
-            self.start  = (self.start + 1) % FIFO_LEN;
+            res = self.recv_buf[self.recv_buf_head] as char;
+            self.recv_buf_head  = (self.recv_buf_head + 1) % FIFO_LEN;
             self.avail_char -= 1;
         }
 
@@ -316,29 +316,29 @@ impl Tty {
     }
 
     pub fn recv_char(&mut self, input: char) -> i32 {
-        if self.start == FIFO_LEN {
+        if self.recv_buf_head == FIFO_LEN {
             /* First char */
-            self.start = 0;
-            self.end = 1;
+            self.recv_buf_head = 0;
+            self.recv_buf_tail = 1;
             self.recv_buf[0] = input;
             self.avail_char += 1;
             self.value[UART_LCR] |= UART_LSR_DR;
             return 0;
-        } else if self.start == self.end {
+        } else if self.recv_buf_head == self.recv_buf_tail {
             if self.avail_char == FIFO_LEN {
                 /* Full */
                 return 1;
             } else {
                 /* Empty */
-                self.recv_buf[self.start] = input;
-                self.end = (self.end + 1) % FIFO_LEN;
+                self.recv_buf[self.recv_buf_head] = input;
+                self.recv_buf_tail = (self.recv_buf_tail + 1) % FIFO_LEN;
                 self.avail_char += 1;
                 self.value[UART_LCR] |= UART_LSR_DR;
                 return 0;
             }  
         } else {
-            self.recv_buf[self.end] = input;
-            self.end = (self.end + 1) % FIFO_LEN;
+            self.recv_buf[self.recv_buf_tail] = input;
+            self.recv_buf_tail = (self.recv_buf_tail + 1) % FIFO_LEN;
             self.avail_char += 1;
             self.value[UART_LCR] |= UART_LSR_DR;
             return 0;
