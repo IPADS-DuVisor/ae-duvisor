@@ -1209,6 +1209,45 @@ mod tests {
             assert_eq!(a0_ans, a0);
         }
 
+        #[test]
+        fn test_vtimer_multi() { 
+            let mut vm_config = test_vm_config_create();
+            let elf_path: &str = "./tests/integration/vtimer_multi.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+
+            vm.vm_init();
+
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
+                = entry_point;
+
+            vm.vm_run();
+
+            let a0: u64;
+
+            /* Correct a0 after time irq\n" */
+            let a0_ans: u64 = 0xcafe;
+
+            a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[10];
+
+            /* There should be 1000 vtimer irqs */
+            let t4 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[29];
+
+            /* To ensure that the control flow goes into the loop */
+            let t6 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[31];
+
+            vm.vm_destroy();
+
+            assert_eq!(a0_ans, a0);
+            assert_eq!(1000, t4);
+            assert_eq!(0xcafe, t6);
+        }
+
         /* Test the correctness of the data from initrd */
         #[test]
         fn test_initrd_load_data_vmlinux() {
