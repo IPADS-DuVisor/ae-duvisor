@@ -67,6 +67,7 @@ pub struct Tty {
     pub recv_buf_head: usize,
     pub recv_buf_tail: usize,
     pub avail_char: usize,
+    pub irq_state: u8,
 }
 
 fn console_putchar(output: u64) {
@@ -114,6 +115,7 @@ impl Tty {
         let recv_buf_head: usize = FIFO_LEN;
         let recv_buf_tail: usize = 0;
         let avail_char: usize = 0;
+        let irq_state: u8 = 0;
 
         Self {
             value,
@@ -121,6 +123,7 @@ impl Tty {
             avail_char,
             recv_buf_head,
             recv_buf_tail,
+            irq_state,
         }
     }
 
@@ -159,12 +162,30 @@ impl Tty {
 
         /* Now update the irq line, if necessary */
         if iir != 0 {
-            self.value[UART_IIR] = UART_IIR_NO_INT;
-            /* Insert irq */
-            irqchip.trigger_irq(1, true);
-        } else {
+            //self.value[UART_IIR] = UART_IIR_NO_INT;
             self.value[UART_IIR] = iir;
+            /* Insert irq */
+            //irqchip.trigger_irq(1, true);
+            //if self.irq_state != 0 {
+                /* root cause of linux corrupt! */
+                irqchip.trigger_irq(1, true); 
+            //}
+        } else {
+            //self.value[UART_IIR] = iir;
+            /* let iir_uart =  self.value[UART_IIR];
+            if iir_uart != UART_IIR_NO_INT {
+                println!("UART_IIR: 0x{:x}", self.value[UART_IIR]);
+            }
+            
+            self.value[UART_IIR] = UART_IIR_NO_INT; */
+            /* Insert irq */
+            if self.irq_state == 0 {
+                /* root cause of linux corrupt! */
+                irqchip.trigger_irq(1, true); 
+            }
         }
+
+        self.irq_state = iir;
 
         /*
          * If the kernel disabled the tx interrupt, we know that there
@@ -197,7 +218,7 @@ impl Tty {
                 }
             }
             UART_IER => { /* 0x3f9 */
-                if self.value[UART_LCR] & UART_LCR_DLAB != 0 {
+                if self.value[UART_LCR] & UART_LCR_DLAB == 0 {
                     ret = self.value[UART_DLL];
                 } else {
                     ret = self.value[UART_IER];
@@ -246,6 +267,7 @@ impl Tty {
                 } else {
                     /* If DLAB=0, just output the char. */
                     console_putchar(data as u64);
+                    self.flush_tx();
 
                     /* Since the output is finished, notice the guest */
                     irqchip.trigger_irq(1, true);
