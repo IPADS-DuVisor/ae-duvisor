@@ -609,6 +609,11 @@ mod tests {
             assert_eq!(a0_ans, a0);
         }
 
+        /* 
+         * Sometimes failed for irq lost, which lead to
+         * a1 != a1_bad_ans and a1 != a1_ans. The test
+         * case just end without entering irq_handler.
+         */
         #[test]
         fn test_vtimer_eoi() { 
             let mut vm_config = test_vm_config_create();

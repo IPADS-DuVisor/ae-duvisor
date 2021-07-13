@@ -663,6 +663,7 @@ mod tests {
     use rusty_fork::rusty_fork_test;
     use crate::test::utils::configtest::test_vm_config_create;
     use crate::devices::tty::tty_uart_constants::*;
+    use crate::devices::plic::*;
 
     rusty_fork_test! {
         #[test]
@@ -1258,6 +1259,87 @@ mod tests {
             }
 
             vm.vm_destroy();
+        }
+
+        /* 
+         * This test cases has been tested with tty::FIFO_LEN = 512 and
+         * input.len() = 500 for 40 times. That means the irq from tty
+         * input inserted 20000 times without any lost.
+         */
+        #[test]
+        fn test_tty_irq() {
+            let mut vm_config = test_vm_config_create();
+            vm_config.vcpu_count = 1;
+            let elf_path: &str = "./tests/integration/tty_load_irq.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+            let plic = vm.irqchip.clone();
+        
+            let get_threshold_offset = |ctx_id: u64| -> u64 {
+                PLIC_BASE_ADDR + CONTEXT_BASE + 
+                    ctx_id * CONTEXT_PER_HART + CONTEXT_THRESHOLD
+            };
+            let get_claim_offset = |ctx_id: u64| -> u64 {
+                PLIC_BASE_ADDR + CONTEXT_BASE + 
+                    ctx_id * CONTEXT_PER_HART + CONTEXT_CLAIM
+            };
+            
+            let get_global_prio_offset = |irq: u32| -> u64 {
+                PLIC_BASE_ADDR + PRIORITY_BASE + (irq as u64) * PRIORITY_PER_ID
+            };
+            let get_enable_offset = |ctx_id: u64, offset: u64| -> u64 {
+                PLIC_BASE_ADDR + ENABLE_BASE + ctx_id * ENABLE_PER_HART + offset
+            };
+            let local_claim_succeed = 
+                |irq: u32, mut read: u32, ctx_id: u64| {
+                    /* Init global priority & local enable */
+                    let mut mask = 0xffffffff;
+                    plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
+                    plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
+
+                    plic.trigger_irq(irq, true);
+                    plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
+                    plic.trigger_irq(irq, false);
+                    assert_eq!(read, irq);
+            };
+            local_claim_succeed(1, 0xdead, 1);
+            local_claim_succeed(1, 0xdead, 0);
+
+            vm.vm_init();
+
+            let input: String = String::from("abcdefghijA");
+            for c in input.chars() {
+                vm.console.lock().unwrap().recv_char(c);
+            }
+
+            /* Set entry point */
+            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
+                = entry_point;
+
+            vm.vm_run();
+
+            let a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[10];
+
+            let a1 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[11];
+
+            let t4 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[29];
+
+            println!("t4 {}", t4);
+            println!("a0 {}", a0);
+            println!("a1 0x{:x}", a1);
+
+            vm.vm_destroy();
+
+            /* If a1 == 0xdead, irq lost. */
+            assert_eq!(a1, 0xcafe);
+
+            /* a0 should get the last char 'A' */
+            assert_eq!(a0, 65);
         }
     }
 }

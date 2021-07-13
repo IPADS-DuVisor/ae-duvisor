@@ -6,7 +6,7 @@ pub struct VirtualInterrupt {
      * UVTIMER (#16) is not controlled by vcpu.virq field
      * FIXME: use a bit array
      */
-    irq_pending: [bool; 16],
+    pub irq_pending: [bool; 16],
 }
 
 impl VirtualInterrupt {

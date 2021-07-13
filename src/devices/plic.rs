@@ -6,26 +6,26 @@ use crate::vcpu::virtualcpu::VirtualCpu;
 use crate::irq::irqchip::IrqChip;
 use crate::irq::delegation::delegation_constants::IRQ_VS_EXT;
 
-const MAX_DEVICES: usize = 32;
+pub const MAX_DEVICES: usize = 32;
 
-const PLIC_BASE_ADDR: u64 = 0xc000000;
+pub const PLIC_BASE_ADDR: u64 = 0xc000000;
 
-const PRIORITY_BASE: u64 = 0;
-const PRIORITY_PER_ID: u64 = 4;
+pub const PRIORITY_BASE: u64 = 0;
+pub const PRIORITY_PER_ID: u64 = 4;
 
-const ENABLE_BASE: u64 = 0x2000;
-const ENABLE_PER_HART: u64 = 0x80;
+pub const ENABLE_BASE: u64 = 0x2000;
+pub const ENABLE_PER_HART: u64 = 0x80;
 
-const CONTEXT_BASE: u64 = 0x200000;
-const CONTEXT_PER_HART: u64 = 0x1000;
-const CONTEXT_THRESHOLD: u64 = 0;
-const CONTEXT_CLAIM: u64 = 4;
+pub const CONTEXT_BASE: u64 = 0x200000;
+pub const CONTEXT_PER_HART: u64 = 0x1000;
+pub const CONTEXT_THRESHOLD: u64 = 0;
+pub const CONTEXT_CLAIM: u64 = 4;
 
-const PRIORITY_END: u64 = ENABLE_BASE - 1;
-const ENABLE_END: u64 = CONTEXT_BASE - 1;
-const CONTEXT_END: u64 = REG_SIZE - 1;
+pub const PRIORITY_END: u64 = ENABLE_BASE - 1;
+pub const ENABLE_END: u64 = CONTEXT_BASE - 1;
+pub const CONTEXT_END: u64 = REG_SIZE - 1;
 
-const REG_SIZE: u64 = 0x1000000;
+pub const REG_SIZE: u64 = 0x1000000;
 
 struct PlicState {
     /* Static configuration */
@@ -378,8 +378,6 @@ impl IrqChip for Plic {
                 if level {
                     ctx.irq_pending[irq_word as usize] |= irq_mask;
                     ctx.irq_pending_priority[irq as usize] = irq_prio as u32;
-                    dbgprintln!("\t\ttrigger_irq irq_pending: {:x}, irq_mask: {:x}", 
-                        ctx.irq_pending[irq_word as usize], irq_mask);
                 } else {
                     ctx.irq_pending[irq_word as usize] &= !irq_mask;
                     ctx.irq_pending_priority[irq as usize] = 0;
