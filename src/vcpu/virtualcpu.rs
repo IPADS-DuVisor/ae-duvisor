@@ -11,9 +11,12 @@ use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
 use crate::plat::opensbi;
 use crate::vcpu::utils::*;
-use crate::irq::irqchip::IrqChip;
+//use crate::irq::irqchip::IrqChip;
 use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
+
+extern crate irq_util;
+use irq_util::IrqChip;
 
 extern crate devices;
 extern crate sys_util;
@@ -123,14 +126,14 @@ pub struct VirtualCpu {
     pub exit_reason: Mutex<ExitReason>,
     pub console: Arc<Mutex<Tty>>,
     pub guest_mem: GuestMemory,
-    pub mmio_bus: devices::Bus,
+    pub mmio_bus: Arc<Mutex<devices::Bus>>,
 }
 
 impl VirtualCpu {
     pub fn new(vcpu_id: u32,
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>,
             console: Arc<Mutex<Tty>>, guest_mem: GuestMemory, 
-            mmio_bus: devices::Bus) -> Self {
+            mmio_bus: Arc<Mutex<devices::Bus>>) -> Self {
         let vcpu_ctx = Mutex::new(VcpuCtx::new());
         let virq = Mutex::new(virq::VirtualInterrupt::new());
         let exit_reason = Mutex::new(ExitReason::ExitUnknown);
@@ -254,11 +257,13 @@ impl VirtualCpu {
             /* Compressed instruction */
             let c_lw_mask = 0b11 | (0b111 << 13); 
             let c_lw_match = 0b00 | (0b010 << 13); 
-            let c_lw_rd = |inst: u32| -> u32 { (inst >> 2) & 0x7 }; 
+            let c_lw_rd = |inst: u32| -> u32 { ((inst >> 2) & 0x7) + 8 }; 
             
             if (inst & c_lw_mask) == c_lw_match {
                 *target_reg = c_lw_rd(inst) as u64;
                 *bit_width = 4 * 8;
+                dbgprintln!("--- LW: inst {:x}, inst_len {:x}, reg: {}", 
+                    inst, inst_len, target_reg);
             } else {
                 panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
                     inst, inst_len);
@@ -287,13 +292,15 @@ impl VirtualCpu {
             /* Compressed instruction */
             let c_sw_mask = 0b11 | (0b111 << 13); 
             let c_sw_match = 0b00 | (0b110 << 13); 
-            let c_sw_rs1 = |inst: u32| -> u32 { (inst >> 7) & 0x7 }; 
+            let c_sw_rs2 = |inst: u32| -> u32 { ((inst >> 2) & 0x7) + 8 }; 
             
             if (inst & c_sw_mask) == c_sw_match {
-                *target_reg = c_sw_rs1(inst) as u64;
+                *target_reg = c_sw_rs2(inst) as u64;
                 *bit_width = 4 * 8;
+                dbgprintln!("--- SW: inst {:x}, inst_len {:x}, reg: {}", 
+                    inst, inst_len, target_reg);
             } else {
-                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                panic!("parse_store_inst: unsupported inst {:x}, inst_len {:x}", 
                     inst, inst_len);
             }
         } else {
@@ -305,7 +312,7 @@ impl VirtualCpu {
             } else if (inst & INST_MASK_SB) == INST_MATCH_SB {
                 *bit_width = 1 * 8;
             } else {
-                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                panic!("parse_store_inst: unsupported inst {:x}, inst_len {:x}", 
                     inst, inst_len);
             }
         }
@@ -329,7 +336,7 @@ impl VirtualCpu {
                 .store_emulation(fault_addr, data as u8, &self.irqchip.get().unwrap());
         } else {
             let slice = &mut data.to_le_bytes();
-            if self.mmio_bus.write(fault_addr, slice) {
+            if self.mmio_bus.lock().unwrap().write(fault_addr, slice) {
                 ret = 0;
             } else {
                 ret = 1;
@@ -360,7 +367,7 @@ impl VirtualCpu {
                 load_emulation(fault_addr, &self.irqchip.get().unwrap()) as u32;
         } else {
             let slice = &mut data.to_le_bytes();
-            if self.mmio_bus.read(fault_addr, slice) {
+            if self.mmio_bus.lock().unwrap().read(fault_addr, slice) {
                 data = u32::from_le_bytes(*slice);
                 ret = 0;
             } else {
@@ -475,12 +482,13 @@ impl VirtualCpu {
             ENOMAPPING => {
                 dbgprintln!("Query return ENOMAPPING: {}", ret);
                 /* Find hpa by fault_addr */
-                let fault_hpa_query = self.vm.lock().unwrap().gsmmu
+                let fault_addr_query = self.vm.lock().unwrap().gsmmu
                     .gpa_block_query(fault_addr);
 
-                if fault_hpa_query.is_some() {
+                if fault_addr_query.is_some() {
                     /* Fault gpa is already in a gpa_block and it is valid */
-                    let fault_hpa = fault_hpa_query.unwrap();
+                    let fault_hva = fault_addr_query.unwrap().0;
+                    let fault_hpa = fault_addr_query.unwrap().1;
                     let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
                         | PTE_EXECUTE;
                         
@@ -488,6 +496,10 @@ impl VirtualCpu {
                         fault_addr, fault_hpa);
                     self.vm.lock().unwrap().gsmmu.map_page(
                         fault_addr, fault_hpa, flag);
+                    
+                    /* Record the HVA <--> GPA mapping*/
+                    self.guest_mem.insert_region(fault_hva, fault_addr, 
+                        PAGE_SIZE as usize);
 
                     ret = 0;
                 } else {
@@ -697,7 +709,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = devices::Bus::new();
+            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let mut res;
@@ -822,7 +834,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = devices::Bus::new();
+            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
 
@@ -837,7 +849,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = devices::Bus::new();
+            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
 
@@ -865,7 +877,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = devices::Bus::new();
+            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let ans = 17;
@@ -953,7 +965,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = devices::Bus::new();
+            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let res;
@@ -1071,7 +1083,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = devices::Bus::new();
+            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let res;

@@ -3,8 +3,11 @@ use std::sync::{Arc, Weak, Mutex, RwLock};
 
 use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
-use crate::irq::irqchip::IrqChip;
+//use crate::irq::irqchip::IrqChip;
 use crate::irq::delegation::delegation_constants::IRQ_VS_EXT;
+
+extern crate irq_util;
+use irq_util::IrqChip;
 
 const MAX_DEVICES: usize = 32;
 
@@ -289,6 +292,57 @@ impl Plic {
             _ => {}
         }
     }
+    
+    fn plic_trigger_irq(&self, irq: u32, level: bool, edge: bool) {
+        let state = self.plic_state.read().unwrap();
+        dbgprintln!("trigger_irq: irq {} num_irq {} level {}",
+            irq, state.num_irq, level);
+        if state.num_irq <= irq { return; }
+
+        let irq_prio: u8 = state.irq_priority[irq as usize];
+        let irq_word: u8 = (irq / 32) as u8;
+        let irq_mask: u32 = 1 << (irq % 32);
+        /* state.read_unlock() */
+        drop(state);
+
+        if level {
+            let mut state = self.plic_state.write().unwrap();
+            state.irq_level[irq_word as usize] |= irq_mask;
+        } else {
+            let mut state = self.plic_state.write().unwrap();
+            state.irq_level[irq_word as usize] &= !irq_mask;
+        }
+        dbgprintln!("\t\ttrigger_irq: irq_prio {:x} irq_word {:x} irq_mask {:x}",
+            irq_prio, irq_word, irq_mask);
+
+        for i in 0..self.plic_contexts.len() {
+            let mut irq_marked: bool = false;
+            let mut ctx = self.plic_contexts[i].lock().unwrap();
+            
+            if (ctx.irq_enable[irq_word as usize] & irq_mask) != 0 {
+                if level {
+                    ctx.irq_pending[irq_word as usize] |= irq_mask;
+                    ctx.irq_pending_priority[irq as usize] = irq_prio as u32;
+                    if edge {
+                        ctx.irq_autoclear[irq_word as usize] |= irq_mask;
+                    }
+                    dbgprintln!("\t\ttrigger_irq irq_pending: {:x}, irq_mask: {:x}", 
+                        ctx.irq_pending[irq_word as usize], irq_mask);
+                } else {
+                    ctx.irq_pending[irq_word as usize] &= !irq_mask;
+                    ctx.irq_pending_priority[irq as usize] = 0;
+                    ctx.irq_claimed[irq_word as usize] &= !irq_mask;
+                    ctx.irq_autoclear[irq_word as usize] &= !irq_mask;
+                }
+                self.update_local_irq(&mut *ctx);
+                irq_marked = true;
+            }
+            dbgprintln!("\t\ttrigger_irq: i {} irq_enable {:x} irq_marked {}",
+                i, ctx.irq_enable[irq_word as usize], irq_marked);
+
+            if irq_marked { break; }
+        }
+    }
 }
 
 impl IrqChip for Plic {
@@ -301,12 +355,16 @@ impl IrqChip for Plic {
         if is_write {
             match offset {
                 PRIORITY_BASE..=PRIORITY_END => {
+                    dbgprintln!("write_global_priority offset {:x}, data {:x}", 
+                        offset, *data);
                     self.write_global_priority(offset, *data);
                 }
                 ENABLE_BASE..=ENABLE_END => {
                     ctx_id = (offset - ENABLE_BASE) / ENABLE_PER_HART;
                     offset = offset - (ctx_id * ENABLE_PER_HART + ENABLE_BASE);
                     if (ctx_id as usize) < self.plic_contexts.len() {
+                        dbgprintln!("write_local_enable ctx_id {} offset {:x}, data {:x}", 
+                            ctx_id, offset, *data);
                         self.write_local_enable(ctx_id as usize, offset, *data);
                     }
                 } 
@@ -314,6 +372,8 @@ impl IrqChip for Plic {
                     ctx_id = (offset - CONTEXT_BASE) / CONTEXT_PER_HART;
                     offset = offset - (ctx_id * CONTEXT_PER_HART + CONTEXT_BASE);
                     if (ctx_id as usize) < self.plic_contexts.len() {
+                        dbgprintln!("write_local_context ctx_id {} offset {:x}, data {:x}", 
+                            ctx_id, offset, *data);
                         self.write_local_context(ctx_id as usize, offset, *data);
                     }
                 }
@@ -349,51 +409,11 @@ impl IrqChip for Plic {
 
     /* Only support level-triggered IRQs */
     fn trigger_irq(&self, irq: u32, level: bool) {
-        let state = self.plic_state.read().unwrap();
-        dbgprintln!("trigger_irq: irq {} num_irq {} level {}",
-            irq, state.num_irq, level);
-        if state.num_irq <= irq { return; }
-
-        let irq_prio: u8 = state.irq_priority[irq as usize];
-        let irq_word: u8 = (irq / 32) as u8;
-        let irq_mask: u32 = 1 << (irq % 32);
-        /* state.read_unlock() */
-        drop(state);
-
-        if level {
-            let mut state = self.plic_state.write().unwrap();
-            state.irq_level[irq_word as usize] |= irq_mask;
-        } else {
-            let mut state = self.plic_state.write().unwrap();
-            state.irq_level[irq_word as usize] &= !irq_mask;
-        }
-        dbgprintln!("\t\ttrigger_irq: irq_prio {:x} irq_word {:x} irq_mask {:x}",
-            irq_prio, irq_word, irq_mask);
-
-        for i in 0..self.plic_contexts.len() {
-            let mut irq_marked: bool = false;
-            let mut ctx = self.plic_contexts[i].lock().unwrap();
-            
-            if (ctx.irq_enable[irq_word as usize] & irq_mask) != 0 {
-                if level {
-                    ctx.irq_pending[irq_word as usize] |= irq_mask;
-                    ctx.irq_pending_priority[irq as usize] = irq_prio as u32;
-                    dbgprintln!("\t\ttrigger_irq irq_pending: {:x}, irq_mask: {:x}", 
-                        ctx.irq_pending[irq_word as usize], irq_mask);
-                } else {
-                    ctx.irq_pending[irq_word as usize] &= !irq_mask;
-                    ctx.irq_pending_priority[irq as usize] = 0;
-                    ctx.irq_claimed[irq_word as usize] &= !irq_mask;
-                    ctx.irq_autoclear[irq_word as usize] &= !irq_mask;
-                }
-                self.update_local_irq(&mut *ctx);
-                irq_marked = true;
-            }
-            dbgprintln!("\t\ttrigger_irq: i {} irq_enable {:x} irq_marked {}",
-                i, ctx.irq_enable[irq_word as usize], irq_marked);
-
-            if irq_marked { break; }
-        }
+        self.plic_trigger_irq(irq, level, false);
+    }
+    
+    fn trigger_edge_irq(&self, irq: u32) {
+        self.plic_trigger_irq(irq, true, true);
     }
 }
 

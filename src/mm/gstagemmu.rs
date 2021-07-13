@@ -292,9 +292,10 @@ impl GStageMmu {
         return false;
     }
 
-    pub fn gpa_block_query(&mut self, gpa: u64) -> Option<u64> {
+    pub fn gpa_block_query(&mut self, gpa: u64) -> Option<(u64, u64)> {
         let mut start: u64;
         let mut end: u64;
+        let hva: u64;
         let hpa: u64;
 
         dbgprintln!("gpa_block_query gpa: {:x}", gpa);
@@ -307,9 +308,10 @@ impl GStageMmu {
             if gpa >= start &&  gpa < end {
                 dbgprintln!("query result: gpa {:x}, hpa {:x}, length {:x}",
                     i.gpa, i.hpa, i.length);
+                hva = i.hva + gpa - start;
                 hpa = i.hpa + gpa - start;
-                dbgprintln!("gpa_block_query: hpa {:x}", hpa);
-                return Some(hpa);
+                dbgprintln!("gpa_block_query: hva {:x} hpa {:x}", hva, hpa);
+                return Some((hva, hpa));
             }
         }
 
@@ -665,7 +667,7 @@ impl GStageMmu {
             hva = i.hpm_vptr;
         }
 
-        let gpa_block = gparegion::GpaBlock::new(gpa, hpa, length);
+        let gpa_block = gparegion::GpaBlock::new(gpa, hva, hpa, length);
         self.gpa_blocks.push(gpa_block);
 
         return Ok((hva, hpa));

@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use tty_uart_constants::*;
 use crate::mm::utils::*;
-use crate::irq::irqchip::IrqChip;
+//use crate::irq::irqchip::IrqChip;
+
+extern crate irq_util;
+use irq_util::IrqChip;
 
 #[allow(unused)]
 pub mod tty_uart_constants {

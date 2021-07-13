@@ -14,9 +14,12 @@ use crate::init::cmdline::VMConfig;
 use crate::vm::image;
 use crate::mm::gparegion::GpaRegion;
 use crate::vm::dtb;
-use crate::irq::irqchip::IrqChip;
+//use crate::irq::irqchip::IrqChip;
 use crate::devices::plic::Plic;
 use crate::devices::tty::Tty;
+
+extern crate irq_util;
+use irq_util::IrqChip;
 
 extern crate devices;
 extern crate sys_util;
@@ -81,7 +84,7 @@ pub struct VirtualMachine {
     /* TODO: More consoles, not only tty */
     pub console: Arc<Mutex<Tty>>,
     pub io_thread: bool,
-    pub mmio_bus: devices::Bus,
+    pub mmio_bus: Arc<Mutex<devices::Bus>>,
     /* Record GPA <--> HVA mappings */
     pub guest_mem: GuestMemory,
 }
@@ -112,23 +115,6 @@ impl VirtualMachine {
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
         let tty = Tty::new();
-        
-        let mut mmio_bus = devices::Bus::new();
-        let guest_mem = GuestMemory::new().unwrap();
-        
-        let root_image = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/blk-dev.img")
-            .unwrap();
-
-        let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
-        
-        let mmio_device = devices::virtio::MmioDevice::new(
-            guest_mem.clone(), block_box).unwrap();
-
-        mmio_bus.insert(Arc::new(Mutex::new(mmio_device)), 
-            0x10000000, 0x200).unwrap();
 
         /* Mmio default config for unit tests */
         #[cfg(test)]
@@ -160,6 +146,9 @@ impl VirtualMachine {
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let console = Arc::new(Mutex::new(tty));
 
+        let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
+        let guest_mem = GuestMemory::new().unwrap();
+        
         /* Create vcpu struct instances */
         for i in 0..vcpu_num {
             let vcpu = Arc::new(virtualcpu::VirtualCpu::new(i,
@@ -169,6 +158,23 @@ impl VirtualMachine {
         }
         
         let irqchip = Arc::new(Plic::new(&vcpus));
+        
+        let root_image = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/blk-dev.img")
+            .unwrap();
+
+        let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
+        
+        let mmio_device = devices::virtio::MmioDevice::new(
+            guest_mem.clone(), block_box, irqchip.clone()).unwrap();
+
+        /* Register mmio_device.interrupt_evt().unwrap() */
+
+        mmio_bus.lock().unwrap().insert(Arc::new(Mutex::new(mmio_device)), 
+            0x10000000, 0x200).unwrap();
+        
         for vcpu in &vcpus {
             vcpu.irqchip.set(irqchip.clone()).ok();
         }
@@ -1369,7 +1375,7 @@ mod tests {
         
         let guest_mem = GuestMemory::new().unwrap();
         let mmio_device = devices::virtio::MmioDevice::new(
-            guest_mem.clone(), block_box).unwrap();
+            guest_mem.clone(), block_box, Arc::new(Plic::new(&Vec::new()))).unwrap();
 
         bus.insert(Arc::new(Mutex::new(mmio_device)), 
             0x10000000, 0x200).unwrap();
