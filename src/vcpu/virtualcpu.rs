@@ -663,7 +663,6 @@ mod tests {
     use rusty_fork::rusty_fork_test;
     use crate::test::utils::configtest::test_vm_config_create;
     use crate::devices::tty::tty_uart_constants::*;
-    use crate::devices::plic::*;
 
     rusty_fork_test! {
         #[test]
@@ -1266,23 +1265,22 @@ mod tests {
          * input.len() = 500 for 40 times. That means the irq from tty
          * input inserted 20000 times without any lost.
          */
+        
+        
         #[test]
-        fn test_tty_irq() {
+        fn test_tty_load_irq() {
+            const PLIC_BASE_ADDR: u64 = 0xc000000;
+            const PRIORITY_BASE: u64 = 0;
+            const PRIORITY_PER_ID: u64 = 4;
+            const ENABLE_BASE: u64 = 0x2000;
+            const ENABLE_PER_HART: u64 = 0x80;
+            
             let mut vm_config = test_vm_config_create();
             vm_config.vcpu_count = 1;
             let elf_path: &str = "./tests/integration/tty_load_irq.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
             let plic = vm.irqchip.clone();
-        
-            let get_threshold_offset = |ctx_id: u64| -> u64 {
-                PLIC_BASE_ADDR + CONTEXT_BASE + 
-                    ctx_id * CONTEXT_PER_HART + CONTEXT_THRESHOLD
-            };
-            let get_claim_offset = |ctx_id: u64| -> u64 {
-                PLIC_BASE_ADDR + CONTEXT_BASE + 
-                    ctx_id * CONTEXT_PER_HART + CONTEXT_CLAIM
-            };
             
             let get_global_prio_offset = |irq: u32| -> u64 {
                 PLIC_BASE_ADDR + PRIORITY_BASE + (irq as u64) * PRIORITY_PER_ID
@@ -1291,19 +1289,14 @@ mod tests {
                 PLIC_BASE_ADDR + ENABLE_BASE + ctx_id * ENABLE_PER_HART + offset
             };
             let local_claim_succeed = 
-                |irq: u32, mut read: u32, ctx_id: u64| {
+                |irq: u32, ctx_id: u64| {
                     /* Init global priority & local enable */
                     let mut mask = 0xffffffff;
                     plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
                     plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
-
-                    plic.trigger_irq(irq, true);
-                    plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
-                    plic.trigger_irq(irq, false);
-                    assert_eq!(read, irq);
             };
-            local_claim_succeed(1, 0xdead, 1);
-            local_claim_succeed(1, 0xdead, 0);
+
+            local_claim_succeed(1, 0);
 
             vm.vm_init();
 
