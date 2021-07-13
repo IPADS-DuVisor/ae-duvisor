@@ -1,4 +1,5 @@
 use crate::vcpu::utils::*;
+use crate::irq::delegation::delegation_constants::IRQ_VS_SOFT;
 
 #[allow(unused)]
 pub struct VirtualInterrupt {
@@ -40,8 +41,13 @@ impl VirtualInterrupt {
     pub fn sync_pending_irq(&mut self) {
         let huvip: u64;
         unsafe { huvip = csrr!(HUVIP); }
-        for i in 0..self.irq_pending.len() {
-            self.irq_pending[i] = if (huvip & (1 << i)) != 0 { true } else { false };
+        
+        let real_vipi = ((huvip >> IRQ_VS_SOFT) & 0x1) == 0x1;
+        let pending_vipi = self.irq_pending[IRQ_VS_SOFT as usize];
+        if real_vipi && !pending_vipi {
+            self.irq_pending[IRQ_VS_SOFT as usize] = true;
+        } else if !real_vipi && pending_vipi {
+            self.irq_pending[IRQ_VS_SOFT as usize] = false;
         }
     }
 }
