@@ -161,28 +161,15 @@ impl Tty {
         }
 
         /* Now update the irq line, if necessary */
+        /* TODO: different from kvmtool, fix 8250 in the future */
         if iir != 0 {
-            //self.value[UART_IIR] = UART_IIR_NO_INT;
             self.value[UART_IIR] = iir;
-            /* Insert irq */
-            //irqchip.trigger_irq(1, true);
-            //if self.irq_state != 0 {
-                /* root cause of linux corrupt! */
+
+            if self.irq_state != 0 {
                 irqchip.trigger_irq(1, true); 
-            //}
+            }
         } else {
-            //self.value[UART_IIR] = iir;
-            /* let iir_uart =  self.value[UART_IIR];
-            if iir_uart != UART_IIR_NO_INT {
-                println!("UART_IIR: 0x{:x}", self.value[UART_IIR]);
-            }
-            
-            self.value[UART_IIR] = UART_IIR_NO_INT; */
-            /* Insert irq */
-            if self.irq_state == 0 {
-                /* root cause of linux corrupt! */
-                irqchip.trigger_irq(1, true); 
-            }
+            self.value[UART_IIR] = iir;
         }
 
         self.irq_state = iir;
