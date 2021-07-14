@@ -169,7 +169,7 @@ impl VirtualCpu {
     
     fn handle_virtual_inst_fault(&self) -> i32 {
         let ret = 0;
-
+        //println!("virt inst: uepc: 0x{:x}", self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc);
         self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc += 4;
         
         ret
@@ -179,11 +179,12 @@ impl VirtualCpu {
         /* Insert or clear tty irq on each vtimer irq */
         let avail_char = self.console.lock().unwrap().avail_char;
 
-        if avail_char > 0 {
+        /* if avail_char > 0 {
+            println!("send !");
             self.irqchip.get().unwrap().trigger_irq(1, true);
         } else {
             self.irqchip.get().unwrap().trigger_irq(1, false);
-        }
+        } */
 
         /* Set virtual timer */
         self.virq.lock().unwrap().set_pending_irq(IRQ_VS_TIMER);
@@ -339,7 +340,7 @@ impl VirtualCpu {
             self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data, false);
         } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
             /* Check the input and update huvip */
-            self.console.lock().unwrap().trigger_irq(&self.irqchip.get().unwrap());
+            //self.console.lock().unwrap().trigger_irq(&self.irqchip.get().unwrap());
 
             data = self.console.lock().unwrap().
                 load_emulation(fault_addr, &self.irqchip.get().unwrap()) as u32;
@@ -638,11 +639,18 @@ impl VirtualCpu {
             self.virq.lock().unwrap().flush_pending_irq();
 
             unsafe {
+                let ucause_debug = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
+                let avail_char = self.console.lock().unwrap().avail_char;
+                //if ucause_debug != EXC_VIRTUAL_INST_FAULT {
+                    let huvip_debug = csrr!(HUVIP);
+                    //println!("huvip debug: 0x{:x}, avail_char: {}", huvip_debug, self.console.lock().unwrap().avail_char);
+                //}
+                
                 enter_guest(vcpu_ctx_ptr_u64);
             }
 
             /* Sync pending irqs from HUVIP */
-            self.virq.lock().unwrap().sync_pending_irq();
+            //self.virq.lock().unwrap().sync_pending_irq();
 
             ret = self.handle_vcpu_exit();
         }

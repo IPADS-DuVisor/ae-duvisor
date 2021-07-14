@@ -31,6 +31,7 @@ pub mod tty_uart_constants {
     /* UART_MCR */
     pub const UART_MCR: usize = 4;
     pub const UART_MCR_OUT2: u8 = 0x08;
+    pub const UART_MCR_LOOP: u8 = 0x10;
 
     /* UART_LSR */
     pub const UART_LSR: usize = 5;
@@ -165,12 +166,26 @@ impl Tty {
         if iir != 0 {
             self.value[UART_IIR] = iir;
 
-            if self.irq_state != 0 {
-                irqchip.trigger_irq(1, true); 
+            if self.irq_state == 0 {
+                irqchip.trigger_irq(1, false); 
             }
         } else {
+            //if self.value[UART_IIR] != UART_IIR_NO_INT ||  self.value[UART_IIR] != iir {
+            if self.value[UART_IIR] != iir {
+                //println!("CATCH ! -- UART_IIR = 0x{:x}, iir = 0x{:x}", self.value[UART_IIR], iir);
+            }
+
             self.value[UART_IIR] = iir;
+
+            /* Debug */
+            self.value[UART_IIR] = UART_IIR_NO_INT;
+
+            if self.irq_state != 0 {
+                irqchip.trigger_irq(1, true);
+            }
         }
+
+        //print!("-");
 
         self.irq_state = iir;
 
@@ -206,7 +221,7 @@ impl Tty {
             }
             UART_IER => { /* 0x3f9 */
                 if self.value[UART_LCR] & UART_LCR_DLAB == 0 {
-                    ret = self.value[UART_DLL];
+                    ret = self.value[UART_DLM];
                 } else {
                     ret = self.value[UART_IER];
                 }
@@ -222,9 +237,9 @@ impl Tty {
             }
             UART_LSR => { /* 0x3fd */
                 ret = self.value[UART_LSR];
-                if self.avail_char > 0 {
+                /* if self.avail_char > 0 {
                     ret |= UART_LSR_DR;
-                }
+                } */
             }
             UART_MSR => { /* 0x3fe */
                 ret = self.value[UART_MSR];
@@ -251,17 +266,20 @@ impl Tty {
             UART_TX => { /* 0x3f8 */
                 if self.value[UART_LCR] & UART_LCR_DLAB != 0 {
                     self.value[UART_DLL] = data;
+                } else if (self.value[UART_MCR] & UART_MCR_LOOP) != 0 {
+                    /* loop mode */
+                    panic!("Loop mode not implemented");
                 } else {
                     /* If DLAB=0, just output the char. */
                     console_putchar(data as u64);
                     self.flush_tx();
 
                     /* Since the output is finished, notice the guest */
-                    irqchip.trigger_irq(1, true);
+                    //irqchip.trigger_irq(1, true);
                 }
             }
             UART_IER => { /* 0x3f9 */
-                if self.value[UART_LCR] & UART_LCR_DLAB != 0 {
+                if self.value[UART_LCR] & UART_LCR_DLAB == 0 {
                     self.value[UART_IER] = data & 0x0f;
                 } else {
                     self.value[UART_DLM] = data;
@@ -320,7 +338,10 @@ impl Tty {
     }
 
     pub fn flush_tx(&mut self) {
+        /* Transmitter Empty */
         self.value[UART_LSR] |= UART_LSR_TEMT;
+
+        /* Trasmitter hold empty */
         self.value[UART_LSR] |= UART_LSR_THRE;
     }
 

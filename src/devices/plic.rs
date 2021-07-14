@@ -367,9 +367,10 @@ impl IrqChip for Plic {
             let mut state = self.plic_state.write().unwrap();
             state.irq_level[irq_word as usize] &= !irq_mask;
         }
-        dbgprintln!("\t\ttrigger_irq: irq_prio {:x} irq_word {:x} irq_mask {:x}",
-            irq_prio, irq_word, irq_mask);
-
+        /* if level {
+            println!("\t\ttrigger_irq: irq_prio {:x} irq_word {:x} irq_mask {:x}",
+                irq_prio, irq_word, irq_mask);
+        } */
         for i in 0..self.plic_contexts.len() {
             let mut irq_marked: bool = false;
             let mut ctx = self.plic_contexts[i].lock().unwrap();
@@ -387,8 +388,10 @@ impl IrqChip for Plic {
                 self.update_local_irq(&mut *ctx);
                 irq_marked = true;
             }
-            dbgprintln!("\t\ttrigger_irq: i {} irq_enable {:x} irq_marked {}",
-                i, ctx.irq_enable[irq_word as usize], irq_marked);
+            /* if level {
+                println!("\t\ttrigger_irq: i {} irq_enable {:x} irq_marked {}",
+                    i, ctx.irq_enable[irq_word as usize], irq_marked);
+            } */
 
             if irq_marked { break; }
         }
