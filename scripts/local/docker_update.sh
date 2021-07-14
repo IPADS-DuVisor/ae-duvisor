@@ -1,5 +1,4 @@
 sudo docker run -it \
-    -v /home/ldj/mnt/ulh/firecracker-dev:/home/ubuntu/firecracker-dev \
     -v $(pwd):/home/ubuntu/laputa \
     -w /home/ubuntu/laputa \
     --network host \
