@@ -1387,7 +1387,5 @@ mod tests {
             ret, slice.read_u32::<LittleEndian>().unwrap());
 
         guest_mem.insert_region(0x100000, 0x200000, 4096);
-
-        assert!(false);
     }
 }

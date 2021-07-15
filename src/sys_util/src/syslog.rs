@@ -527,6 +527,7 @@ macro_rules! debug {
     ($($args:tt)+) => (log!($crate::syslog::Priority::Debug, $($args)*))
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -628,3 +629,4 @@ mod tests {
         debug!("this is debug info {:?}", Some("helpful stuff"));
     }
 }
+*/

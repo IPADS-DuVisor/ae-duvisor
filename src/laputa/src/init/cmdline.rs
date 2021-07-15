@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn test_verify_args_normal() {
         let vm_config = setup_vm_config(2, 20, "laputa_virt",
-                                    "src/unit/unitest_kernel",
+                                    "src/laputa/src/unit/unitest_kernel",
                                     "", "");
         assert_eq!(VMConfig::verify_args(&vm_config), true);
     }
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn test_verify_args_vcpu_count_large_value() {
         let vm_config = setup_vm_config(1024, 20, "laputa_virt",
-                                    "src/unit/unitest_kernel",
+                                    "src/laputa/src/unit/unitest_kernel",
                                     "", "");
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn test_verify_args_vcpu_count_zero() {
         let vm_config = setup_vm_config(0, 20, "laputa_virt",
-                                    "src/unit/unitest_kernel",
+                                    "src/laputa/src/unit/unitest_kernel",
                                     "", "");
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn test_verify_args_mem_large_value() {
         let vm_config = setup_vm_config(4, 5000, "laputa_virt",
-                                    "src/unit/unitest_kernel",
+                                    "src/laputa/src/unit/unitest_kernel",
                                     "", "");
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn test_verify_args_mem_zero() {
         let vm_config = setup_vm_config(4, 0, "laputa_virt",
-                                    "src/unit/unitest_kernel",
+                                    "src/laputa/src/unit/unitest_kernel",
                                     "", "");
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
@@ -246,7 +246,7 @@ mod tests {
     #[test]
     fn test_verify_args_type_invalid() {
         let vm_config = setup_vm_config(4, 1024, "laputa_virt2",
-                                    "src/unit/unitest_kernel",
+                                    "src/laputa/src/unit/unitest_kernel",
                                     "", "");
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn test_verify_args_initrd_invalid() {
         let vm_config = setup_vm_config(4, 1024, "laputa_virt",
-                                    "src/unit/unitest_kernel",
+                                    "src/laputa/src/unit/unitest_kernel",
                                     "err_initrd", "");
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn test_verify_args_dtb_invalid() {
         let vm_config = setup_vm_config(4, 1024, "laputa_virt",
-                                    "src/unit/unitest_kernel",
+                                    "src/laputa/src/unit/unitest_kernel",
                                     "", "err_dtb");
         assert_eq!(VMConfig::verify_args(&vm_config), false);
     }
