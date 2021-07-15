@@ -77,7 +77,7 @@ impl GuestMemory {
     */
     
     pub fn new() -> Result<GuestMemory> {
-        let mut regions = Vec::<MemoryRegion>::new();
+        let regions = Vec::<MemoryRegion>::new();
   
         Ok(GuestMemory { regions: Arc::new(RwLock::new(regions)) })
     }
@@ -211,7 +211,7 @@ impl GuestMemory {
     /// ```
     pub fn read_slice_at_addr(
         &self,
-        mut buf: &mut [u8],
+        buf: &mut [u8],
         guest_addr: GuestAddress,
     ) -> Result<usize> {
         self.do_in_region(guest_addr, move |mapping, offset| {

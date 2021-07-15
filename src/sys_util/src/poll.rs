@@ -68,7 +68,7 @@ impl Poller {
     ///
     /// This is guaranteed to not allocate if `pollables.len()` is less than the `capacity` given in
     /// `Poller::new`.
-    pub fn poll(&mut self, pollables: &[(u32, &Pollable)]) -> Result<&[u32]> {
+    pub fn poll(&mut self, pollables: &[(u32, &dyn Pollable)]) -> Result<&[u32]> {
         self.pollfds.clear();
         for pollable in pollables.iter() {
             self.pollfds.push(pollfd {
@@ -113,7 +113,7 @@ mod tests {
         let evt2 = EventFd::new().unwrap();
         evt2.write(1).unwrap();
 
-        let pollables: Vec<(u32, &Pollable)> = vec![(1, &evt1), (2, &evt2)];
+        let pollables: Vec<(u32, &dyn Pollable)> = vec![(1, &evt1), (2, &evt2)];
 
         let mut poller = Poller::new(2);
         assert_eq!(poller.poll(&pollables[..]), Ok([2].as_ref()));
@@ -126,7 +126,7 @@ mod tests {
         evt1.write(1).unwrap();
         evt2.write(1).unwrap();
 
-        let pollables: Vec<(u32, &Pollable)> = vec![(1, &evt1), (2, &evt2)];
+        let pollables: Vec<(u32, &dyn Pollable)> = vec![(1, &evt1), (2, &evt2)];
 
         let mut poller = Poller::new(2);
         assert_eq!(poller.poll(&pollables[..]), Ok([1, 2].as_ref()));

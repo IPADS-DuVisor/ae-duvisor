@@ -23,9 +23,8 @@ use irq_util::IrqChip;
 
 extern crate devices;
 extern crate sys_util;
-use sys_util::{GuestAddress, GuestMemory};
+use sys_util::GuestMemory;
 use std::fs::{OpenOptions};
-use byteorder::{ReadBytesExt, LittleEndian};
 
 #[allow(unused)]
 extern "C"
@@ -1359,33 +1358,5 @@ mod tests {
 
             assert_ne!(result, 0);
         }
-    }
-
-    #[test]
-    fn test_mmio_bus() {
-        let mut bus = devices::Bus::new();
-        
-        let root_image = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/blk-dev.img")
-            .unwrap();
-
-        let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
-        
-        let guest_mem = GuestMemory::new().unwrap();
-        let mmio_device = devices::virtio::MmioDevice::new(
-            guest_mem.clone(), block_box, Arc::new(Plic::new(&Vec::new()))).unwrap();
-
-        bus.insert(Arc::new(Mutex::new(mmio_device)), 
-            0x10000000, 0x200).unwrap();
-
-        let mut data = [0, 0, 0, 0];
-        let ret = bus.read(0x10000000, &mut data);
-        let mut slice = &data[..];
-        println!("bus.read MAGIC ret {} output {:x}", 
-            ret, slice.read_u32::<LittleEndian>().unwrap());
-
-        guest_mem.insert_region(0x100000, 0x200000, 4096);
     }
 }

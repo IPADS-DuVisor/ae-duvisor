@@ -93,7 +93,7 @@ pub trait VirtioDevice: Send {
 /// Typically one page (4096 bytes) of MMIO address space is sufficient to handle this transport
 /// and inner virtio device.
 pub struct MmioDevice {
-    device: Box<VirtioDevice>,
+    device: Box<dyn VirtioDevice>,
     device_activated: bool,
 
     features_select: u32,
@@ -113,7 +113,7 @@ pub struct MmioDevice {
 
 impl MmioDevice {
     /// Constructs a new MMIO transport for the given virtio device.
-    pub fn new(mem: GuestMemory, device: Box<VirtioDevice>,
+    pub fn new(mem: GuestMemory, device: Box<dyn VirtioDevice>,
         irqchip: Arc<dyn IrqChip>) -> Result<MmioDevice> {
         let mut queue_evts = Vec::new();
         let mut avail_evts = Vec::new();
@@ -193,7 +193,7 @@ impl MmioDevice {
 impl BusDevice for MmioDevice {
     fn read(&mut self, offset: u64, data: &mut [u8]) {
         match offset {
-            0x00...0xff if data.len() == 4 => {
+            0x00..=0xff if data.len() == 4 => {
                 let v =
                     match offset {
                         0x0 => MMIO_MAGIC_VALUE,
@@ -216,7 +216,7 @@ impl BusDevice for MmioDevice {
                     };
                 LittleEndian::write_u32(data, v);
             }
-            0x100...0xfff => self.device.read_config(offset - 0x100, data),
+            0x100..=0xfff => self.device.read_config(offset - 0x100, data),
             _ => {
                 warn!(
                     "invalid virtio mmio read: 0x{:x}:0x{:x}",
@@ -238,7 +238,7 @@ impl BusDevice for MmioDevice {
 
         let mut mut_q = false;
         match offset {
-            0x00...0xff if data.len() == 4 => {
+            0x00..=0xff if data.len() == 4 => {
                 let v = LittleEndian::read_u32(data);
                 match offset {
                     0x14 => self.features_select = v,
@@ -268,7 +268,7 @@ impl BusDevice for MmioDevice {
                     }
                 }
             }
-            0x100...0xfff => return self.device.write_config(offset - 0x100, data),
+            0x100..=0xfff => return self.device.write_config(offset - 0x100, data),
             _ => {
                 warn!(
                     "invalid virtio mmio write: 0x{:x}:0x{:x}",

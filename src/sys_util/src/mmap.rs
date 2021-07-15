@@ -88,7 +88,7 @@ impl MemoryMapping {
     /// # Arguments
     /// * `fd` - File descriptor to mmap from.
     /// * `size` - Size of memory region in bytes.
-    pub fn from_fd(fd: &AsRawFd, size: usize) -> Result<MemoryMapping> {
+    pub fn from_fd(fd: &dyn AsRawFd, size: usize) -> Result<MemoryMapping> {
         // This is safe because we are creating a mapping in a place not already used by any other
         // area in this process.
         let addr = unsafe {

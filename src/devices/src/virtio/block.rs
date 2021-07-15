@@ -230,7 +230,7 @@ impl Worker {
     fn signal_used_queue(&self) {
         self.interrupt_status
             .fetch_or(INTERRUPT_STATUS_USED_RING as usize, Ordering::SeqCst);
-        //self.interrupt_evt.write(1).unwrap();
+        self.interrupt_evt.write(1).unwrap();
         self.irqchip.trigger_edge_irq(2);
     }
 

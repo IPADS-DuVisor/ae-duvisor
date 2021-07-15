@@ -36,7 +36,7 @@ use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;
 use std::ptr::null;
 use std::str::from_utf8;
-use std::sync::{Mutex, MutexGuard, Once, ONCE_INIT};
+use std::sync::{Mutex, MutexGuard, Once};
 
 use libc::{tm, time, time_t, localtime_r, gethostname, openlog, fcntl, c_char, LOG_NDELAY,
            LOG_PERROR, LOG_PID, LOG_USER, F_GETFD};
@@ -193,7 +193,7 @@ impl State {
     }
 }
 
-static STATE_ONCE: Once = ONCE_INIT;
+static STATE_ONCE: Once = Once::new();
 static mut STATE: *const Mutex<State> = 0 as *const _;
 
 fn new_mutex_ptr<T>(inner: T) -> *const Mutex<T> {
