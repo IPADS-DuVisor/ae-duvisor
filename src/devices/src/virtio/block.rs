@@ -157,7 +157,6 @@ impl Request {
         disk: &mut T,
         mem: &GuestMemory,
     ) -> result::Result<u32, ExecuteError> {
-        //println!("----- sector {}, type {:?}", self.sector, self.request_type);
         disk.seek(SeekFrom::Start(self.sector << SECTOR_SHIFT))
             .map_err(ExecuteError::Seek)?;
         match self.request_type {

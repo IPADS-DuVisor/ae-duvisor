@@ -489,6 +489,7 @@ pub fn log(pri: Priority, fac: Facility, file_name: &str, line: u32, args: fmt::
 #[macro_export]
 macro_rules! log {
     ($pri:expr, $($args:tt)+) => ({
+        println!($($args)*);
         $crate::syslog::log(
             $pri, $crate::syslog::Facility::User, file!(), line!(), format_args!($($args)+))
     })
