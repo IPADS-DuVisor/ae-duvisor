@@ -1143,7 +1143,7 @@ mod tests {
             assert_eq!(ucause, 10);
         }
 
-        /* #[test]
+        #[test]
         fn test_tty_store() { 
             let mut vm_config = test_vm_config_create();
             let elf_path: &str = "./tests/integration/tty_store.img";
@@ -1160,32 +1160,35 @@ mod tests {
             vm.vm_run();
 
             /* Answer */
-            let ans_dlm = 0xfe;
+            let ans_dlm = 0x0;
+            let ans_dll = 0xc;
             let ans_fcr = 0x6;
-            let ans_lcr = 0x80;
+            let ans_lcr = 0x0;
             let ans_mcr = 0x8;
             let ans_scr = 0x0;
             let ans_ier = 0xf;
 
             /* Test data */
-            let dlm = vm.console.lock().unwrap().value[UART_DLM];
-            let fcr = vm.console.lock().unwrap().value[UART_FCR];
-            let lcr = vm.console.lock().unwrap().value[UART_LCR];
-            let mcr = vm.console.lock().unwrap().value[UART_MCR];
-            let scr = vm.console.lock().unwrap().value[UART_SCR];
-            let ier = vm.console.lock().unwrap().value[UART_IER];
+            let dlm = vm.console.lock().unwrap().dlm;
+            let dll = vm.console.lock().unwrap().dll;
+            let fcr = vm.console.lock().unwrap().fcr;
+            let lcr = vm.console.lock().unwrap().lcr;
+            let mcr = vm.console.lock().unwrap().mcr;
+            let scr = vm.console.lock().unwrap().scr;
+            let ier = vm.console.lock().unwrap().ier;
 
             vm.vm_destroy();
 
             assert_eq!(dlm, ans_dlm);
+            assert_eq!(dll, ans_dll);
             assert_eq!(fcr, ans_fcr);
             assert_eq!(lcr, ans_lcr);
             assert_eq!(mcr, ans_mcr);
             assert_eq!(scr, ans_scr);
             assert_eq!(ier, ans_ier);
-        } */
+        }
 
-        /* #[test]
+        #[test]
         fn test_tty_load() { 
             let mut vm_config = test_vm_config_create();
             let elf_path: &str = "./tests/integration/tty_load.img";
@@ -1199,14 +1202,14 @@ mod tests {
              * Answer should be: 
              * 0x3f8 = 0x0
              * 0x3f9 = 0x0
-             * 0x3fa = 0xc0 = UART_IIR_TYPE_BITS
+             * 0x3fa = 0xc0 = UART_IIR_TYPE_BITS | UART_IIR_NO_INT
              * 0x3fb = 0x0
              * 0x3fc = 0x08 = UART_MCR_OUT2
              * 0x3fd = 0x60 = UART_LSR_TEMT | UART_LSR_THRE
              * 0x3fe = 0xb0 = UART_MSR_DCD | UART_MSR_DSR | UART_MSR_CTS
              * 0x3ff = 0x0
              */
-            let answer: u64 = 0xb0600800c00000;
+            let answer: u64 = 0xb0600800c10000;
 
             vm.vm_init();
 
@@ -1245,17 +1248,15 @@ mod tests {
             }
 
             vm.vm_destroy();
-        } */
+        }
 
         /* 
          * This test cases has been tested with tty::FIFO_LEN = 512 and
          * input.len() = 500 for 40 times. That means the irq from tty
          * input inserted 20000 times without any lost.
          */
-        
-        
-        /* #[test]
-        fn test_tty_load_irq() {
+        #[test]
+        fn test_tty_input_irq() {
             const PLIC_BASE_ADDR: u64 = 0xc000000;
             const PRIORITY_BASE: u64 = 0;
             const PRIORITY_PER_ID: u64 = 4;
@@ -1264,7 +1265,7 @@ mod tests {
             
             let mut vm_config = test_vm_config_create();
             vm_config.vcpu_count = 1;
-            let elf_path: &str = "./tests/integration/tty_load_irq.img";
+            let elf_path: &str = "./tests/integration/tty_input_irq.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
             let plic = vm.irqchip.clone();
@@ -1287,7 +1288,24 @@ mod tests {
 
             vm.vm_init();
 
-            let input: String = String::from("abcdefghijA");
+            /* Tty init state from real world */
+            vm.console.lock().unwrap().lcr = 0x11;
+            vm.console.lock().unwrap().lsr = 0x61;
+            vm.console.lock().unwrap().ier = 0x05;
+            vm.console.lock().unwrap().iir = 0x01;
+            vm.console.lock().unwrap().fcr = 0x81;
+            vm.console.lock().unwrap().dll = 0x0c;
+            vm.console.lock().unwrap().dlm = 0x00;
+            vm.console.lock().unwrap().mcr = 0x0b;
+            vm.console.lock().unwrap().msr = 0xb0;
+            vm.console.lock().unwrap().scr = 0x00;
+
+            /* 
+             * The irq from tty will be set before every enter_guest.
+             * So the test vm will start with an insert irq and it will
+             * be catched after the vm sets SIE.
+             */
+            let input: String = String::from("Z");
             for c in input.chars() {
                 vm.console.lock().unwrap().recv_char(c);
             }
@@ -1300,27 +1318,60 @@ mod tests {
 
             vm.vm_run();
 
-            let a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[10];
-
-            let a1 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+            /* 
+             * A1 shows the return value. 
+             * 0xcafe: success
+             * 0xdead: irq lost
+             * 0xbeef: wrong data
+             */
+            let ret_val = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
                 .x_reg[11];
 
-            let t4 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+            /* A6 shows the number of steps */
+            let step_count = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[16];
+
+            /* T5 shows the number of irq */
+            let irq_count = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[30];
+
+            /* T4 shows the input char tty actually get */
+            let input_char = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
                 .x_reg[29];
 
-            println!("t4 {}", t4);
-            println!("a0 {}", a0);
-            println!("a1 0x{:x}", a1);
+            match ret_val {
+                0xcafe => {
+                    println!("All the steps has been finished.");
+                }
+                0xdead => {
+                    println!("Irq lost.");
+                }
+                0xbeef => {
+                    println!("Data is wrong.");
+                }
+                _ => {
+                    panic!("Return value is invalid. Please check A1.")
+                }
+            }
+
+            println!("{} steps have been finished.", step_count);
+            println!("{} irqs have been caused.", irq_count);
+            println!("ASCII of the input char is 0x{:x}", input_char);
 
             vm.vm_destroy();
 
-            /* If a1 == 0xdead, irq lost. */
-            assert_eq!(a1, 0xcafe);
+            /* The vm must be finished. */
+            assert_eq!(ret_val, 0xcafe);
 
-            /* a0 should get the last char 'A' */
-            assert_eq!(a0, 65);
-        } */
+            /* There should be 25 steps. */
+            assert_eq!(step_count, 25);
+
+            /* There should be 4 irqs. */
+            assert_eq!(irq_count, 4);
+
+            /* The input char should be 'Z' with ascii 0x5a */
+            assert_eq!(input_char, 0x5a);
+        }
     }
 }
 

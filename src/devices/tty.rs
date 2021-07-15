@@ -125,7 +125,6 @@ pub mod tty_uart_constants {
 pub const FIFO_LEN: usize = 64;
 
 pub struct Tty {
-    //pub value: [u8; 11],
     pub dll: u8,
     pub dlm: u8,
     pub iir: u8,
@@ -224,7 +223,7 @@ impl Tty {
         let avail_char = self.avail_char;
 
         if avail_char > 0 {
-            //println!("avail_char {}", avail_char);
+            dbgprintln!("avail_char {}", avail_char);
             self.lsr |= UART_LSR_DR;
             self.update_irq(&irqchip);
         }
@@ -236,14 +235,12 @@ impl Tty {
         /* Handle clear rx */
         if self.lcr & UART_FCR_CLEAR_RCVR != 0 {
             self.lcr &= !UART_FCR_CLEAR_RCVR;
-            /* dev->rxcnt = dev->rxdone = 0; */
             self.lsr &= !UART_LSR_DR;
         }
 
         /* Handle clear tx */
         if self.lcr & UART_FCR_CLEAR_XMIT != 0 {
             self.lcr &= !UART_FCR_CLEAR_XMIT;
-            /* dev->txcnt = 0; */
             self.lsr |= UART_LSR_TEMT | UART_LSR_THRE;
         }
 
@@ -262,12 +259,14 @@ impl Tty {
             self.iir = iir;
 
             if self.irq_state == 0 {
+                dbgprintln!("[2] tty set");
                 irqchip.trigger_irq(1, true);
             }
         } else {
             self.iir = UART_IIR_NO_INT;
 
             if self.irq_state != 0 {
+                dbgprintln!("[1] tty clear");
                 irqchip.trigger_irq(1, false);
             }
         }
