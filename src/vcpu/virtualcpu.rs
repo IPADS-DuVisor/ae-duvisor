@@ -158,12 +158,12 @@ impl VirtualCpu {
             self.vm.lock().unwrap().gsmmu.page_table.paddr >> PAGE_SIZE_SHIFT;
         let hugatp: u64;
 
-        if S2PT_LEVEL == 3 {
+        if S2PT_MODE == 3 {
             hugatp = pt_pfn | HUGATP_MODE_SV39;
-        } else if S2PT_LEVEL == 4 {
+        } else if S2PT_MODE == 4 {
             hugatp = pt_pfn | HUGATP_MODE_SV48;
         } else {
-            panic!("Invalid S2PT_LEVEL");
+            panic!("Invalid S2PT_MODE");
         }
 
         self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;

@@ -10,8 +10,10 @@ extern "C"
     fn hufence_gvma_all();
 }
 
-/* Choose 3 for SV39x4 or 4 for SV48x4 */
-pub const S2PT_LEVEL: i32 = 4;
+/* Choose SV39x4 or SV48x4 */
+pub const S2PT_MODE: i32 = S2PT_SV48;
+const S2PT_SV39: i32 = 3;
+const S2PT_SV48: i32 = 4;
 
 pub mod gsmmu_constants {
     /* Pte bit */
@@ -329,7 +331,7 @@ impl GStageMmu {
 
     pub fn set_pte_flag(mut pte: u64, level: u64, flag: u64) -> u64 {
         pte = pte & 0xFFFFFFFFFFFFFC00;
-        let pt_level: u64 = (S2PT_LEVEL - 1) as u64;
+        let pt_level: u64 = (S2PT_MODE - 1) as u64;
 
         if level == pt_level {
             pte = pte | PTE_VALID;
@@ -377,8 +379,8 @@ impl GStageMmu {
         let mut shift: u64;
         let mut offsets = [0; 4];
 
-        for level in 0..(S2PT_LEVEL - 1) {
-            shift = (9 * S2PT_LEVEL + 3) as u64 - PAGE_ORDER * (level as u64);
+        for level in 0..(S2PT_MODE - 1) {
+            shift = (9 * S2PT_MODE + 3) as u64 - PAGE_ORDER * (level as u64);
             index = (gpa >> shift) & 0x1ff;
             if level == 0 {
                 index = (gpa >> shift) & 0x7ff;
@@ -412,7 +414,7 @@ impl GStageMmu {
         }
 
         index = ((gpa >> 12) & 0x1ff) * 8;
-        offsets[S2PT_LEVEL as usize - 1] 
+        offsets[S2PT_MODE as usize - 1] 
             = page_table_va + index - (self.page_table.vaddr as u64);
         Some(offsets)
     }
@@ -427,8 +429,8 @@ impl GStageMmu {
         let mut page_table_va_wrap;
         let mut shift;
 
-        for level in 0..S2PT_LEVEL {
-            shift = (9 * S2PT_LEVEL + 3) as u64 - PAGE_ORDER * (level as u64);
+        for level in 0..S2PT_MODE {
+            shift = (9 * S2PT_MODE + 3) as u64 - PAGE_ORDER * (level as u64);
             index = (gpa >> shift) & 0x1ff;
             if level == 0 {
                 index = (gpa >> shift) & 0x7ff;
@@ -443,7 +445,7 @@ impl GStageMmu {
                 pte_value = pte;
                 pte_level = level as u32;
 
-                if level == (S2PT_LEVEL - 1) {
+                if level == (S2PT_MODE - 1) {
                     break;
                 }
 
@@ -477,7 +479,7 @@ impl GStageMmu {
             pte_level = pte.level;
         }
 
-        if pte_level != (S2PT_LEVEL as u32 - 1)  {
+        if pte_level != (S2PT_MODE as u32 - 1)  {
             /* No mapping, and nothing changed */
             return None;
         }
@@ -502,7 +504,7 @@ impl GStageMmu {
         if offsets_wrap.is_none() {
             return None;
         }
-        let offset = offsets_wrap.unwrap()[(S2PT_LEVEL - 1) as usize];
+        let offset = offsets_wrap.unwrap()[(S2PT_MODE - 1) as usize];
         let page_table_va = self.page_table.vaddr as u64;
         let pte_addr = page_table_va + offset;
 
@@ -515,7 +517,7 @@ impl GStageMmu {
         }
 
         let mut pte = hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
-        pte = GStageMmu::set_pte_flag(pte, (S2PT_LEVEL - 1) as u64, flag);
+        pte = GStageMmu::set_pte_flag(pte, (S2PT_MODE - 1) as u64, flag);
 
         let pte_addr_ptr = pte_addr as *mut u64;
         unsafe {
@@ -580,8 +582,8 @@ impl GStageMmu {
             return None;
         }
         let offsets = offsets_wrap.unwrap();
-        for level in 0..S2PT_LEVEL {
-            let offset = offsets[(S2PT_LEVEL - 1 - level) as usize];
+        for level in 0..S2PT_MODE {
+            let offset = offsets[(S2PT_MODE - 1 - level) as usize];
             let page_table_va = self.page_table.vaddr as u64;
             let pte_addr = page_table_va + offset;
     
@@ -789,7 +791,7 @@ mod tests {
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let ptr: *mut u64;
             unsafe {
-                let offset = 512 * (2 + S2PT_LEVEL) + 1;
+                let offset = 512 * (2 + S2PT_MODE) + 1;
                 ptr = root_ptr.add(offset as usize);
             }
             let pte: u64 = unsafe { *ptr };
@@ -819,7 +821,7 @@ mod tests {
             let gpa = 0x1000;
             let hpa = 0x2000;
 
-            /* Change S2PT_LEVEL PTEs */
+            /* Change S2PT_MODE PTEs */
             gsmmu.map_page(gpa, hpa, PTE_READ | PTE_WRITE | PTE_EXECUTE); 
 
             /* Non-zero [0, 512*4, 512*5, 512*6+1] */
@@ -844,7 +846,7 @@ mod tests {
             pte_index_ans.push((0, l0_pte));
             pte_index_ans.push((512*4, l1_pte));
 
-            match S2PT_LEVEL {
+            match S2PT_MODE {
                 3 => {
                     pte_index_ans.push((512*5+1, leaf_pte));
                 }
@@ -853,7 +855,7 @@ mod tests {
                     pte_index_ans.push((512*6+1, leaf_pte));
                 }
                 _ => {
-                    panic!("Unsupported S2PT_LEVEL");
+                    panic!("Unsupported S2PT_MODE");
                 }
             }
 
@@ -868,7 +870,7 @@ mod tests {
             }
 
             /* All the other PTEs should be zero */
-            let size: usize = 512 * (3 + S2PT_LEVEL) as usize;
+            let size: usize = 512 * (3 + S2PT_MODE) as usize;
             for i in (0..size).filter(|x: &usize| !pte_index.contains(x)) {
                 unsafe {
                     ptr = root_ptr.add(i as usize);
@@ -902,7 +904,7 @@ mod tests {
             let mut ptr: *mut u64;
             let mut pte: u64;
             unsafe {
-                let offset = 512 * (2 + S2PT_LEVEL) + 1;
+                let offset = 512 * (2 + S2PT_MODE) + 1;
                 ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
@@ -912,7 +914,7 @@ mod tests {
             assert_eq!(pte, 2059);
 
             unsafe {
-                let offset = 512 * (2 + S2PT_LEVEL) + 2;
+                let offset = 512 * (2 + S2PT_MODE) + 2;
                 ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
@@ -945,7 +947,7 @@ mod tests {
             /* Non-zero [0, 512*4, 512*5, 512*6+1, 512*6+2] */
             let pte_index;
 
-            match S2PT_LEVEL {
+            match S2PT_MODE {
                 3 => {
                     pte_index = vec![0, 512*4, 512*5+1, 512*5+2];
                 }
@@ -953,7 +955,7 @@ mod tests {
                     pte_index = vec![0, 512*4, 512*5, 512*6+1, 512*6+2];
                 }
                 _ => {
-                    panic!("Unsupported S2PT_LEVEL");
+                    panic!("Unsupported S2PT_MODE");
                 }
             }
 
@@ -967,7 +969,7 @@ mod tests {
             }
 
             /* All the other PTEs should be zero */
-            let size = 512 * (3 + S2PT_LEVEL) as usize;
+            let size = 512 * (3 + S2PT_MODE) as usize;
             for i in (0..size).filter(|x: &usize| !pte_index.contains(x)) {
                 unsafe {
                     ptr = root_ptr.add(i as usize);
@@ -999,7 +1001,7 @@ mod tests {
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let ptr: *mut u64;
             unsafe {
-                let offset = 512 * (S2PT_LEVEL + 2) + 1;
+                let offset = 512 * (S2PT_MODE + 2) + 1;
                 ptr = root_ptr.add(offset as usize);
             }
             let mut pte: u64 = unsafe { *ptr };
@@ -1040,7 +1042,7 @@ mod tests {
             let mut ptr: *mut u64;
             let mut pte: u64;
             unsafe {
-                let offset = 512 * (S2PT_LEVEL + 2) + 1;
+                let offset = 512 * (S2PT_MODE + 2) + 1;
                 ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
@@ -1050,7 +1052,7 @@ mod tests {
             assert_eq!(pte, 2059);
 
             unsafe {
-                let offset = 512 * (S2PT_LEVEL + 2) + 2;
+                let offset = 512 * (S2PT_MODE + 2) + 2;
                 ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
@@ -1064,14 +1066,14 @@ mod tests {
 
             /* Check the 2 PTEs again after unmap_range */
             unsafe {
-                let offset = 512 * (S2PT_LEVEL + 2) + 1;
+                let offset = 512 * (S2PT_MODE + 2) + 1;
                 ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
             assert_eq!(pte, 0);
 
             unsafe {
-                let offset = 512 * (S2PT_LEVEL + 2) + 2;
+                let offset = 512 * (S2PT_MODE + 2) + 2;
                 ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
@@ -1121,10 +1123,10 @@ mod tests {
                 pte_level = pte.level;
             }
 
-            let offset = (512 * (S2PT_LEVEL + 2) + 1) * 8;
+            let offset = (512 * (S2PT_MODE + 2) + 1) * 8;
             assert_eq!(pte_offset, offset as u64);
             assert_eq!(pte_value, 2059);
-            assert_eq!(pte_level as i32, S2PT_LEVEL - 1);
+            assert_eq!(pte_level as i32, S2PT_MODE - 1);
         }
 
         /* Check map_page by invalid hpa */
@@ -1199,7 +1201,7 @@ mod tests {
                 | PTE_EXECUTE); 
 
             unsafe {
-                let offset = 512 * (S2PT_LEVEL + 2) + 1;
+                let offset = 512 * (S2PT_MODE + 2) + 1;
                 ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
