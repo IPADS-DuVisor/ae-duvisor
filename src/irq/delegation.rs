@@ -10,7 +10,7 @@ pub mod delegation_constants {
 
     /* Interrupt delegation */
     pub const IRQ_S_SOFT: u64 = 0;
-    pub const IRQ_TTY: u64 = 10;
     pub const IRQ_VS_TIMER: u64 = 6;
+    pub const IRQ_VS_EXT: u64 = 10;
     pub const IRQ_U_VTIMER: u64 = 16;
 }
