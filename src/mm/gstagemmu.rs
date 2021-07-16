@@ -10,6 +10,7 @@ extern "C"
     fn hufence_gvma_all();
 }
 
+pub const S2PT_LEVEL: i32 = 4;
 
 pub mod gsmmu_constants {
     /* Pte bit */
@@ -25,8 +26,6 @@ pub mod gsmmu_constants {
     pub const PTE_PPN_SHIFT: u64 = 10;
 }
 pub use gsmmu_constants::*;
-
-
 
 pub struct Pte {
     /* 
@@ -329,10 +328,10 @@ impl GStageMmu {
 
     pub fn set_pte_flag(mut pte: u64, level: u64, flag: u64) -> u64 {
         pte = pte & 0xFFFFFFFFFFFFFC00;
-       
-        match level {
-            3 => {
-                pte = pte | PTE_VALID;
+        let pt_level: u64 = (S2PT_LEVEL - 1) as u64;
+
+        if level == pt_level {
+            pte = pte | PTE_VALID;
 
                 if (flag & PTE_READ) != 0 {
                     pte = pte | PTE_READ;
@@ -361,10 +360,8 @@ impl GStageMmu {
                 if (flag & PTE_DIRTY) != 0 {
                     pte = pte | PTE_DIRTY;
                 }
-            },
-            _ => {
-                pte = pte | PTE_VALID;
-            }
+        } else {
+            pte = pte | PTE_VALID;
         }
 
         pte
@@ -379,8 +376,8 @@ impl GStageMmu {
         let mut shift: u64;
         let mut offsets = [0; 4];
 
-        for level in 0..3 {
-            shift = 39 - PAGE_ORDER * level;
+        for level in 0..(S2PT_LEVEL - 1) {
+            shift = (9 * S2PT_LEVEL + 3) as u64 - PAGE_ORDER * (level as u64);
             index = (gpa >> shift) & 0x1ff;
             if level == 0 {
                 index = (gpa >> shift) & 0x7ff;
@@ -390,14 +387,14 @@ impl GStageMmu {
 
             if pte & PTE_VALID == 0 {
                 page_table_va = 
-                    self.page_table.page_table_create(level + 1) as u64;
+                    self.page_table.page_table_create(level as u64 + 1) as u64;
                 page_table_hpa_wrap = self.page_table.va_to_hpa(page_table_va);
                 if page_table_hpa_wrap.is_none() {
                     return None;
                 }
                 page_table_hpa = page_table_hpa_wrap.unwrap();
                 pte = (page_table_hpa >> PAGE_SHIFT) << PTE_PPN_SHIFT;
-                pte = GStageMmu::set_pte_flag(pte, level, 0);
+                pte = GStageMmu::set_pte_flag(pte, level as u64, 0);
                 unsafe {
                     *(pte_addr_va as *mut u64) = pte;
                 }
@@ -414,7 +411,8 @@ impl GStageMmu {
         }
 
         index = ((gpa >> 12) & 0x1ff) * 8;
-        offsets[3] = page_table_va + index - (self.page_table.vaddr as u64);
+        offsets[S2PT_LEVEL as usize - 1] 
+            = page_table_va + index - (self.page_table.vaddr as u64);
         Some(offsets)
     }
 
@@ -428,8 +426,8 @@ impl GStageMmu {
         let mut page_table_va_wrap;
         let mut shift;
 
-        for level in 0..4 {
-            shift = 39 - PAGE_ORDER * level;
+        for level in 0..S2PT_LEVEL {
+            shift = (9 * S2PT_LEVEL + 3) as u64 - PAGE_ORDER * (level as u64);
             index = (gpa >> shift) & 0x1ff;
             if level == 0 {
                 index = (gpa >> shift) & 0x7ff;
@@ -444,7 +442,7 @@ impl GStageMmu {
                 pte_value = pte;
                 pte_level = level as u32;
 
-                if level == 3 {
+                if level == (S2PT_LEVEL - 1) {
                     break;
                 }
 
@@ -478,7 +476,7 @@ impl GStageMmu {
             pte_level = pte.level;
         }
 
-        if pte_level != 3 {
+        if pte_level != (S2PT_LEVEL as u32 - 1)  {
             /* No mapping, and nothing changed */
             return None;
         }
@@ -496,7 +494,6 @@ impl GStageMmu {
         Some(0)
     }
 
-    /* SV48x4 */
     pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> Option<u32> {
         dbgprintln!("enter map_page - gpa: {:x}, hpa: {:x}, flag: {:x}", 
             gpa, hpa, flag);
@@ -504,7 +501,7 @@ impl GStageMmu {
         if offsets_wrap.is_none() {
             return None;
         }
-        let offset = offsets_wrap.unwrap()[3];
+        let offset = offsets_wrap.unwrap()[(S2PT_LEVEL - 1) as usize];
         let page_table_va = self.page_table.vaddr as u64;
         let pte_addr = page_table_va + offset;
 
@@ -517,7 +514,7 @@ impl GStageMmu {
         }
 
         let mut pte = hpa >> (PAGE_SHIFT - PTE_PPN_SHIFT);
-        pte = GStageMmu::set_pte_flag(pte, 3, flag);
+        pte = GStageMmu::set_pte_flag(pte, (S2PT_LEVEL - 1) as u64, flag);
 
         let pte_addr_ptr = pte_addr as *mut u64;
         unsafe {
@@ -582,8 +579,8 @@ impl GStageMmu {
             return None;
         }
         let offsets = offsets_wrap.unwrap();
-        for level in 0..4 {
-            let offset = offsets[(3 - level) as usize];
+        for level in 0..S2PT_LEVEL {
+            let offset = offsets[(S2PT_LEVEL - 1 - level) as usize];
             let page_table_va = self.page_table.vaddr as u64;
             let pte_addr = page_table_va + offset;
     
@@ -769,7 +766,7 @@ mod tests {
             assert_eq!(pte, 0);
         }
 
-        /* Check the value of the L4 PTE */
+        /* Check the value of the leaf PTE */
         #[test]
         fn test_map_page_pte() {
             let file_path = CString::new("/dev/laputa_dev").unwrap();
@@ -791,7 +788,8 @@ mod tests {
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let ptr: *mut u64;
             unsafe {
-                ptr = root_ptr.add(512*6+1);
+                let offset = 512 * (2 + S2PT_LEVEL) + 1;
+                ptr = root_ptr.add(offset as usize);
             }
             let pte: u64 = unsafe { *ptr };
 
@@ -831,7 +829,7 @@ mod tests {
             let l0_pte = ((base_address + 0x4000) >> 2) | PTE_VALID;
             let l1_pte = ((base_address + 0x5000) >> 2) | PTE_VALID;
             let l2_pte = ((base_address + 0x6000) >> 2) | PTE_VALID;
-            let l3_pte = (hpa >> 2) 
+            let leaf_pte = (hpa >> 2) 
                 | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
 
             /*
@@ -841,11 +839,24 @@ mod tests {
              * HPA = 0x15000 + 0x1000 -> l2_pte: 0b0101 10|00 0000 0001 = 22529
              * HPA = 0x2000 -> l3_pte: 0b0000 10|00 0000 1111 = 2063
              */
-            let pte_index_ans = 
-                vec![(0, l0_pte), (512*4, l1_pte), (512*5, l2_pte), 
-                    (512*6+1, l3_pte)];
+            let mut pte_index_ans = Vec::new();
+            pte_index_ans.push((0, l0_pte));
+            pte_index_ans.push((512*4, l1_pte));
 
-            /* 4 PTEs should be set */
+            match S2PT_LEVEL {
+                3 => {
+                    pte_index_ans.push((512*5+1, leaf_pte));
+                }
+                4 => {
+                    pte_index_ans.push((512*5, l2_pte));
+                    pte_index_ans.push((512*6+1, leaf_pte));
+                }
+                _ => {
+                    panic!("Unsupported S2PT_LEVEL");
+                }
+            }
+
+            /* Check the PTEs */
             for (i, j) in &pte_index_ans {
                 unsafe {
                     ptr = root_ptr.add(*i);
@@ -856,7 +867,8 @@ mod tests {
             }
 
             /* All the other PTEs should be zero */
-            for i in (0..512*7).filter(|x: &usize| !pte_index.contains(x)) {
+            let size: usize = 512 * (3 + S2PT_LEVEL) as usize;
+            for i in (0..size).filter(|x: &usize| !pte_index.contains(x)) {
                 unsafe {
                     ptr = root_ptr.add(i as usize);
                     pte = *ptr;
@@ -889,20 +901,22 @@ mod tests {
             let mut ptr: *mut u64;
             let mut pte: u64;
             unsafe {
-                ptr = root_ptr.add(512*6+1);
+                let offset = 512 * (2 + S2PT_LEVEL) + 1;
+                ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
 
-            /* PTE on L4 should be 0b1000 0000 1011 */
+            /* The leaf PTE should be 0b1000 0000 1011 */
             /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 2059);
 
             unsafe {
-                ptr = root_ptr.add(512*6+2);
+                let offset = 512 * (2 + S2PT_LEVEL) + 2;
+                ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
 
-            /* PTE on L4 should be 0b1100 0000 1011 */
+            /* The leaf PTE should be 0b1100 0000 1011 */
             /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 3083);
         }
@@ -928,7 +942,19 @@ mod tests {
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
 
             /* Non-zero [0, 512*4, 512*5, 512*6+1, 512*6+2] */
-            let pte_index = vec![0, 512*4, 512*5, 512*6+1, 512*6+2];
+            let pte_index;
+
+            match S2PT_LEVEL {
+                3 => {
+                    pte_index = vec![0, 512*4, 512*5+1, 512*5+2];
+                }
+                4 => {
+                    pte_index = vec![0, 512*4, 512*5, 512*6+1, 512*6+2];
+                }
+                _ => {
+                    panic!("Unsupported S2PT_LEVEL");
+                }
+            }
 
             /* 4 PTEs should be set */
             for i in &pte_index {
@@ -941,7 +967,8 @@ mod tests {
             }
 
             /* All the other PTEs should be zero */
-            for i in (0..512*7).filter(|x: &usize| !pte_index.contains(x)) {
+            let size = 512 * (3 + S2PT_LEVEL) as usize;
+            for i in (0..size).filter(|x: &usize| !pte_index.contains(x)) {
                 unsafe {
                     ptr = root_ptr.add(i as usize);
                     pte = *ptr;
@@ -972,11 +999,12 @@ mod tests {
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let ptr: *mut u64;
             unsafe {
-                ptr = root_ptr.add(512*6+1);
+                let offset = 512 * (S2PT_LEVEL + 2) + 1;
+                ptr = root_ptr.add(offset as usize);
             }
             let mut pte: u64 = unsafe { *ptr };
 
-            /* PTE on L4 should be 0b1000 0000 1011 */
+            /* The leaf PTE should be 0b1000 0000 1011 */
             /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 2059);
 
@@ -1012,20 +1040,22 @@ mod tests {
             let mut ptr: *mut u64;
             let mut pte: u64;
             unsafe {
-                ptr = root_ptr.add(512*6+1);
+                let offset = 512 * (S2PT_LEVEL + 2) + 1;
+                ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
 
-            /* PTE on L4 should be 0b1000 0000 1011 */
+            /* The leaf PTE should be 0b1000 0000 1011 */
             /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 2059);
 
             unsafe {
-                ptr = root_ptr.add(512*6+2);
+                let offset = 512 * (S2PT_LEVEL + 2) + 2;
+                ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
 
-            /* PTE on L4 should be 0b1100 0000 1011 */
+            /* The leaf PTE should be 0b1100 0000 1011 */
             /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 3083);
 
@@ -1034,13 +1064,15 @@ mod tests {
 
             /* Check the 2 PTEs again after unmap_range */
             unsafe {
-                ptr = root_ptr.add(512*6+1);
+                let offset = 512 * (S2PT_LEVEL + 2) + 1;
+                ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
             assert_eq!(pte, 0);
 
             unsafe {
-                ptr = root_ptr.add(512*6+2);
+                let offset = 512 * (S2PT_LEVEL + 2) + 2;
+                ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
             assert_eq!(pte, 0);
@@ -1089,9 +1121,10 @@ mod tests {
                 pte_level = pte.level;
             }
 
-            assert_eq!(pte_offset, (512 * 6 + 1) * 8);
+            let offset = (512 * (S2PT_LEVEL + 2) + 1) * 8;
+            assert_eq!(pte_offset, offset as u64);
             assert_eq!(pte_value, 2059);
-            assert_eq!(pte_level, 3);
+            assert_eq!(pte_level as i32, S2PT_LEVEL - 1);
         }
 
         /* Check map_page by invalid hpa */
@@ -1166,7 +1199,8 @@ mod tests {
                 | PTE_EXECUTE); 
 
             unsafe {
-                ptr = root_ptr.add(512*6+1);
+                let offset = 512 * (S2PT_LEVEL + 2) + 1;
+                ptr = root_ptr.add(offset as usize);
             }
             pte = unsafe { *ptr };
 
