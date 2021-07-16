@@ -11,14 +11,14 @@ extern "C"
 }
 
 /* Choose SV39x4 or SV48x4 */
-pub const S2PT_MODE: i32 = S2PT_SV39;
+pub const S2PT_MODE: i32 = S2PT_SV39_LEVEL_COUNT;
 
 /* SV39x4 with 3-level s2pt */
-const S2PT_SV39: i32 = 3;
+const S2PT_SV39_LEVEL_COUNT: i32 = 3;
 
 /* SV48x4 with 4-level s2pt */
 #[allow(unused)]
-const S2PT_SV48: i32 = 4;
+const S2PT_SV48_LEVEL_COUNT: i32 = 4;
 
 pub mod gsmmu_constants {
     /* Pte bit */
