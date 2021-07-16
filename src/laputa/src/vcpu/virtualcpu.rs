@@ -1335,89 +1335,91 @@ mod tests {
 
             vm.vm_init();
 
-            /* Tty init state from real world */
-            vm.console.lock().unwrap().lcr = 0x11;
-            vm.console.lock().unwrap().lsr = 0x61;
-            vm.console.lock().unwrap().ier = 0x05;
-            vm.console.lock().unwrap().iir = 0x01;
-            vm.console.lock().unwrap().fcr = 0x81;
-            vm.console.lock().unwrap().dll = 0x0c;
-            vm.console.lock().unwrap().dlm = 0x00;
-            vm.console.lock().unwrap().mcr = 0x0b;
-            vm.console.lock().unwrap().msr = 0xb0;
-            vm.console.lock().unwrap().scr = 0x00;
-
             /* 
              * The irq from tty will be set before every enter_guest.
              * So the test vm will start with an insert irq and it will
              * be catched after the vm sets SIE.
              */
-            let input: String = String::from("Z");
+            let input: String = String::from("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
             for c in input.chars() {
                 vm.console.lock().unwrap().recv_char(c);
+
+                /* Tty init state from real world */
+                vm.console.lock().unwrap().lcr = 0x11;
+                vm.console.lock().unwrap().lsr = 0x61;
+                vm.console.lock().unwrap().ier = 0x05;
+                vm.console.lock().unwrap().iir = 0x01;
+                vm.console.lock().unwrap().fcr = 0x81;
+                vm.console.lock().unwrap().dll = 0x0c;
+                vm.console.lock().unwrap().dlm = 0x00;
+                vm.console.lock().unwrap().mcr = 0x0b;
+                vm.console.lock().unwrap().msr = 0xb0;
+                vm.console.lock().unwrap().scr = 0x00;
+
+                
+
+                /* Set entry point */
+                let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+                vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
+                    = entry_point;
+
+                vm.vm_run();
+
+                /* 
+                * A1 shows the return value. 
+                * 0xcafe: success
+                * 0xdead: irq lost
+                * 0xbeef: wrong data
+                */
+                let ret_val = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                    .x_reg[11];
+
+                /* A6 shows the number of steps */
+                let step_count = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                    .x_reg[16];
+
+                /* T5 shows the number of irq */
+                let irq_count = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                    .x_reg[30];
+
+                /* T4 shows the input char tty actually get */
+                let input_char = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                    .x_reg[29];
+
+                match ret_val {
+                    0xcafe => {
+                        println!("All the steps has been finished.");
+                    }
+                    0xdead => {
+                        println!("Irq lost.");
+                    }
+                    0xbeef => {
+                        println!("Data is wrong.");
+                    }
+                    _ => {
+                        panic!("Return value is invalid. Please check A1.")
+                    }
+                }
+
+                println!("{} steps have been finished.", step_count);
+                println!("{} irqs have been caused.", irq_count);
+                println!("ASCII of the input char is 0x{:x}", input_char);
+
+                /* The vm must be finished. */
+                assert_eq!(ret_val, 0xcafe);
+
+                /* There should be 25 steps. */
+                assert_eq!(step_count, 25);
+
+                /* There should be 4 irqs. */
+                assert_eq!(irq_count, 4);
+
+                /* The input char should be the same */
+                assert_eq!(input_char, c as u64);
             }
-
-            /* Set entry point */
-            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-
-            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
-                = entry_point;
-
-            vm.vm_run();
-
-            /* 
-             * A1 shows the return value. 
-             * 0xcafe: success
-             * 0xdead: irq lost
-             * 0xbeef: wrong data
-             */
-            let ret_val = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[11];
-
-            /* A6 shows the number of steps */
-            let step_count = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[16];
-
-            /* T5 shows the number of irq */
-            let irq_count = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[30];
-
-            /* T4 shows the input char tty actually get */
-            let input_char = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[29];
-
-            match ret_val {
-                0xcafe => {
-                    println!("All the steps has been finished.");
-                }
-                0xdead => {
-                    println!("Irq lost.");
-                }
-                0xbeef => {
-                    println!("Data is wrong.");
-                }
-                _ => {
-                    panic!("Return value is invalid. Please check A1.")
-                }
-            }
-
-            println!("{} steps have been finished.", step_count);
-            println!("{} irqs have been caused.", irq_count);
-            println!("ASCII of the input char is 0x{:x}", input_char);
 
             vm.vm_destroy();
-
-            /* The vm must be finished. */
-            assert_eq!(ret_val, 0xcafe);
-
-            /* There should be 25 steps. */
-            assert_eq!(step_count, 25);
-
-            /* There should be 4 irqs. */
-            assert_eq!(irq_count, 4);
-
-            /* The input char should be 'Z' with ascii 0x5a */
-            assert_eq!(input_char, 0x5a);
         }
     }
 }
