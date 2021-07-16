@@ -3,7 +3,6 @@ use std::sync::{Arc, Weak, Mutex, RwLock};
 
 use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
-//use crate::irq::irqchip::IrqChip;
 use crate::irq::delegation::delegation_constants::IRQ_VS_EXT;
 
 extern crate irq_util;

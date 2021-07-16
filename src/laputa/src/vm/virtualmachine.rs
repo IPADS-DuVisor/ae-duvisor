@@ -14,7 +14,6 @@ use crate::init::cmdline::VMConfig;
 use crate::vm::image;
 use crate::mm::gparegion::GpaRegion;
 use crate::vm::dtb;
-//use crate::irq::irqchip::IrqChip;
 use crate::devices::plic::Plic;
 use crate::devices::tty::Tty;
 

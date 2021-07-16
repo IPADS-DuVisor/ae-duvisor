@@ -11,7 +11,6 @@ use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
 use crate::plat::opensbi;
 use crate::vcpu::utils::*;
-//use crate::irq::irqchip::IrqChip;
 use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
 

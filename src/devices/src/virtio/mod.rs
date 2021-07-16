@@ -21,7 +21,7 @@ const DEVICE_FEATURES_OK: u32 = 0x08;
 const DEVICE_FAILED: u32 = 0x80;
 
 // Types taken from linux/virtio_ids.h
-const TYPE_NET: u32 = 1;
+//const TYPE_NET: u32 = 1;
 const TYPE_BLOCK: u32 = 2;
 
 const INTERRUPT_STATUS_USED_RING: u32 = 0x1;
