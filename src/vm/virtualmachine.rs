@@ -452,7 +452,6 @@ mod tests {
     use crate::test::utils::configtest::test_vm_config_create;
     use libc::c_void;
     use crate::plat::opensbi::emulation::error_code::*;
-    use crate::vcpu::vcpucontext::gp_reg_constants::*;
 
     rusty_fork_test! {
         #[test]
@@ -578,75 +577,6 @@ mod tests {
 
             /* 0 + 1 + 2 + 3 */
             assert_eq!(sum, 6); 
-        }
-
-        #[test]
-        fn test_vtimer_imme() { 
-            let mut vm_config = test_vm_config_create();
-            let elf_path: &str = "./tests/integration/vtimer_imme.img";
-            vm_config.kernel_img_path = String::from(elf_path);
-            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-
-            vm.vm_init();
-
-            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-
-            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
-                = entry_point;
-
-            vm.vm_run();
-
-            let a0: u64;
-
-            /* Correct a0 after time irq\n" */
-            let a0_ans: u64 = 0xcafe;
-
-            a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[A0];
-
-            vm.vm_destroy();
-
-            assert_eq!(a0_ans, a0);
-        }
-
-        /* 
-         * Sometimes failed for irq lost, which lead to
-         * a1 != a1_bad_ans and a1 != a1_ans. The test
-         * case just end without entering irq_handler.
-         */
-        #[test]
-        fn test_vtimer_eoi() { 
-            let mut vm_config = test_vm_config_create();
-            let elf_path: &str = "./tests/integration/vtimer_eoi.img";
-            vm_config.kernel_img_path = String::from(elf_path);
-            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-
-            vm.vm_init();
-
-            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-
-            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
-                = entry_point;
-
-            vm.vm_run();
-
-            let a1: u64 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.
-                          gp_regs.x_reg[A1];
-            let t1: u64 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.
-                          gp_regs.x_reg[T1];
-
-            /* Only single time irq */
-            let a1_ans: u64 = 0xcafe;
-
-            /* The loop has finished */
-            let t1_ans: u64 = 0x1000;
-            let a1_bad_ans: u64 = 0xdeaf;
-
-            vm.vm_destroy();
-
-            assert_eq!(a1_ans, a1);
-            assert_eq!(t1_ans, t1);
-            assert_ne!(a1_bad_ans, a1);
         }
 
         #[test]
@@ -1183,74 +1113,6 @@ mod tests {
             vm.vm_destroy();
 
             assert_eq!(exit_reason, exit_reason_ans);
-        }
-
-        #[test]
-        fn test_vtimer_sret() { 
-            let mut vm_config = test_vm_config_create();
-            let elf_path: &str = "./tests/integration/vtimer_sret.img";
-            vm_config.kernel_img_path = String::from(elf_path);
-            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-
-            vm.vm_init();
-
-            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-
-            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
-                = entry_point;
-
-            vm.vm_run();
-
-            let a0: u64;
-
-            /* Correct a0 after time irq\n" */
-            let a0_ans: u64 = 0xcafe;
-
-            a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[10];
-
-            vm.vm_destroy();
-
-            assert_eq!(a0_ans, a0);
-        }
-
-        #[test]
-        fn test_vtimer_multi() { 
-            let mut vm_config = test_vm_config_create();
-            let elf_path: &str = "./tests/integration/vtimer_multi.img";
-            vm_config.kernel_img_path = String::from(elf_path);
-            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-
-            vm.vm_init();
-
-            let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
-
-            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
-                = entry_point;
-
-            vm.vm_run();
-
-            let a0: u64;
-
-            /* Correct a0 after time irq\n" */
-            let a0_ans: u64 = 0xcafe;
-
-            a0 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[10];
-
-            /* There should be 1000 vtimer irqs */
-            let t4 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[29];
-
-            /* To ensure that the control flow goes into the loop */
-            let t6 = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[31];
-
-            vm.vm_destroy();
-
-            assert_eq!(a0_ans, a0);
-            assert_eq!(1000, t4);
-            assert_eq!(0xcafe, t6);
         }
 
         /* Test the correctness of the data from initrd */
