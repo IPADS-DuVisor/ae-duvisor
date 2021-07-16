@@ -76,15 +76,13 @@ first_irq:
     addi a6, a6, 1
     bne t6, t3, failure
 
-    /* 3. Load input char 'Z' at offset 0 */
+    /* 3. Load input char at offset 0 and save it to t4 */
     li t1, 0
-    li t3, 0x5a
     add t2, t0, t1
     /* This should clear first_irq */
     lb t6, 0x0(t2)
     mv t4, t6
     addi a6, a6, 1
-    bne t6, t3, failure
 
     /* 4. Load 0x60 at offset 5 */
     li t1, 5

@@ -142,36 +142,16 @@ pub struct Tty {
     pub irq_state: u8,
 }
 
+/* 
+ * Output the char to the terminal.
+ * TODO: Add support for key functions for terminals.
+ */
 fn console_putchar(output: u64) {
     let ch = output as u8;
     let ch = ch as char;
 
-    const ESCAPE_LEN: usize = 20;
-    static mut ESCAPE: [char; ESCAPE_LEN] = ['\0'; ESCAPE_LEN];
-    static mut ESCAPE_CNT: usize = 0;
-
-    unsafe {
-        /* The first letter must be ESCAPE */
-        if ESCAPE_CNT == 0 && output == 27 {
-            ESCAPE[0] = ch;
-            ESCAPE_CNT += 1;
-        } else if ESCAPE_CNT == 1 && ch == '[' {
-            ESCAPE[1] = ch;
-            ESCAPE_CNT += 1;
-        } else if ESCAPE_CNT > 1 && ESCAPE_CNT < ESCAPE_LEN && output != 13 { 
-            ESCAPE[ESCAPE_CNT] = ch;
-            ESCAPE_CNT += 1;
-        } else if ESCAPE_CNT > 1 && ESCAPE_CNT < ESCAPE_LEN && output == 13 {
-            /* Match the pattern and throw out */
-            ESCAPE_CNT = 0;
-        } else {            
-            for i in 0..ESCAPE_CNT {
-                print!("{}", ESCAPE[i]);
-            }
-            print!("{}", ch);
-            ESCAPE_CNT = 0;
-        }
-    }
+    /* TODO: Filter the chars to implement the key functions */
+    print!("{}", ch);
 }
 
 impl Tty {
