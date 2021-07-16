@@ -31,14 +31,13 @@ proc main_test { } {
 
     send "./laputa --smp 1 --initrd ./test-files-laputa/rootfs-vm.img --dtb ./test-files-laputa/vmlinux.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt\n"
     expect {
-        "Run /init as init process" {}
-        
-        "Run /init as init process" {
-            send "\n \n \n ls \n \n"
-            exp_continue
+        "Busybox Rootfs" {
+                 send "\n ls \n"
+                 exp_continue
         }
 
-        "rootfs.img" {}
+        "rootfs.img" {
+        }
 
         timeout {
             exit -1
