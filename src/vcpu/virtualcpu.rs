@@ -1,6 +1,5 @@
 use crate::vm::virtualmachine;
 use crate::irq::virq;
-use crate::irq::vtimer;
 use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex};
 use vcpucontext::*;
@@ -12,6 +11,8 @@ use crate::plat::uhe::csr::csr_constants;
 use csr_constants::*;
 use crate::plat::opensbi;
 use crate::vcpu::utils::*;
+use crate::irq::irqchip::IrqChip;
+use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
 
 #[allow(unused)]
@@ -21,6 +22,56 @@ mod errno_constants {
     pub const ENOMAPPING: i32 = -3;
 }
 pub use errno_constants::*;
+
+mod inst_parsing_constants {
+    pub const INST_OPCODE_MASK: u32 =   0x007c;
+    pub const INST_OPCODE_SHIFT: u32 =  2;
+    pub const INST_OPCODE_SYSTEM: u32 = 28;
+    
+    pub const INST_MASK_WFI: u32 =	0xffffff00;
+    pub const INST_MATCH_WFI: u32 =	0x10500000;
+    
+    pub const INST_MATCH_LB: u32 =	0x3;
+    pub const INST_MASK_LB: u32 =	0x707f;
+    pub const INST_MATCH_LH: u32 =	0x1003;
+    pub const INST_MASK_LH: u32 =	0x707f;
+    pub const INST_MATCH_LW: u32 =	0x2003;
+    pub const INST_MASK_LW: u32 =	0x707f;
+    pub const INST_MATCH_LD: u32 =	0x3003;
+    pub const INST_MASK_LD: u32 =	0x707f;
+    pub const INST_MATCH_LBU: u32 =	0x4003;
+    pub const INST_MASK_LBU: u32 =	0x707f;
+    pub const INST_MATCH_LHU: u32 =	0x5003;
+    pub const INST_MASK_LHU: u32 =	0x707f;
+    pub const INST_MATCH_LWU: u32 =	0x6003;
+    pub const INST_MASK_LWU: u32 =	0x707f;
+    pub const INST_MATCH_SB: u32 =	0x23;
+    pub const INST_MASK_SB: u32 =	0x707f;
+    pub const INST_MATCH_SH: u32 =	0x1023;
+    pub const INST_MASK_SH: u32 =	0x707f;
+    pub const INST_MATCH_SW: u32 =	0x2023;
+    pub const INST_MASK_SW: u32 =	0x707f;
+    pub const INST_MATCH_SD: u32 =	0x3023;
+    pub const INST_MASK_SD: u32 =	0x707f;
+    
+    pub const INST_MATCH_C_LD: u32 =	0x6000;
+    pub const INST_MASK_C_LD: u32 =	0xe003;
+    pub const INST_MATCH_C_SD: u32 =	0xe000;
+    pub const INST_MASK_C_SD: u32 =	0xe003;
+    pub const INST_MATCH_C_LW: u32 =	0x4000;
+    pub const INST_MASK_C_LW: u32 =	0xe003;
+    pub const INST_MATCH_C_SW: u32 =	0xc000;
+    pub const INST_MASK_C_SW: u32 =	0xe003;
+    pub const INST_MATCH_C_LDSP: u32 =	0x6002;
+    pub const INST_MASK_C_LDSP: u32 =	0xe003;
+    pub const INST_MATCH_C_SDSP: u32 =	0xe002;
+    pub const INST_MASK_C_SDSP: u32 =	0xe003;
+    pub const INST_MATCH_C_LWSP: u32 =	0x4002;
+    pub const INST_MASK_C_LWSP: u32 =	0xe003;
+    pub const INST_MATCH_C_SWSP: u32 =	0xc002;
+    pub const INST_MASK_C_SWSP: u32 =	0xe003;
+}
+pub use inst_parsing_constants::*;
 
 pub const ECALL_VM_TEST_END: u64 = 0xFF;
 
@@ -60,11 +111,12 @@ extern "C"
 pub struct VirtualCpu {
     pub vcpu_id: u32,
     pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
-    pub vcpu_ctx: VcpuCtx,
-    pub virq: virq::VirtualInterrupt,
-    pub vtimer: vtimer::VirtualTimer,
+    pub vcpu_ctx: Mutex<VcpuCtx>,
+    pub virq: Mutex<virq::VirtualInterrupt>,
+    /* Cell for late init */
+    pub irqchip: SyncOnceCell<Arc<dyn IrqChip>>,
     /* TODO: irq_pending with shared memory */
-    pub exit_reason: ExitReason,
+    pub exit_reason: Mutex<ExitReason>,
     pub console: Arc<Mutex<Tty>>,
 }
 
@@ -72,28 +124,28 @@ impl VirtualCpu {
     pub fn new(vcpu_id: u32,
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>,
             console: Arc<Mutex<Tty>>) -> Self {
-        let vcpu_ctx = VcpuCtx::new();
-        let virq = virq::VirtualInterrupt::new();
-        let vtimer = vtimer::VirtualTimer::new(0, 0);
-        let exit_reason = ExitReason::ExitUnknown;
+        let vcpu_ctx = Mutex::new(VcpuCtx::new());
+        let virq = Mutex::new(virq::VirtualInterrupt::new());
+        let exit_reason = Mutex::new(ExitReason::ExitUnknown);
+        let irqchip = SyncOnceCell::new();
 
         Self {
             vcpu_id,
             vm: vm_mutex_ptr,
             vcpu_ctx,
             virq,
-            vtimer,
+            irqchip,
             exit_reason,
             console,
         }
     }
 
     /* For test case: test_vm_run */
-    pub fn test_change_guest_ctx(&mut self) -> u32 {
+    pub fn test_change_guest_ctx(&self) -> u32 {
         /* Change guest context */
-        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] += 10;
-        self.vcpu_ctx.guest_ctx.sys_regs.huvsscratch += 11;
-        self.vcpu_ctx.guest_ctx.hyp_regs.hutinst += 12;
+        self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10] += 10;
+        self.vcpu_ctx.lock().unwrap().guest_ctx.sys_regs.huvsscratch += 11;
+        self.vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs.hutinst += 12;
 
         /* Increse vm_id in vm_state */
         self.vm.lock().unwrap().vm_id += 100;
@@ -101,12 +153,12 @@ impl VirtualCpu {
         0
     }
 
-    fn config_hugatp(&mut self) -> u64 {
+    fn config_hugatp(&self) -> u64 {
         let pt_pfn: u64 = 
             self.vm.lock().unwrap().gsmmu.page_table.paddr >> PAGE_SIZE_SHIFT;
         let hugatp: u64 = pt_pfn | HUGATP_MODE_SV48;
 
-        self.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
+        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;
 
         unsafe { csrw!(HUGATP, hugatp); }
 
@@ -115,32 +167,18 @@ impl VirtualCpu {
         hugatp
     }
     
-    fn handle_virtual_inst_fault(&mut self) -> i32 {
+    fn handle_virtual_inst_fault(&self) -> i32 {
         let ret = 0;
 
-        self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
+        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc += 4;
         
         ret
     }
 
-    fn handle_u_vtimer_irq(&mut self) -> i32 {
-        /* Insert or clear tty irq on each vtimer irq */
-        let cnt = self.console.lock().unwrap().cnt;
-
-        if cnt > 0 {
-            unsafe {
-                csrs!(HUVIP, 1 << IRQ_TTY);
-            }
-        } else {
-            unsafe {
-                csrc!(HUVIP, 1 << IRQ_TTY);
-            }
-        }
-
+    fn handle_u_vtimer_irq(&self) -> i32 {
+        /* Set virtual timer */
+        self.virq.lock().unwrap().set_pending_irq(IRQ_VS_TIMER);
         unsafe {
-            /* Set virtual timer */
-            csrs!(HUVIP, 1 << IRQ_VS_TIMER);
-
             /* 
              * FIXME: There may be unexpected pending bit IRQ_U_VTIMER when 
              * traped to kernel disable timer.
@@ -153,51 +191,152 @@ impl VirtualCpu {
         return 0;
     }
 
-    /* TODO: H(U)LV/H(U)LVX.HU problems on qemu */
-    fn get_vm_inst_by_uepc(&mut self) -> u64 {
-        let _uepc = self.vcpu_ctx.host_ctx.hyp_regs.uepc;
+    fn get_vm_inst_by_uepc(&self, read_insn: bool) -> u32 {
+        let uepc = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc;
+        let val: u32;
 
-        /* TODO: Use uepc and HLV instruction to get the trap inst */
+        /* FIXME: why KVM swap HSTATUS & STVEC here? */
 
-        return 0;
-    }
+        if read_insn {
+            unsafe {
+                asm!(
+                    ".option push",
+                    ".option norvc",
 
-    /* TODO: Cannot get the instruction for now */
-    fn inst_parse(_inst: u64) -> Option<(u64, u64)> {
-        return None;
-    }
+                    /* HULVX.HU t0, (t2) */
+                    ".word 0x6433c2f3",
+                    "andi t1, t0, 3",
+                    "addi t1, t1, -3",
+                    "bne t1, zero, 2f",
+                    "addi t2, t2, 2",
 
-    fn store_emulation(&mut self, fault_addr: u64, target_reg: u64,
-                bit_width: u64) -> i32 {
-        let ret: i32;
-        let bit_mask: u64 = (1 << bit_width) - 1;
-        let data: u64 = self.vcpu_ctx.guest_ctx.gp_regs
-                .x_reg[target_reg as usize] & bit_mask;
-
-        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
-            ret = self.console.lock().unwrap()
-                .store_emulation(fault_addr, data as u8);
+                    /* HULVX.HU t1, (t2) */
+                    ".word 0x6433c373",
+                    "sll t1, t1, 16",
+                    "add t0, t0, t1",
+                    "2:",
+                    ".option pop",
+                    out("t0") val,
+                    in("t2") uepc,
+                );
+            }
+            dbgprintln!("HLVX.HU val: {:x}, uepc: {:x}", val, uepc);
         } else {
-            dbgprintln!("Unknown mmio (store)");
+            /* TODO: HLV.D for IPI ECALL emulation */
+            val = 0;
+        }
+        return val;
+    }
+
+    fn parse_load_inst(&self, inst: u32, inst_len: &mut u64, 
+        bit_width: &mut u64, target_reg: &mut u64) {
+        /* 16BIT_MASK = 0x3 */
+        *inst_len = if inst & 0x3 != 0x3 { 2 } else { 4 };
+        if *inst_len == 2 {
+            /* Compressed instruction */
+            let c_lw_mask = 0b11 | (0b111 << 13); 
+            let c_lw_match = 0b00 | (0b010 << 13); 
+            let c_lw_rd = |inst: u32| -> u32 { (inst >> 2) & 0x7 }; 
+            
+            if (inst & c_lw_mask) == c_lw_match {
+                *target_reg = c_lw_rd(inst) as u64;
+                *bit_width = 4 * 8;
+            } else {
+                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                    inst, inst_len);
+            }
+        } else {
+            /* TODO: refactor get_*_reg */
+            let i_rd_reg = |inst: u32| -> u32 { (inst >> 7) & 0x1f };
+            *target_reg = i_rd_reg(inst) as u64;
+
+            if (inst & INST_MASK_LW) == INST_MATCH_LW {
+                *bit_width = 4 * 8;
+            } else if (inst & INST_MASK_LB) == INST_MATCH_LB {
+                *bit_width = 1 * 8;
+            } else {
+                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                    inst, inst_len);
+            }
+        }
+    }
+
+    fn parse_store_inst(&self, inst: u32, inst_len: &mut u64, 
+        bit_width: &mut u64, target_reg: &mut u64) {
+        /* 16BIT_MASK = 0x3 */
+        *inst_len = if inst & 0x3 != 0x3 { 2 } else { 4 };
+        if *inst_len == 2 {
+            /* Compressed instruction */
+            let c_sw_mask = 0b11 | (0b111 << 13); 
+            let c_sw_match = 0b00 | (0b110 << 13); 
+            let c_sw_rs1 = |inst: u32| -> u32 { (inst >> 7) & 0x7 }; 
+            
+            if (inst & c_sw_mask) == c_sw_match {
+                *target_reg = c_sw_rs1(inst) as u64;
+                *bit_width = 4 * 8;
+            } else {
+                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                    inst, inst_len);
+            }
+        } else {
+            let s_rs2_reg = |inst: u32| -> u32 { (inst >> 20) & 0x1f };
+            *target_reg = s_rs2_reg(inst) as u64;
+
+            if (inst & INST_MASK_SW) == INST_MATCH_SW {
+                *bit_width = 4 * 8;
+            } else if (inst & INST_MASK_SB) == INST_MATCH_SB {
+                *bit_width = 1 * 8;
+            } else {
+                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                    inst, inst_len);
+            }
+        }
+    }
+
+    fn store_emulation(&self, fault_addr: u64, target_reg: u64,
+                bit_width: u64) -> i32 {
+        let mut ret: i32 = 0;
+        let bit_mask: u64 = (1 << bit_width) - 1;
+        let mut data: u32 = (self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                .x_reg[target_reg as usize] & bit_mask) as u32;
+
+        /* TODO: replce with MMIO bus */
+        let is_irqchip_mmio = if 0xc000000 <= fault_addr && 
+            fault_addr < (0xc000000 + 0x1000000) { true } else { false };
+
+        if is_irqchip_mmio {
+            self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data, true);
+        } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
+            ret = self.console.lock().unwrap()
+                .store_emulation(fault_addr, data as u8, &self.irqchip.get().unwrap());
+        } else {
             ret = 1;
+            panic!("Unknown mmio (store) fault_addr: {:x}, ret {}", fault_addr, ret);
         }
 
         return ret;
     }
 
-    fn load_emulation(&mut self, fault_addr: u64, target_reg: u64,
-                _bit_width: u64) -> i32 {
-        let ret: i32;
+    fn load_emulation(&self, fault_addr: u64, target_reg: u64,
+                bit_width: u64) -> i32 {
+        let mut ret: i32 = 0;
+        let bit_mask: u64 = (1 << bit_width) - 1;
+        let mut data: u32 = 0;
 
-        if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
-            let data: u64 = self.console.lock().unwrap()
-                .load_emulation(fault_addr) as u64;
-            self.vcpu_ctx.guest_ctx.gp_regs.x_reg[target_reg as usize] = data;
-            ret = 0;
+        let is_irqchip_mmio = if 0xc000000 <= fault_addr && 
+            fault_addr < (0xc000000 + 0x1000000) { true } else { false };
+
+        if is_irqchip_mmio {
+            self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data, false);
+        } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
+            data = self.console.lock().unwrap().
+                load_emulation(fault_addr, &self.irqchip.get().unwrap()) as u32;
         } else {
-            dbgprintln!("Unknown mmio (load) fault_addr: 0x{:x}", fault_addr);
             ret = 1;
+            panic!("Unknown mmio (load) fault_addr: {:x}, ret {}", fault_addr, ret);
         }
+        self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.
+            x_reg[target_reg as usize] = (data as u64) & bit_mask;
 
         return ret;
     }
@@ -215,61 +354,46 @@ impl VirtualCpu {
      * Take the load inst as 'lb a0, 0x0(a0)' 
      * and the store inst as 'sb a2, 0x0(a1)'
      */
-    fn handle_mmio(&mut self, fault_addr: u64) -> i32 {
-        let ucause = self.vcpu_ctx.host_ctx.hyp_regs.ucause;
-        let hutinst = self.vcpu_ctx.host_ctx.hyp_regs.hutinst;
-        let inst: u64;
-        let target_reg: u64;
-        let bit_width: u64;
+    fn handle_mmio(&self, fault_addr: u64) -> i32 {
+        let ucause = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
+        let hutinst = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutinst;
+        let inst: u32;
+        let mut target_reg: u64 = 0xffff;
+        let mut bit_width: u64 = 0;
+        let mut inst_len: u64 = 0;
         let ret: i32;
-        
+
         if hutinst == 0x0 {
             /* The implementation has not support the function of hutinst */
-            inst = self.get_vm_inst_by_uepc();
+            inst = self.get_vm_inst_by_uepc(true);
         } else {
-            inst = hutinst;
+            inst = hutinst as u32;
         }
 
-        let inst_res = VirtualCpu::inst_parse(inst);
-        if inst_res.is_none() {
-            /* Linux use a0 for load and a2 for store in ttyS0-3f8 */
-            if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
-                /* LB a0, 0x0(a0) */
-                target_reg = 10;
-                bit_width = 8;
-            } else {
-                /* SB a2, 0x0(a1) */
-                target_reg = 12;
-                bit_width = 8;
-            }
+        if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
+            self.parse_load_inst(inst, &mut inst_len, &mut bit_width, &mut target_reg);
         } else {
-            let (_target_reg, _bit_width) = inst_res.unwrap();
-            target_reg = _target_reg;
-            bit_width = _bit_width;
+            self.parse_store_inst(inst, &mut inst_len, &mut bit_width, &mut target_reg);
         }
 
         if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
             /* Load */
-            /* Check the input and update huvip */
-            self.console.lock().unwrap().update_huvip();
-
             ret = self.load_emulation(fault_addr, target_reg, bit_width);
         } else if ucause == EXC_STORE_GUEST_PAGE_FAULT {
             /* Store */
-
             ret = self.store_emulation(fault_addr, target_reg, bit_width);
         } else {
             ret = 1;
         }
 
-        self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
+        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc += inst_len;
 
         return ret;
     }
 
-    fn handle_stage2_page_fault(&mut self) -> i32 {
-        let hutval = self.vcpu_ctx.host_ctx.hyp_regs.hutval;
-        let utval = self.vcpu_ctx.host_ctx.hyp_regs.utval;
+    fn handle_stage2_page_fault(&self) -> i32 {
+        let hutval = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutval;
+        let utval = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
         let mut fault_addr = (hutval << 2) | (utval & 0x3);
         let mut ret;
 
@@ -282,7 +406,7 @@ impl VirtualCpu {
             let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
 
             if !mmio_check {
-                panic!("Invalid gpa!");
+                panic!("Invalid gpa! {:x}", fault_addr);
             }
 
             ret = self.handle_mmio(fault_addr);
@@ -312,7 +436,7 @@ impl VirtualCpu {
         }
         match ret {
             ENOPERMIT => {
-                self.exit_reason = ExitReason::ExitEaccess;
+                *self.exit_reason.lock().unwrap() = ExitReason::ExitEaccess;
                 dbgprintln!("Query return ENOPERMIT: {}", ret);
             }
             ENOMAPPING => {
@@ -356,7 +480,7 @@ impl VirtualCpu {
                 }
             }
             _ => {
-                self.exit_reason = ExitReason::ExitEaccess;
+                *self.exit_reason.lock().unwrap() = ExitReason::ExitEaccess;
                 dbgprintln!("Invalid query result: {}", ret);
             }
         }
@@ -364,22 +488,23 @@ impl VirtualCpu {
         ret
     }
 
-    fn handle_supervisor_ecall(&mut self) -> i32 {
+    fn handle_supervisor_ecall(&self) -> i32 {
         let ret: i32;
-        let a0 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; /* A0: 0th arg/ret 1 */
-        let a1 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A1: 1st arg/ret 2 */
-        let a2 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A2: 2nd arg  */
-        let a3 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A3: 3rd arg */ 
-        let a4 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A4: 4th arg  */
-        let a5 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A5: 5th arg  */
-        let a6 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; /* A6: FID */
-        let a7 = self.vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; /* A7: EID */
+        let mut vcpu_ctx = self.vcpu_ctx.lock().unwrap();
+        let a0 = vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; /* A0: 0th arg/ret 1 */
+        let a1 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A1: 1st arg/ret 2 */
+        let a2 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A2: 2nd arg  */
+        let a3 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A3: 3rd arg */ 
+        let a4 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A4: 4th arg  */
+        let a5 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A5: 5th arg  */
+        let a6 = vcpu_ctx.guest_ctx.gp_regs.x_reg[16]; /* A6: FID */
+        let a7 = vcpu_ctx.guest_ctx.gp_regs.x_reg[17]; /* A7: EID */
 
         /* FIXME: for test cases */
         if a7 == ECALL_VM_TEST_END {
             ret = 0xdead;
 
-            self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret as u64;
+            vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret as u64;
         
             return ret as i32;
         }
@@ -398,29 +523,30 @@ impl VirtualCpu {
 
         /* Part of SBIs should emulated via IOCTL */
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd as i32;
-        ret = target_ecall.ecall_handler(fd);
+        ret = target_ecall.ecall_handler(fd, &self);
 
         /* Save the result */
-        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
-        self.vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
+        vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
+        vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
 
         /* Add uepc to start vm on next instruction */
-        self.vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
+        vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
 
         ret
     }
 
-    fn handle_vcpu_exit(&mut self) -> i32 {
+    fn handle_vcpu_exit(&self) -> i32 {
         let mut ret: i32 = -1;
-        let ucause = self.vcpu_ctx.host_ctx.hyp_regs.ucause;
-        self.exit_reason = ExitReason::ExitUnknown;
-
+        let ucause = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
+        *self.exit_reason.lock().unwrap() = ExitReason::ExitUnknown;
+        
         if (ucause & EXC_IRQ_MASK) != 0 {
-            self.exit_reason = ExitReason::ExitIntr;
+            *self.exit_reason.lock().unwrap() = ExitReason::ExitIntr;
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
                 IRQ_U_VTIMER => {
-                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", ucause, self.vcpu_ctx.host_ctx.hyp_regs.uepc);
+                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", 
+                        ucause, self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
                 }
                 _ => {
@@ -452,18 +578,19 @@ impl VirtualCpu {
             dbgprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
 
             /* FIXME: save the exit reason in HOST_A0 before the vcpu down */
-            self.vcpu_ctx.host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
+            self.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
         }
 
         ret
     }
 
-    pub fn thread_vcpu_run(&mut self) -> i32 {
+    pub fn thread_vcpu_run(&self) -> i32 {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
         let mut _res;
 
-        self.vcpu_ctx.host_ctx.hyp_regs.hustatus = ((1 << HUSTATUS_SPV_SHIFT)
-            | (1 << HUSTATUS_SPVP_SHIFT)) | (1 << HUSTATUS_UPIE_SHIFT) as u64;
+        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = 
+            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) | 
+            (1 << HUSTATUS_UPIE_SHIFT) as u64;
 
         unsafe {
             /* Register vcpu thread to the kernel */
@@ -487,11 +614,20 @@ impl VirtualCpu {
             let delta_time :i64 = csrr!(TIME) as i64;
             csrw!(HUTIMEDELTA, -delta_time as u64);
         }
-        let vcpu_ctx_ptr = &self.vcpu_ctx as *const VcpuCtx;
-        let vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
+        /* FIXME: deadlock if ptr & ptr_u64 are not declared independently */
+        let vcpu_ctx_ptr: *const VcpuCtx;
+        let vcpu_ctx_ptr_u64: u64;
+        vcpu_ctx_ptr = &*self.vcpu_ctx.lock().unwrap() as *const VcpuCtx;
+        vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
         let mut ret: i32 = 0;
         while ret == 0 {
+            /* Insert or clear tty irq on each vtimer irq */
+            self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
+
+            /* Flush pending irqs into HUVIP */
+            self.virq.lock().unwrap().flush_pending_irq();
+
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
@@ -514,7 +650,6 @@ mod tests {
     use std::thread;
     use rusty_fork::rusty_fork_test;
     use crate::test::utils::configtest::test_vm_config_create;
-    use crate::devices::tty::tty_uart_constants::*;
 
     rusty_fork_test! {
         #[test]
@@ -525,7 +660,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
             let mut res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -552,7 +687,7 @@ mod tests {
                 println!("IOCTL_LAPUTA_QUERY_PFN -  test_buf_pfn : {:x}", 
                     test_buf_pfn);
 
-                vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[17] = ECALL_VM_TEST_END;
+                vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[17] = ECALL_VM_TEST_END;
 
                 let mut test_buf_ptr = test_buf as *mut i32;
                 *test_buf_ptr = 0x73; /* Ecall */
@@ -578,41 +713,44 @@ mod tests {
             let mut utval: u64 = 0;
             let mut ucause: u64 = 0;
 
-            let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
-            let ptr_u64 = ptr as u64;
+            /* FIXME: deadlock if ptr & ptr_u64 are not declared independently */
+            let ptr: *const VcpuCtx;
+            let ptr_u64: u64;
+            ptr = &*vcpu.vcpu_ctx.lock().unwrap() as *const VcpuCtx;
+            ptr_u64 = ptr as u64;
             println!("test_handle_stage2_page_fault - ptr_u64: {:x}", ptr_u64);
             let mut ret: i32 = 0;
 
             let target_code = (test_buf_pfn << PAGE_SIZE_SHIFT) as u64;
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = target_code;
 
             hugatp = (test_buf_pfn + 2) | (8 << 60);
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;
 
             while ret == 0 {
                 unsafe {
-                    csrw!(HUGATP, vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                    csrw!(HUGATP, vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp);
                     println!("HUGATP : {:x}", 
-                        vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp);
+                        vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp);
 
                     /* HUSTATUS.SPP=1 .SPVP=1 uret to VS mode */
-                    vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+                    vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = 
                         ((1 << HUSTATUS_SPV_SHIFT) 
                         | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
                     csrw!(UTVEC, exit_guest as u64);
                     enter_guest(ptr_u64);
 
-                    uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
-                    utval = vcpu.vcpu_ctx.host_ctx.hyp_regs.utval;
-                    ucause = vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause;
+                    uepc = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc;
+                    utval = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
+                    ucause = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
 
                     println!("guest hyp uepc 0x{:x}", uepc);
                     println!("guest hyp utval 0x{:x}", utval);
                     println!("guest hyp ucause 0x{:x}", ucause);
 
                     if ucause == 20 {
-                        vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = 
+                        vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = 
                             (test_buf_pfn + 4) | HUGATP_MODE_SV39;
                     }
                 }
@@ -660,19 +798,19 @@ mod tests {
             let console = Arc::new(Mutex::new(Tty::new()));
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
 
-            let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, 0);
 
-            let tmp = vcpu.vcpu_ctx.host_ctx.hyp_regs.hutinst;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutinst;
             assert_eq!(tmp, 0);
 
-            let tmp = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, 0);
 
-            let tmp = vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs.hutinst;
             assert_eq!(tmp, 0);
 
-            let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.sys_regs.huvsatp;
             assert_eq!(tmp, 0);
         }
 
@@ -684,29 +822,29 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
             let ans = 17;
 
             /* Guest ctx */
-            vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = ans;
-            let tmp = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10];
+            vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10] = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, ans);
 
-            vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp = ans;
-            let tmp = vcpu.vcpu_ctx.guest_ctx.sys_regs.huvsatp;
+            vcpu.vcpu_ctx.lock().unwrap().guest_ctx.sys_regs.huvsatp = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.sys_regs.huvsatp;
             assert_eq!(tmp, ans);
 
-            vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst = ans;
-            let tmp = vcpu.vcpu_ctx.guest_ctx.hyp_regs.hutinst;
+            vcpu.vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs.hutinst = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs.hutinst;
             assert_eq!(tmp, ans);
 
             /* Host ctx */
-            vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10] = ans;
-            let tmp = vcpu.vcpu_ctx.host_ctx.gp_regs.x_reg[10];
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[10] = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, ans);
 
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hutinst = ans;
-            let tmp = vcpu.vcpu_ctx.host_ctx.hyp_regs.hutinst;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutinst = ans;
+            let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutinst;
             assert_eq!(tmp, ans);
         }
 
@@ -719,16 +857,15 @@ mod tests {
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
             let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
             let mut handle: thread::JoinHandle<()>;
-            let mut vcpu_mutex;
 
             for i in &mut vm.vcpus {
                 /* Get a clone for the closure */
-                vcpu_mutex = i.clone();
+                let vcpu = i.clone();
 
                 /* Start vcpu threads! */
                 handle = thread::spawn(move || {
                     /* TODO: thread_vcpu_run */
-                    vcpu_mutex.lock().unwrap().test_change_guest_ctx();
+                    vcpu.test_change_guest_ctx();
                 });
 
                 vcpu_handle.push(handle);
@@ -744,11 +881,11 @@ mod tests {
             let sysreg;
             let hypreg;
 
-            gpreg = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.gp_regs
+            gpreg = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
                 .x_reg[10];
-            sysreg = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.sys_regs
+            sysreg = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.sys_regs
                 .huvsscratch;
-            hypreg = vm.vcpus[0].lock().unwrap().vcpu_ctx.guest_ctx.hyp_regs
+            hypreg = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs
                 .hutinst;
 
             assert_eq!(gpreg, 10);
@@ -771,7 +908,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
             let res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -833,24 +970,27 @@ mod tests {
             let utval: u64;
             let ucause: u64;
 
-            let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
-            let ptr_u64 = ptr as u64;
+            /* FIXME: deadlock if ptr & ptr_u64 are not declared independently */
+            let ptr: *const VcpuCtx;
+            let ptr_u64: u64;
+            ptr = &*vcpu.vcpu_ctx.lock().unwrap() as *const VcpuCtx;
+            ptr_u64 = ptr as u64;
             println!("the ptr is {:x}", ptr_u64);
 
             let target_code = ((test_buf_pfn << PAGE_SHIFT) 
                 + PAGE_TABLE_REGION_SIZE) as u64;
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = target_code;
                 
 
             hugatp = test_buf_pfn | (8 << 60);
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;
 
             unsafe {
                 csrw!(HUGATP, hugatp);
                 /* Set hugatp */
                 println!("HUGATP : 0x{:x}", hugatp);
                 /* HUSTATUS.SPP=1 .SPVP=1 uret to VS mode */
-                vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+                vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = 
                     ((1 << HUSTATUS_SPV_SHIFT)
                     | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
 
@@ -858,11 +998,11 @@ mod tests {
                 csrw!(UTVEC, exit_guest as u64);
                 enter_guest(ptr_u64);
 
-                uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
-                utval = vcpu.vcpu_ctx.host_ctx.hyp_regs.utval;
-                ucause = vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause;
+                uepc = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc;
+                utval = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
+                ucause = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
 
-                let a7 = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[17];
+                let a7 = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[17];
 
                 println!("guest hyp uepc 0x{:x}", uepc);
                 println!("guest hyp utval 0x{:x}", utval);
@@ -884,7 +1024,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mut vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console);
             let res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -948,20 +1088,24 @@ mod tests {
             let utval: u64;
             let ucause: u64;
 
-            let ptr = &vcpu.vcpu_ctx as *const VcpuCtx;
-            let ptr_u64 = ptr as u64;
+            /* FIXME: deadlock if ptr & ptr_u64 are not declared independently */
+            let ptr: *const VcpuCtx;
+            let ptr_u64: u64;
+            ptr = &*vcpu.vcpu_ctx.lock().unwrap() as *const VcpuCtx;
+            ptr_u64 = ptr as u64;
             println!("the ptr is {:x}", ptr_u64);
 
             let target_code = ((test_buf_pfn << PAGE_SHIFT) 
                 + PAGE_TABLE_REGION_SIZE) as u64;
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc = target_code;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = target_code;
 
             hugatp = test_buf_pfn | (8 << 60);
-            vcpu.vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
+            vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;
 
-            let mut sum = 0; 
-            for i in 0..vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg.len() {
-                vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[i] = i as u64;
+            let mut sum = 0;
+            let len = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg.len();
+            for i in 0..len {
+                vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[i] = i as u64;
                 sum += i as u64;
             }
 
@@ -973,18 +1117,18 @@ mod tests {
                 /* Set hugatp */
                 println!("HUGATP : 0x{:x}", hugatp);
                 /* HUSTATUS.SPP=1 .SPVP=1 uret to VS mode */
-                vcpu.vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+                vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = 
                     ((1 << HUSTATUS_SPV_SHIFT) 
                     | (1 << HUSTATUS_SPVP_SHIFT)) as u64;
                 /* Set utvec to trap handler */
                 csrw!(UTVEC, exit_guest as u64);
                 enter_guest(ptr_u64);
 
-                uepc = vcpu.vcpu_ctx.host_ctx.hyp_regs.uepc;
-                utval = vcpu.vcpu_ctx.host_ctx.hyp_regs.utval;
-                ucause = vcpu.vcpu_ctx.host_ctx.hyp_regs.ucause;
+                uepc = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc;
+                utval = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
+                ucause = vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
 
-                let a7 = vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[17];
+                let a7 = vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[17];
 
                 println!("guest hyp uepc 0x{:x}", uepc);
                 println!("guest hyp utval 0x{:x}", utval);
@@ -992,7 +1136,7 @@ mod tests {
                 println!("guest hyp a7 0x{:x}", a7);
             }
 
-            assert_eq!(sum, vcpu.vcpu_ctx.guest_ctx.gp_regs.x_reg[10]);
+            assert_eq!(sum, vcpu.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10]);
             assert_eq!(uepc, ((test_buf_pfn << PAGE_SIZE_SHIFT)
                 + PAGE_TABLE_REGION_SIZE) + size - 4);
             assert_eq!(utval, 0);
@@ -1010,30 +1154,33 @@ mod tests {
 
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                 = entry_point;
             
             vm.vm_run();
 
             /* Answer */
-            let ans_dlm = 0xfe;
+            let ans_dlm = 0x0;
+            let ans_dll = 0xc;
             let ans_fcr = 0x6;
-            let ans_lcr = 0x80;
+            let ans_lcr = 0x0;
             let ans_mcr = 0x8;
             let ans_scr = 0x0;
             let ans_ier = 0xf;
 
             /* Test data */
-            let dlm = vm.console.lock().unwrap().value[UART_DLM];
-            let fcr = vm.console.lock().unwrap().value[UART_FCR];
-            let lcr = vm.console.lock().unwrap().value[UART_LCR];
-            let mcr = vm.console.lock().unwrap().value[UART_MCR];
-            let scr = vm.console.lock().unwrap().value[UART_SCR];
-            let ier = vm.console.lock().unwrap().value[UART_IER];
+            let dlm = vm.console.lock().unwrap().dlm;
+            let dll = vm.console.lock().unwrap().dll;
+            let fcr = vm.console.lock().unwrap().fcr;
+            let lcr = vm.console.lock().unwrap().lcr;
+            let mcr = vm.console.lock().unwrap().mcr;
+            let scr = vm.console.lock().unwrap().scr;
+            let ier = vm.console.lock().unwrap().ier;
 
             vm.vm_destroy();
 
             assert_eq!(dlm, ans_dlm);
+            assert_eq!(dll, ans_dll);
             assert_eq!(fcr, ans_fcr);
             assert_eq!(lcr, ans_lcr);
             assert_eq!(mcr, ans_mcr);
@@ -1055,14 +1202,14 @@ mod tests {
              * Answer should be: 
              * 0x3f8 = 0x0
              * 0x3f9 = 0x0
-             * 0x3fa = 0xc0 = UART_IIR_TYPE_BITS
+             * 0x3fa = 0xc0 = UART_IIR_TYPE_BITS | UART_IIR_NO_INT
              * 0x3fb = 0x0
              * 0x3fc = 0x08 = UART_MCR_OUT2
              * 0x3fd = 0x60 = UART_LSR_TEMT | UART_LSR_THRE
              * 0x3fe = 0xb0 = UART_MSR_DCD | UART_MSR_DSR | UART_MSR_CTS
              * 0x3ff = 0x0
              */
-            let answer: u64 = 0xb0600800c00000;
+            let answer: u64 = 0xb0600800c10000;
 
             vm.vm_init();
 
@@ -1088,7 +1235,7 @@ mod tests {
             vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
                     flag);
 
-            vm.vcpus[0].lock().unwrap().vcpu_ctx.host_ctx.hyp_regs.uepc
+            vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                     = entry_point;
             
             vm.vm_run();
@@ -1098,6 +1245,131 @@ mod tests {
                 retval = *(hva as *mut u64);
                 dbgprintln!("retval 0x{:x}", retval);
                 assert_eq!(answer, retval);
+            }
+
+            vm.vm_destroy();
+        }
+
+        /* 
+         * This test cases has been tested with tty::FIFO_LEN = 512 and
+         * input.len() = 500 for 40 times. That means the irq from tty
+         * input inserted 20000 times without any lost.
+         */
+        #[test]
+        fn test_tty_input_irq() {
+            const PLIC_BASE_ADDR: u64 = 0xc000000;
+            const PRIORITY_BASE: u64 = 0;
+            const PRIORITY_PER_ID: u64 = 4;
+            const ENABLE_BASE: u64 = 0x2000;
+            const ENABLE_PER_HART: u64 = 0x80;
+            
+            let mut vm_config = test_vm_config_create();
+            vm_config.vcpu_count = 1;
+            let elf_path: &str = "./tests/integration/tty_input_irq.img";
+            vm_config.kernel_img_path = String::from(elf_path);
+            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+            let plic = vm.irqchip.clone();
+            
+            let get_global_prio_offset = |irq: u32| -> u64 {
+                PLIC_BASE_ADDR + PRIORITY_BASE + (irq as u64) * PRIORITY_PER_ID
+            };
+            let get_enable_offset = |ctx_id: u64, offset: u64| -> u64 {
+                PLIC_BASE_ADDR + ENABLE_BASE + ctx_id * ENABLE_PER_HART + offset
+            };
+            let local_claim_succeed = 
+                |irq: u32, ctx_id: u64| {
+                    /* Init global priority & local enable */
+                    let mut mask = 0xffffffff;
+                    plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
+                    plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
+            };
+
+            local_claim_succeed(1, 0);
+
+            vm.vm_init();
+
+            /* 
+             * The irq from tty will be set before every enter_guest.
+             * So the test vm will start with an insert irq and it will
+             * be catched after the vm sets SIE.
+             */
+            let input: String = String::from("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
+            for c in input.chars() {
+                vm.console.lock().unwrap().recv_char(c);
+
+                /* Tty init state from real world */
+                vm.console.lock().unwrap().lcr = 0x11;
+                vm.console.lock().unwrap().lsr = 0x61;
+                vm.console.lock().unwrap().ier = 0x05;
+                vm.console.lock().unwrap().iir = 0x01;
+                vm.console.lock().unwrap().fcr = 0x81;
+                vm.console.lock().unwrap().dll = 0x0c;
+                vm.console.lock().unwrap().dlm = 0x00;
+                vm.console.lock().unwrap().mcr = 0x0b;
+                vm.console.lock().unwrap().msr = 0xb0;
+                vm.console.lock().unwrap().scr = 0x00;
+
+                
+
+                /* Set entry point */
+                let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
+
+                vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
+                    = entry_point;
+
+                vm.vm_run();
+
+                /* 
+                * A1 shows the return value. 
+                * 0xcafe: success
+                * 0xdead: irq lost
+                * 0xbeef: wrong data
+                */
+                let ret_val = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                    .x_reg[11];
+
+                /* A6 shows the number of steps */
+                let step_count = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                    .x_reg[16];
+
+                /* T5 shows the number of irq */
+                let irq_count = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                    .x_reg[30];
+
+                /* T4 shows the input char tty actually get */
+                let input_char = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+                    .x_reg[29];
+
+                match ret_val {
+                    0xcafe => {
+                        println!("All the steps has been finished.");
+                    }
+                    0xdead => {
+                        println!("Irq lost.");
+                    }
+                    0xbeef => {
+                        println!("Data is wrong.");
+                    }
+                    _ => {
+                        panic!("Return value is invalid. Please check A1.")
+                    }
+                }
+
+                println!("{} steps have been finished.", step_count);
+                println!("{} irqs have been caused.", irq_count);
+                println!("ASCII of the input char is 0x{:x}", input_char);
+
+                /* The vm must be finished. */
+                assert_eq!(ret_val, 0xcafe);
+
+                /* There should be 25 steps. */
+                assert_eq!(step_count, 25);
+
+                /* There should be 4 irqs. */
+                assert_eq!(irq_count, 4);
+
+                /* The input char should be the same */
+                assert_eq!(input_char, c as u64);
             }
 
             vm.vm_destroy();

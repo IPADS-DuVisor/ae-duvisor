@@ -9,5 +9,8 @@ Cargo.lock
 /testsfiles/integration/test_images/build/*
 /tests/*/*.img
 /tests/*.img
+/tests/Image
 /src/vcpu/asm_offset.h
 .gdbinit
+/.cargo
+/vendor
