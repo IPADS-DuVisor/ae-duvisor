@@ -10,6 +10,7 @@ extern "C"
     fn hufence_gvma_all();
 }
 
+/* Choose 3 for SV39x4 or 4 for SV48x4 */
 pub const S2PT_LEVEL: i32 = 4;
 
 pub mod gsmmu_constants {
@@ -793,7 +794,7 @@ mod tests {
             }
             let pte: u64 = unsafe { *ptr };
 
-            /* PTE on L4 should be 0b1000 0000 1011 */
+            /* The leaf PTE should be 0b1000 0000 1011 */
             /* PPN = 0b10 with PTE_EXECUTE/READ/VALID */
             assert_eq!(pte, 2059);
         }
@@ -818,7 +819,7 @@ mod tests {
             let gpa = 0x1000;
             let hpa = 0x2000;
 
-            /* Change 4 PTEs */
+            /* Change S2PT_LEVEL PTEs */
             gsmmu.map_page(gpa, hpa, PTE_READ | PTE_WRITE | PTE_EXECUTE); 
 
             /* Non-zero [0, 512*4, 512*5, 512*6+1] */
@@ -837,7 +838,7 @@ mod tests {
              * HPA = 0x10000 + 0x4000 -> l0_pte: 0b0101 00|00 0000 0001 = 20481
              * HPA = 0x14000 + 0x1000 -> l1_pte: 0b0101 01|00 0000 0001 = 21505
              * HPA = 0x15000 + 0x1000 -> l2_pte: 0b0101 10|00 0000 0001 = 22529
-             * HPA = 0x2000 -> l3_pte: 0b0000 10|00 0000 1111 = 2063
+             * HPA = 0x2000 -> leaf_pte: 0b0000 10|00 0000 1111 = 2063
              */
             let mut pte_index_ans = Vec::new();
             pte_index_ans.push((0, l0_pte));
@@ -956,7 +957,6 @@ mod tests {
                 }
             }
 
-            /* 4 PTEs should be set */
             for i in &pte_index {
                 unsafe {
                     ptr = root_ptr.add(*i);
