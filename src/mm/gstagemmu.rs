@@ -11,8 +11,13 @@ extern "C"
 }
 
 /* Choose SV39x4 or SV48x4 */
-pub const S2PT_MODE: i32 = S2PT_SV48;
+pub const S2PT_MODE: i32 = S2PT_SV39;
+
+/* SV39x4 with 3-level s2pt */
 const S2PT_SV39: i32 = 3;
+
+/* SV48x4 with 4-level s2pt */
+#[allow(unused)]
 const S2PT_SV48: i32 = 4;
 
 pub mod gsmmu_constants {
@@ -825,14 +830,16 @@ mod tests {
             gsmmu.map_page(gpa, hpa, PTE_READ | PTE_WRITE | PTE_EXECUTE); 
 
             /* Non-zero [0, 512*4, 512*5, 512*6+1] */
-            let pte_index = vec![0, 512*4, 512*5, 512*6+1];
+            let mut pte_index = Vec::new();
+            pte_index.push(0);
+            pte_index.push(512*4);
 
             /* Non-zero answer */
             let base_address = gsmmu.page_table.paddr;
             let l0_pte = ((base_address + 0x4000) >> 2) | PTE_VALID;
             let l1_pte = ((base_address + 0x5000) >> 2) | PTE_VALID;
             let l2_pte = ((base_address + 0x6000) >> 2) | PTE_VALID;
-            let leaf_pte = (hpa >> 2) 
+            let leaf_pte = (hpa >> 2)
                 | PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE;
 
             /*
@@ -849,10 +856,13 @@ mod tests {
             match S2PT_MODE {
                 3 => {
                     pte_index_ans.push((512*5+1, leaf_pte));
+                    pte_index.push(512*5+1);
                 }
                 4 => {
                     pte_index_ans.push((512*5, l2_pte));
                     pte_index_ans.push((512*6+1, leaf_pte));
+                    pte_index.push(512*5);
+                    pte_index.push(512*6+1);
                 }
                 _ => {
                     panic!("Unsupported S2PT_MODE");
