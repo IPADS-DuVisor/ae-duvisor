@@ -7,6 +7,19 @@ else
     PREPARE="./prepare"
 fi
 
+if ! [ -e /sys/class/net/br0 ]; then
+    echo -n "Please create br0 first"
+    exit 1
+fi
+
+if ! [ -e /sys/class/net/tap0 ]; then
+    echo -n "Creating tap0"
+    sudo ip tuntap add tap0 mode tap user $(whoami)
+    sudo ip link set tap0 master br0
+    sudo ip link set dev br0 up
+    sudo ip link set dev tap0 up
+fi
+
 MACADDR=66:22:33:44:55:00
 ROMFILE=./qemu-laputa/pc-bios/efi-virtio.rom
 #ROMFILE=./qemu-laputa/pc-bios/efi-e1000e.rom
