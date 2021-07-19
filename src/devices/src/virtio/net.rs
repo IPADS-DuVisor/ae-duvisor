@@ -53,6 +53,7 @@ struct Worker {
     tx_queue: Queue,
     tap: Tap,
     interrupt_status: Arc<AtomicUsize>,
+    #[allow(unused)]
     interrupt_evt: EventFd,
     rx_buf: [u8; MAX_BUFFER_SIZE],
     rx_count: usize,
@@ -229,10 +230,10 @@ impl Worker {
 
         'poll: loop {
             let tokens = match poller.poll(&[
-                (RX_TAP, &self.tap as &Pollable),
-                (RX_QUEUE, &rx_queue_evt as &Pollable),
-                (TX_QUEUE, &tx_queue_evt as &Pollable),
-                (KILL, &kill_evt as &Pollable),
+                (RX_TAP, &self.tap as &dyn Pollable),
+                (RX_QUEUE, &rx_queue_evt as &dyn Pollable),
+                (TX_QUEUE, &tx_queue_evt as &dyn Pollable),
+                (KILL, &kill_evt as &dyn Pollable),
             ]) {
                 Ok(v) => v,
                 Err(e) => return Err(NetError::PollError(e)),

@@ -181,6 +181,7 @@ struct Worker {
     mem: GuestMemory,
     disk_image: File,
     interrupt_status: Arc<AtomicUsize>,
+    #[allow(unused)]
     interrupt_evt: EventFd,
     irqchip: Arc<dyn IrqChip>,
 }
