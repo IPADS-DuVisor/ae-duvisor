@@ -29,14 +29,39 @@ proc main_test { } {
         }
     }
 
+    set timeout 300
+
     send "./laputa --smp 1 --initrd ./test-files-laputa/rootfs-net.img --dtb ./test-files-laputa/vmlinux.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt\n"
     expect {
         "Busybox Rootfs" {
             send "\n ls \n"
-            exp_continue
+            expect {
+                "guest-net.sh" {}
+            }
+        }
+        
+        timeout {
+            exit -1
+        }
+    }
+
+    send "/guest-net.sh \n ip a \n"
+    expect {
+        "eth0: <BROADCAST,MULTICAST,UP,LOWER_UP>" {
+            send "/ping-test.sh 10 \n"
+            expect {
+                "Ping test OK" {}
+            }
         }
 
-        "linuxrc" {}
+        timeout {
+            exit -1
+        }
+    }
+
+    send "/block-test.sh 5 5 \n"
+    expect {
+        "Block test OK" {}
 
         timeout {
             exit -1
