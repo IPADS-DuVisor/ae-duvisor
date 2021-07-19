@@ -16,6 +16,8 @@ use std::thread;
 use sys_util::{Error as SysError, EventFd, GuestMemory, Pollable, Poller};
 use virtio_sys::virtio_net;
 
+use irq_util::IrqChip;
+
 /// The maximum buffer size when segmentation offload is enabled. This
 /// includes the 12-byte virtio net header.
 /// http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html#x1-1740003
@@ -58,13 +60,15 @@ struct Worker {
     // TODO(smbarber): http://crbug.com/753630
     // Remove once MRG_RXBUF is supported and this variable is actually used.
     #[allow(dead_code)] acked_features: u64,
+    irqchip: Arc<dyn IrqChip>,
 }
 
 impl Worker {
     fn signal_used_queue(&self) {
         self.interrupt_status
             .fetch_or(INTERRUPT_STATUS_USED_RING as usize, Ordering::SeqCst);
-        self.interrupt_evt.write(1).unwrap();
+        //self.interrupt_evt.write(1).unwrap();
+        self.irqchip.trigger_edge_irq(3);
     }
 
     // Copies a single frame from `self.rx_buf` into the guest. Returns true
@@ -382,6 +386,7 @@ impl VirtioDevice for Net {
         status: Arc<AtomicUsize>,
         mut queues: Vec<Queue>,
         mut queue_evts: Vec<EventFd>,
+        irqchip: Arc<dyn IrqChip>,
     ) {
         if queues.len() != 2 || queue_evts.len() != 2 {
             error!("net: expected 2 queues, got {}", queues.len());
@@ -407,6 +412,7 @@ impl VirtioDevice for Net {
                             rx_count: 0,
                             deferred_rx: false,
                             acked_features: acked_features,
+                            irqchip: irqchip,
                         };
                         let rx_queue_evt = queue_evts.remove(0);
                         let tx_queue_evt = queue_evts.remove(0);

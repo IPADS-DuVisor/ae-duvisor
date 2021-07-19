@@ -252,8 +252,10 @@ impl BusDevice for MmioDevice {
                             .fetch_and(!(v as usize), Ordering::SeqCst);
                     }
                     // devices::virtio::NOTIFY_REG_OFFSET = 0x50
-                    0x50 => { 
-                        self.avail_evts[0].write(1).unwrap();
+                    0x50 => {
+                        //println!(">>>>> NOTIFY_REG_OFFSET dev_type {} value {}", 
+                        //    self.device.device_type(), v);
+                        self.avail_evts[v as usize].write(1).unwrap();
                     },
                     0x70 => self.driver_status = v,
                     0x80 => mut_q = self.with_queue_mut(|q| lo(&mut q.desc_table, v)),

@@ -24,6 +24,7 @@ extern crate devices;
 extern crate sys_util;
 use sys_util::GuestMemory;
 use std::fs::{OpenOptions};
+use std::net::{Ipv4Addr};
 
 #[allow(unused)]
 extern "C"
@@ -165,13 +166,22 @@ impl VirtualMachine {
 
         let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
         
-        let mmio_device = devices::virtio::MmioDevice::new(
+        let mmio_blk = devices::virtio::MmioDevice::new(
             guest_mem.clone(), block_box, irqchip.clone()).unwrap();
 
-        /* Register mmio_device.interrupt_evt().unwrap() */
-
-        mmio_bus.lock().unwrap().insert(Arc::new(Mutex::new(mmio_device)), 
+        mmio_bus.lock().unwrap().insert(Arc::new(Mutex::new(mmio_blk)), 
             0x10000000, 0x200).unwrap();
+        
+        let net_box = Box::new(devices::virtio::Net::new(
+                Ipv4Addr::new(192, 168, 200, 10), /* IP */
+                Ipv4Addr::new(255, 255, 0, 0) /* NETMASK */
+                ).unwrap());
+        
+        let mmio_net = devices::virtio::MmioDevice::new(
+            guest_mem.clone(), net_box, irqchip.clone()).unwrap();
+
+        mmio_bus.lock().unwrap().insert(Arc::new(Mutex::new(mmio_net)), 
+            0x10000200, 0x200).unwrap();
         
         for vcpu in &vcpus {
             vcpu.irqchip.set(irqchip.clone()).ok();
