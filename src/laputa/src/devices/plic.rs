@@ -407,7 +407,7 @@ impl IrqChip for Plic {
     }
 
     /* Only support level-triggered IRQs */
-    fn trigger_irq(&self, irq: u32, level: bool) {
+    fn trigger_level_irq(&self, irq: u32, level: bool) {
         self.plic_trigger_irq(irq, level, false);
     }
     
@@ -516,9 +516,9 @@ mod tests {
                     plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
                     plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
 
-                    plic.trigger_irq(irq, true);
+                    plic.trigger_level_irq(irq, true);
                     plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
-                    plic.trigger_irq(irq, false);
+                    plic.trigger_level_irq(irq, false);
                     assert_eq!(read, irq);
             };
             local_claim_succeed(1, 0xdead, 0);
@@ -535,24 +535,24 @@ mod tests {
                     mask = 0;
                     plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
                     
-                    plic.trigger_irq(irq, true);
+                    plic.trigger_level_irq(irq, true);
                     plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
-                    plic.trigger_irq(irq, false);
+                    plic.trigger_level_irq(irq, false);
                     assert_eq!(read, 0);
                     
                     /* Set local enable to 0, so no IRQ will be selected */
                     mask = 0;
                     plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
                     
-                    plic.trigger_irq(irq, true);
+                    plic.trigger_level_irq(irq, true);
                     plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
-                    plic.trigger_irq(irq, false);
+                    plic.trigger_level_irq(irq, false);
                     assert_eq!(read, 0);
                     
                     /* Out-of-range IRQ */
-                    plic.trigger_irq(32, true);
+                    plic.trigger_level_irq(32, true);
                     plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
-                    plic.trigger_irq(32, false);
+                    plic.trigger_level_irq(32, false);
                     assert_eq!(read, 0);
             };
             local_claim_failed(1, 0xdead, 0);
@@ -584,9 +584,9 @@ mod tests {
                         plic.mmio_callback(get_global_prio_offset(irq), &mut mask, true);
                         plic.mmio_callback(get_enable_offset(ctx_id, 0), &mut mask, true);
 
-                        plic.trigger_irq(irq, true);
+                        plic.trigger_level_irq(irq, true);
                         plic.mmio_callback(get_claim_offset(ctx_id), &mut read, false);
-                        plic.trigger_irq(irq, false);
+                        plic.trigger_level_irq(irq, false);
                         assert_eq!(read, irq);
                     };
                 local_claim_succeed(irq, 0xdead, 0);

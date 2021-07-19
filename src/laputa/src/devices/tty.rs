@@ -242,14 +242,14 @@ impl Tty {
 
             if self.irq_state == 0 {
                 dbgprintln!("[2] tty set");
-                irqchip.trigger_irq(1, true);
+                irqchip.trigger_level_irq(1, true);
             }
         } else {
             self.iir = UART_IIR_NO_INT;
 
             if self.irq_state != 0 {
                 dbgprintln!("[1] tty clear");
-                irqchip.trigger_irq(1, false);
+                irqchip.trigger_level_irq(1, false);
             }
         }
 
