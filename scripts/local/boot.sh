@@ -37,6 +37,6 @@ ROMFILE=./qemu-laputa/pc-bios/efi-virtio.rom
     -device virtio-blk-pci,drive=vdisk \
     -drive if=none,id=vdisk,file=$PREPARE/ubuntu-vdisk.img,format=raw \
     -device virtio-net-pci,netdev=vnet,mac=$MACADDR,romfile=$ROMFILE \
-    -netdev tap,id=vnet,ifname=tap0,script=no
+    -netdev tap,id=vnet,ifname=tap0,script=no $@
     #-device e1000e,netdev=vnet,mac=$MACADDR,romfile=$ROMFILE \
     #-netdev user,id=vnet,hostfwd=tcp::5555-:22
