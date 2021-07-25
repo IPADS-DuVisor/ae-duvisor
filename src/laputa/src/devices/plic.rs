@@ -134,7 +134,7 @@ impl Plic {
                             continue;
                 }
 
-                if best_irq == 0 ||
+                if (best_irq == 0 && (ctx.irq_pending_priority[irq as usize] > 0)) ||
                     (best_irq_prio < ctx.irq_pending_priority[irq as usize] as u8) {
                         best_irq = irq;
                         best_irq_prio = ctx.irq_pending_priority[irq as usize] as u8;
