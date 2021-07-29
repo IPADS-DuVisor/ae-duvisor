@@ -4,6 +4,8 @@
 
 //! Small system utility modules for usage by other modules.
 
+#![feature(map_first_last)]
+
 extern crate data_model;
 extern crate libc;
 extern crate syscall_defines;

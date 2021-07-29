@@ -8,8 +8,10 @@ use std::io::{Read, Write};
 use std::result;
 use std::sync::{Arc, RwLock};
 
+use std::collections::BTreeMap;
+
 use data_model::DataInit;
-use data_model::volatile_memory::*;
+//use data_model::volatile_memory::*;
 use guest_address::GuestAddress;
 use mmap::{self, MemoryMapping};
 
@@ -24,20 +26,25 @@ pub enum Error {
 }
 pub type Result<T> = result::Result<T, Error>;
 
-struct MemoryRegion {
-    mapping: MemoryMapping,
-    guest_base: GuestAddress,
-}
+//struct MemoryRegion {
+//    mapping: MemoryMapping,
+//    guest_base: GuestAddress,
+//}
+//
+//fn region_end(region: &MemoryRegion) -> GuestAddress {
+//    // unchecked_add is safe as the region bounds were checked when it was created.
+//    region.guest_base.unchecked_add(region.mapping.size())
+//}
 
-fn region_end(region: &MemoryRegion) -> GuestAddress {
+fn kv_end(kv: &(&GuestAddress, &MemoryMapping)) -> GuestAddress {
     // unchecked_add is safe as the region bounds were checked when it was created.
-    region.guest_base.unchecked_add(region.mapping.size())
+    kv.0.unchecked_add(kv.1.size())
 }
 
 /// Tracks a memory region and where it is mapped in the guest.
 #[derive(Clone)]
 pub struct GuestMemory {
-    regions: Arc<RwLock<Vec<MemoryRegion>>>,
+    regions: Arc<RwLock<BTreeMap<GuestAddress, MemoryMapping>>>,
 }
 
 impl GuestMemory {
@@ -77,7 +84,7 @@ impl GuestMemory {
     */
     
     pub fn new() -> Result<GuestMemory> {
-        let regions = Vec::<MemoryRegion>::new();
+        let regions = BTreeMap::<GuestAddress, MemoryMapping>::new();
   
         Ok(GuestMemory { regions: Arc::new(RwLock::new(regions)) })
     }
@@ -86,10 +93,7 @@ impl GuestMemory {
         let host_mapping = MemoryMapping::new(hva, len).unwrap();
         let guest_base = GuestAddress(gpa as usize);
         
-        self.regions.write().unwrap().push(MemoryRegion {
-            mapping: host_mapping,
-            guest_base: guest_base,
-        });
+        self.regions.write().unwrap().insert(guest_base, host_mapping);
     }
 
     /// Returns the end address of memory.
@@ -106,10 +110,14 @@ impl GuestMemory {
     /// # }
     /// ```
     pub fn end_addr(&self) -> GuestAddress {
+        //self.regions.read().unwrap()
+        //    .iter()
+        //    .max_by_key(|region| region.guest_base)
+        //    .map_or(GuestAddress(0), |region| region_end(region))
+        //region.guest_base.unchecked_add(region.mapping.size());
         self.regions.read().unwrap()
-            .iter()
-            .max_by_key(|region| region.guest_base)
-            .map_or(GuestAddress(0), |region| region_end(region))
+            .last_key_value()
+            .map_or(GuestAddress(0), |kv| kv_end(&kv))
     }
 
     /// Returns true if the given address is within the memory range available to the guest.
@@ -133,6 +141,7 @@ impl GuestMemory {
         self.regions.read().unwrap().len()
     }
 
+    /*
     /// Perform the specified action on each region's addresses.
     pub fn with_regions<F, E>(&self, cb: F) -> result::Result<(), E>
     where
@@ -164,6 +173,7 @@ impl GuestMemory {
         }
         Ok(())
     }
+    */
     /// Writes a slice to guest memory at the specified guest address.
     /// Returns the number of bytes written.  The number of bytes written can
     /// be less than the length of the slice if there isn't enough room in the
@@ -387,15 +397,23 @@ impl GuestMemory {
     where
         F: FnOnce(&MemoryMapping, usize) -> Result<T>,
     {
-        for region in self.regions.read().unwrap().iter() {
-            if guest_addr >= region.guest_base && guest_addr < region_end(region) {
-                return cb(&region.mapping, guest_addr.offset_from(region.guest_base));
-            }
-        }
-        Err(Error::InvalidGuestAddress(guest_addr))
+        let page_addr = guest_addr.mask(!0xfff);
+        self.regions.read().unwrap()
+            .get(&page_addr)
+            .map_or(
+                Err(Error::InvalidGuestAddress(guest_addr)),
+                |val| cb(&val, guest_addr.offset_from(page_addr))
+            )
+        //for region in self.regions.read().unwrap().iter() {
+        //    if guest_addr >= region.guest_base && guest_addr < region_end(region) {
+        //        return cb(&region.mapping, guest_addr.offset_from(region.guest_base));
+        //    }
+        //}
+        //Err(Error::InvalidGuestAddress(guest_addr))
     }
 }
 
+/*
 impl VolatileMemory for GuestMemory {
     fn get_slice(&self, offset: usize, count: usize) -> VolatileMemoryResult<VolatileSlice> {
         for region in self.regions.read().unwrap().iter() {
@@ -416,7 +434,6 @@ impl VolatileMemory for GuestMemory {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
