@@ -13,6 +13,7 @@ use crate::plat::opensbi;
 use crate::vcpu::utils::*;
 use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -118,7 +119,7 @@ pub struct VirtualCpu {
     pub vcpu_id: u32,
     pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
     pub vcpu_ctx: Mutex<VcpuCtx>,
-    pub virq: Mutex<virq::VirtualInterrupt>,
+    pub virq: virq::VirtualInterrupt,
     /* Cell for late init */
     pub irqchip: SyncOnceCell<Arc<dyn IrqChip>>,
     /* TODO: irq_pending with shared memory */
@@ -126,6 +127,7 @@ pub struct VirtualCpu {
     pub console: Arc<Mutex<Tty>>,
     pub guest_mem: GuestMemory,
     pub mmio_bus: Arc<Mutex<devices::Bus>>,
+    pub is_running: AtomicBool,
 }
 
 impl VirtualCpu {
@@ -134,9 +136,10 @@ impl VirtualCpu {
             console: Arc<Mutex<Tty>>, guest_mem: GuestMemory, 
             mmio_bus: Arc<Mutex<devices::Bus>>) -> Self {
         let vcpu_ctx = Mutex::new(VcpuCtx::new());
-        let virq = Mutex::new(virq::VirtualInterrupt::new());
+        let virq = virq::VirtualInterrupt::new();
         let exit_reason = Mutex::new(ExitReason::ExitUnknown);
         let irqchip = SyncOnceCell::new();
+        let is_running = AtomicBool::new(false);
 
         Self {
             vcpu_id,
@@ -148,6 +151,7 @@ impl VirtualCpu {
             console,
             guest_mem,
             mmio_bus,
+            is_running,
         }
     }
 
@@ -196,7 +200,7 @@ impl VirtualCpu {
 
     fn handle_u_vtimer_irq(&self) -> i32 {
         /* Set virtual timer */
-        self.virq.lock().unwrap().set_pending_irq(IRQ_VS_TIMER);
+        self.virq.set_pending_irq(IRQ_VS_TIMER);
         unsafe {
             /* 
              * FIXME: There may be unexpected pending bit IRQ_U_VTIMER when 
@@ -669,11 +673,16 @@ impl VirtualCpu {
             self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
 
             /* Flush pending irqs into HUVIP */
-            self.virq.lock().unwrap().flush_pending_irq();
+            self.virq.flush_pending_irq();
 
+            self.is_running.store(true, Ordering::SeqCst);
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
+            self.is_running.store(false, Ordering::SeqCst);
+
+            /* FIXME: why KVM need this? */
+            //self.virq.sync_pending_irq();
 
             ret = self.handle_vcpu_exit();
         }

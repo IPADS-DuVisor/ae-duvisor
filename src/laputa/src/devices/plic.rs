@@ -4,6 +4,8 @@ use std::sync::{Arc, Weak, Mutex, RwLock};
 use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
 use crate::irq::delegation::delegation_constants::IRQ_VS_EXT;
+use crate::irq::delegation::delegation_constants::IRQ_VS_SOFT;
+use std::sync::atomic::Ordering;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -154,10 +156,12 @@ impl Plic {
         let vcpu = ctx.vcpu.upgrade().unwrap();
         if best_irq == 0 {
             /* Unset irq */
-            vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
+            vcpu.virq.unset_pending_irq(IRQ_VS_EXT);
         } else {
             /* Set irq */
-            vcpu.virq.lock().unwrap().set_pending_irq(IRQ_VS_EXT);
+            vcpu.virq.set_pending_irq(IRQ_VS_EXT);
+
+            /* TODO: vipi should also be set here */
         }
     }
 
@@ -271,7 +275,7 @@ impl Plic {
 
                 /* Unset irq */
                 let vcpu = ctx.vcpu.upgrade().unwrap();
-                vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_EXT);
+                vcpu.virq.unset_pending_irq(IRQ_VS_EXT);
 
                 if best_irq != 0 {
                     if (ctx.irq_autoclear[best_irq_word as usize] & 
@@ -413,6 +417,15 @@ impl IrqChip for Plic {
     
     fn trigger_edge_irq(&self, irq: u32) {
         self.plic_trigger_irq(irq, true, true);
+    }
+
+    fn trigger_soft_irq(&self, vcpu_id: u32) -> bool {
+        let ctx_id = (vcpu_id * 2) as usize;
+        let vcpu = self.plic_contexts[ctx_id].lock().unwrap()
+            .vcpu.upgrade().unwrap();
+        vcpu.virq.set_pending_irq(IRQ_VS_SOFT);
+
+        vcpu.is_running.load(Ordering::SeqCst)
     }
 }
 

@@ -4,4 +4,6 @@ pub trait IrqChip: Send + Sync {
     fn trigger_level_irq(&self, irq: u32, level: bool);
     
     fn trigger_edge_irq(&self, irq: u32);
+
+    fn trigger_soft_irq(&self, vcpu_id: u32) -> bool;
 }

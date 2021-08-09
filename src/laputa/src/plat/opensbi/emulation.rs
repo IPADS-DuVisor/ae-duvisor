@@ -86,7 +86,7 @@ impl Ecall {
                  * I think that IRQ_U_VTIMER should be cleared by software.
                  * That's a drawback of riscv, unlike GIC which can provide the same interface for eoi. 
                  */
-                vcpu.virq.lock().unwrap().unset_pending_irq(IRQ_VS_TIMER);
+                vcpu.virq.unset_pending_irq(IRQ_VS_TIMER);
                 unsafe {
                     /* Set timer ctl register to enable u vtimer */
                     csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
