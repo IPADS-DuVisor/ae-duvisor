@@ -1,7 +1,7 @@
 use crate::vm::virtualmachine;
 use crate::irq::virq;
 use crate::vcpu::vcpucontext;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use vcpucontext::*;
 use crate::mm::utils::*;
 use crate::mm::gstagemmu::*;
@@ -126,7 +126,7 @@ pub struct VirtualCpu {
     pub exit_reason: Mutex<ExitReason>,
     pub console: Arc<Mutex<Tty>>,
     pub guest_mem: GuestMemory,
-    pub mmio_bus: Arc<Mutex<devices::Bus>>,
+    pub mmio_bus: Arc<RwLock<devices::Bus>>,
     pub is_running: AtomicBool,
 }
 
@@ -134,7 +134,7 @@ impl VirtualCpu {
     pub fn new(vcpu_id: u32,
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>,
             console: Arc<Mutex<Tty>>, guest_mem: GuestMemory, 
-            mmio_bus: Arc<Mutex<devices::Bus>>) -> Self {
+            mmio_bus: Arc<RwLock<devices::Bus>>) -> Self {
         let vcpu_ctx = Mutex::new(VcpuCtx::new());
         let virq = virq::VirtualInterrupt::new();
         let exit_reason = Mutex::new(ExitReason::ExitUnknown);
@@ -338,7 +338,7 @@ impl VirtualCpu {
                 .store_emulation(fault_addr, data as u8, &self.irqchip.get().unwrap());
         } else {
             let slice = &mut data.to_le_bytes();
-            if self.mmio_bus.lock().unwrap().write(fault_addr, slice) {
+            if self.mmio_bus.read().unwrap().write(fault_addr, slice) {
                 ret = 0;
             } else {
                 ret = 1;
@@ -366,7 +366,7 @@ impl VirtualCpu {
                 load_emulation(fault_addr, &self.irqchip.get().unwrap()) as u32;
         } else {
             let slice = &mut data.to_le_bytes();
-            if self.mmio_bus.lock().unwrap().read(fault_addr, slice) {
+            if self.mmio_bus.read().unwrap().read(fault_addr, slice) {
                 data = u32::from_le_bytes(*slice);
                 ret = 0;
             } else {
@@ -670,7 +670,7 @@ impl VirtualCpu {
         let mut ret: i32 = 0;
         while ret == 0 {
             /* Insert or clear tty irq on each vtimer irq */
-            self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
+            //self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
 
             /* Flush pending irqs into HUVIP */
             self.virq.flush_pending_irq();
@@ -712,7 +712,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
+            let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let mut res;
@@ -837,7 +837,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
+            let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
 
@@ -852,7 +852,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
+            let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
 
@@ -880,7 +880,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
+            let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let ans = 17;
@@ -968,7 +968,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
+            let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let res;
@@ -1086,7 +1086,7 @@ mod tests {
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
-            let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
+            let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus);
             let res;

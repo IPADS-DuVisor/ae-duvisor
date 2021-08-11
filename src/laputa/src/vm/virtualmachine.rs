@@ -5,7 +5,7 @@ use crate::mm::gstagemmu;
 use crate::plat::uhe::ioctl::ioctl_constants;
 use crate::irq::delegation::delegation_constants;
 use std::thread;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::ffi::CString;
 use ioctl_constants::*;
 use delegation_constants::*;
@@ -83,7 +83,7 @@ pub struct VirtualMachine {
     /* TODO: More consoles, not only tty */
     pub console: Arc<Mutex<Tty>>,
     pub io_thread: bool,
-    pub mmio_bus: Arc<Mutex<devices::Bus>>,
+    pub mmio_bus: Arc<RwLock<devices::Bus>>,
     /* Record GPA <--> HVA mappings */
     pub guest_mem: GuestMemory,
 }
@@ -145,7 +145,7 @@ impl VirtualMachine {
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let console = Arc::new(Mutex::new(tty));
 
-        let mmio_bus = Arc::new(Mutex::new(devices::Bus::new()));
+        let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
         let guest_mem = GuestMemory::new().unwrap();
         
         /* Create vcpu struct instances */
@@ -169,7 +169,7 @@ impl VirtualMachine {
         let mmio_blk = devices::virtio::MmioDevice::new(
             guest_mem.clone(), block_box, irqchip.clone()).unwrap();
 
-        mmio_bus.lock().unwrap().insert(Arc::new(Mutex::new(mmio_blk)), 
+        mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_blk)), 
             0x10000000, 0x200).unwrap();
         
         let net_box = Box::new(devices::virtio::Net::new(
@@ -180,7 +180,7 @@ impl VirtualMachine {
         let mmio_net = devices::virtio::MmioDevice::new(
             guest_mem.clone(), net_box, irqchip.clone()).unwrap();
 
-        mmio_bus.lock().unwrap().insert(Arc::new(Mutex::new(mmio_net)), 
+        mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_net)), 
             0x10000200, 0x200).unwrap();
         
         for vcpu in &vcpus {
