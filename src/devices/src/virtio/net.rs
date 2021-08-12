@@ -96,6 +96,11 @@ impl Worker {
                     let limit = cmp::min(write_count + desc.len as usize, self.rx_count);
                     let source_slice = &self.rx_buf[write_count..limit];
                     let write_result = self.mem.write_slice_at_addr(source_slice, desc.addr);
+                    if limit - write_count > 4096 {
+                        println!("--- {}:{} limit - write_count: {}, res: {:?}",
+                            limit, write_count, limit - write_count, 
+                            write_result);
+                    }
 
                     match write_result {
                         Ok(sz) => {
@@ -174,15 +179,40 @@ impl Worker {
                             break;
                         }
                         let limit = cmp::min(read_count + desc.len as usize, frame.len());
-                        let read_result = self.mem
-                            .read_slice_at_addr(&mut frame[read_count..limit as usize], desc.addr);
-                        match read_result {
-                            Ok(sz) => {
-                                read_count += sz;
-                            }
-                            Err(e) => {
-                                warn!("net: tx: failed to read slice: {:?}", e);
-                                break;
+                        //let read_result = self.mem
+                        //    .read_slice_at_addr(&mut frame[read_count..limit as usize], desc.addr);
+                        //if limit - read_count > 4096 {
+                        //    println!("--- {}:{} limit - read_count: {}, res: {:?}",
+                        //        limit, read_count, limit - read_count, 
+                        //        read_result);
+                        //}
+                        //match read_result {
+                        //    Ok(sz) => {
+                        //        read_count += sz;
+                        //    }
+                        //    Err(e) => {
+                        //        warn!("net: tx: failed to read slice: {:?}", e);
+                        //        break;
+                        //    }
+                        //}
+                        let mut cur_len: usize = 0;
+                        while cur_len < desc.len as usize {
+                            let read_result = self.mem
+                                .read_slice_at_addr(&mut frame[read_count..limit as usize], desc.addr.unchecked_add(cur_len));
+                            //if limit - read_count > 4096 {
+                            //    println!("--- {}:{} limit - read_count: {}, res: {:?}",
+                            //        limit, read_count, limit - read_count, 
+                            //        read_result);
+                            //}
+                            match read_result {
+                                Ok(sz) => {
+                                    read_count += sz;
+                                    cur_len += sz;
+                                }
+                                Err(e) => {
+                                    warn!("net: tx: failed to read slice: {:?}", e);
+                                    break;
+                                }
                             }
                         }
                         next_desc = desc.next_descriptor();
