@@ -13,7 +13,6 @@ use crate::plat::opensbi;
 use crate::vcpu::utils::*;
 use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -127,7 +126,6 @@ pub struct VirtualCpu {
     pub console: Arc<Mutex<Tty>>,
     pub guest_mem: GuestMemory,
     pub mmio_bus: Arc<RwLock<devices::Bus>>,
-    pub is_running: AtomicBool,
 }
 
 impl VirtualCpu {
@@ -139,7 +137,6 @@ impl VirtualCpu {
         let virq = virq::VirtualInterrupt::new();
         let exit_reason = Mutex::new(ExitReason::ExitUnknown);
         let irqchip = SyncOnceCell::new();
-        let is_running = AtomicBool::new(false);
 
         Self {
             vcpu_id,
@@ -151,7 +148,6 @@ impl VirtualCpu {
             console,
             guest_mem,
             mmio_bus,
-            is_running,
         }
     }
 
@@ -675,11 +671,9 @@ impl VirtualCpu {
             /* Flush pending irqs into HUVIP */
             self.virq.flush_pending_irq();
 
-            self.is_running.store(true, Ordering::SeqCst);
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
-            self.is_running.store(false, Ordering::SeqCst);
 
             /* FIXME: why KVM need this? */
             //self.virq.sync_pending_irq();
