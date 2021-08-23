@@ -1,5 +1,5 @@
 use std::sync::Arc;
-
+use std::io::{self, Write};
 use tty_uart_constants::*;
 use crate::mm::utils::*;
 
@@ -153,7 +153,7 @@ fn console_putchar(output: u64) {
     let ch = ch as char;
 
     /* TODO: Filter the chars to implement the key functions */
-    print!("{}", ch);
+    print_flush!("{}", ch);
 }
 
 impl Tty {

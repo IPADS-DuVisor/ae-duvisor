@@ -26,6 +26,16 @@ pub macro_rules! dbgprintln {
     };
 }
 
+pub macro_rules! print_flush {
+    ( $($t:tt)* ) => {
+        {
+            let mut h = io::stdout();
+            write!(h, $($t)* ).unwrap();
+            h.flush().unwrap();
+        }
+    }
+}
+
 pub fn page_size_round_up(length: u64) -> u64 {
     if length & PAGE_SIZE_MASK == 0 {
         return length;
