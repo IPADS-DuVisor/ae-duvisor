@@ -118,13 +118,11 @@ impl Plic {
         }
     }
     
-    fn select_local_pending_irq(&self, ctx: &mut PlicContext) -> u32 {
+    fn select_local_pending_irq(&self, ctx: &mut PlicContext, state: &PlicState) -> u32 {
         let mut best_irq_prio: u8 = 0;
         let mut irq: u32;
         let mut best_irq: u32 = 0;
         
-        let state = self.plic_state.read().unwrap();
-
         for i in 0..state.num_irq_word {
             if ctx.irq_pending[i as usize] == 0 { continue; }
 
@@ -149,8 +147,8 @@ impl Plic {
         best_irq
     }
 
-    fn update_local_irq(&self, ctx: &mut PlicContext) {
-        let best_irq: u32 = self.select_local_pending_irq(&mut *ctx);
+    fn update_local_irq(&self, ctx: &mut PlicContext, state: &PlicState) {
+        let best_irq: u32 = self.select_local_pending_irq(ctx, state);
         dbgprintln!("update_local_irq best_irq: {}", best_irq);
 
         let vcpu = ctx.vcpu.upgrade().unwrap();
@@ -167,18 +165,18 @@ impl Plic {
 
     fn write_global_priority(&self, offset: u64, data: u32) {
         let irq: u32 = (offset >> 2) as u32;
-        if irq == 0 || irq >= self.plic_state.read().unwrap().num_irq { return; }
-        
         let mut state = self.plic_state.write().unwrap();
+        if irq == 0 || irq >= state.num_irq { return; }
+
         let val = data & ((1 << PRIORITY_PER_ID) - 1);
         state.irq_priority[irq as usize] = val as u8;
     }
 
     fn read_global_priority(&self, offset: u64, data: &mut u32) {
         let irq: u32 = (offset >> 2) as u32;
-        if irq == 0 || irq >= self.plic_state.read().unwrap().num_irq { return; }
-        
         let state = self.plic_state.read().unwrap();
+        if irq == 0 || irq >= state.num_irq { return; }
+
         *data = state.irq_priority[irq as usize] as u32;
     }
     
@@ -225,7 +223,7 @@ impl Plic {
             }
         }
 
-        self.update_local_irq(&mut *ctx);
+        self.update_local_irq(&mut *ctx, &*state);
     }
     
     fn read_local_enable(&self, ctx_id: usize, offset: u64, data: &mut u32) {
@@ -241,11 +239,11 @@ impl Plic {
     fn write_local_context(&self, ctx_id: usize, offset: u64, data: u32) {
         let mut irq_update = false;
         let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
+        let state = self.plic_state.read().unwrap();
 
         match offset {
             CONTEXT_THRESHOLD => {
                 let val = data & ((1 << PRIORITY_PER_ID) - 1);
-                let state = self.plic_state.read().unwrap();
                 if val <= state.max_prio {
                     ctx.irq_priority_threshold = val as u8;
                 } else {
@@ -257,19 +255,20 @@ impl Plic {
         }
 
         if irq_update {
-            self.update_local_irq(&mut *ctx);
+            self.update_local_irq(&mut *ctx, &*state);
         }
     }
     
     fn read_local_context(&self, ctx_id: usize, offset: u64, data: &mut u32) {
         let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
+        let state = self.plic_state.read().unwrap();
         
         match offset {
             CONTEXT_THRESHOLD => {
                 *data = ctx.irq_priority_threshold as u32;
             }
             CONTEXT_CLAIM => {
-                let best_irq: u32 = self.select_local_pending_irq(&mut *ctx);
+                let best_irq: u32 = self.select_local_pending_irq(&mut *ctx, &*state);
                 let best_irq_word: u32 = best_irq / 32;
                 let best_irq_mask: u32 = 1 << (best_irq % 32);
 
@@ -288,7 +287,7 @@ impl Plic {
                         ctx.irq_claimed[best_irq_word as usize] |= best_irq_mask;
                     }
                 }
-                self.update_local_irq(&mut *ctx);
+                self.update_local_irq(&mut *ctx, &*state);
                 
                 *data = best_irq;
             }
@@ -297,7 +296,7 @@ impl Plic {
     }
     
     fn plic_trigger_irq(&self, irq: u32, level: bool, edge: bool) {
-        let state = self.plic_state.read().unwrap();
+        let state = self.plic_state.write().unwrap();
         dbgprintln!("trigger_irq: irq {} num_irq {} level {}",
             irq, state.num_irq, level);
         if state.num_irq <= irq { return; }
@@ -305,8 +304,6 @@ impl Plic {
         let irq_prio: u8 = state.irq_priority[irq as usize];
         let irq_word: u8 = (irq / 32) as u8;
         let irq_mask: u32 = 1 << (irq % 32);
-        /* state.read_unlock() */
-        drop(state);
 
         if level {
             let mut state = self.plic_state.write().unwrap();
@@ -337,7 +334,7 @@ impl Plic {
                     ctx.irq_claimed[irq_word as usize] &= !irq_mask;
                     ctx.irq_autoclear[irq_word as usize] &= !irq_mask;
                 }
-                self.update_local_irq(&mut *ctx);
+                self.update_local_irq(&mut *ctx, &*state);
                 irq_marked = true;
             }
             dbgprintln!("\t\ttrigger_irq: i {} irq_enable {:x} irq_marked {}",
