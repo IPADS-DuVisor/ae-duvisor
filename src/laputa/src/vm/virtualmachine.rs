@@ -173,8 +173,8 @@ impl VirtualMachine {
             0x10000000, 0x200).unwrap();
         
         let net_box = Box::new(devices::virtio::Net::new(
-                Ipv4Addr::new(192, 169, 1, 1), /* IP */
-                Ipv4Addr::new(255, 255, 255, 0) /* NETMASK */
+                Ipv4Addr::new(192, 168, 254, 2), /* IP */
+                Ipv4Addr::new(255, 255, 0, 0) /* NETMASK */
                 ).unwrap());
         
         let mmio_net = devices::virtio::MmioDevice::new(
