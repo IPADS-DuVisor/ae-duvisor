@@ -670,7 +670,7 @@ impl VirtualCpu {
         let mut ret: i32 = 0;
         while ret == 0 {
             /* Insert or clear tty irq on each vtimer irq */
-            //self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
+            self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
 
             /* Flush pending irqs into HUVIP */
             self.virq.flush_pending_irq();
