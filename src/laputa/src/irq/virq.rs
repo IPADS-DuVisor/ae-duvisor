@@ -1,6 +1,5 @@
 use crate::vcpu::utils::*;
 use crate::irq::delegation::delegation_constants::IRQ_VS_SOFT;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
 
 #[allow(unused)]
@@ -9,13 +8,13 @@ pub struct VirtualInterrupt {
      * UVTIMER (#16) is not controlled by vcpu.virq field
      * FIXME: use a bit array
      */
-    irq_pending: Arc<AtomicU16>,
+    irq_pending: AtomicU16,
 }
 
 impl VirtualInterrupt {
     pub fn new() -> Self {
         VirtualInterrupt {
-            irq_pending: Arc::new(AtomicU16::new(0)),
+            irq_pending: AtomicU16::new(0),
         }
     }
 
