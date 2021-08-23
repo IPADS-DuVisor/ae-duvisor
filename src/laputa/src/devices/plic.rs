@@ -184,13 +184,12 @@ impl Plic {
         let mut irq_prio: u8;
         let (mut irq, mut irq_mask): (u32, u32);
         let irq_word: u32 = (offset >> 2) as u32;
-        let (old_val, mut new_val, xor_val): (u32, u32, u32);
         
         let state = self.plic_state.read().unwrap();
         if state.num_irq_word < irq_word { return; }
 
         let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
-
+        let (old_val, mut new_val, xor_val): (u32, u32, u32);
         old_val = ctx.irq_enable[irq_word as usize];
         new_val = data;
 
@@ -238,8 +237,8 @@ impl Plic {
     
     fn write_local_context(&self, ctx_id: usize, offset: u64, data: u32) {
         let mut irq_update = false;
-        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
         let state = self.plic_state.read().unwrap();
+        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
 
         match offset {
             CONTEXT_THRESHOLD => {
@@ -260,8 +259,8 @@ impl Plic {
     }
     
     fn read_local_context(&self, ctx_id: usize, offset: u64, data: &mut u32) {
-        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
         let state = self.plic_state.read().unwrap();
+        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
         
         match offset {
             CONTEXT_THRESHOLD => {
