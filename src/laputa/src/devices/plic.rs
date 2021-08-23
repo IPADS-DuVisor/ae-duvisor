@@ -295,7 +295,7 @@ impl Plic {
     }
     
     fn plic_trigger_irq(&self, irq: u32, level: bool, edge: bool) {
-        let state = self.plic_state.write().unwrap();
+        let mut state = self.plic_state.write().unwrap();
         dbgprintln!("trigger_irq: irq {} num_irq {} level {}",
             irq, state.num_irq, level);
         if state.num_irq <= irq { return; }
@@ -305,10 +305,8 @@ impl Plic {
         let irq_mask: u32 = 1 << (irq % 32);
 
         if level {
-            let mut state = self.plic_state.write().unwrap();
             state.irq_level[irq_word as usize] |= irq_mask;
         } else {
-            let mut state = self.plic_state.write().unwrap();
             state.irq_level[irq_word as usize] &= !irq_mask;
         }
         dbgprintln!("\t\ttrigger_irq: irq_prio {:x} irq_word {:x} irq_mask {:x}",
