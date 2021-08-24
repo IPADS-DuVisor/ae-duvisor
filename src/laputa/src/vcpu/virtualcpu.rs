@@ -643,7 +643,7 @@ impl VirtualCpu {
         ret
     }
 
-    pub fn thread_vcpu_run(&self) -> i32 {
+    pub fn thread_vcpu_run(&self, delta_time: i64) -> i32 {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
         let mut _res;
 
@@ -670,7 +670,6 @@ impl VirtualCpu {
             /* Allow VM to directly access time register */
 
             /* TODO: introduce RUST feature to distinguish between rv64 and rv32 */
-            let delta_time :i64 = csrr!(TIME) as i64;
             csrw!(HUTIMEDELTA, -delta_time as u64);
         }
         /* FIXME: deadlock if ptr & ptr_u64 are not declared independently */

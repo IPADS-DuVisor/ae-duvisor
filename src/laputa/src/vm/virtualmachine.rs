@@ -19,6 +19,7 @@ use crate::devices::tty::Tty;
 use std::fs::{OpenOptions};
 #[allow(unused_imports)]
 use std::net::{Ipv4Addr};
+use crate::vcpu::utils::*;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -446,6 +447,7 @@ impl VirtualMachine {
         let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
         let mut handle: thread::JoinHandle<()>;
         let io_handle: thread::JoinHandle<()>;
+        let delta_time :i64 = unsafe { csrr!(TIME) as i64 };
 
         /* IO thread */
         if self.io_thread {
@@ -458,7 +460,7 @@ impl VirtualMachine {
 
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
-                vcpu.thread_vcpu_run();
+                vcpu.thread_vcpu_run(delta_time);
             });
 
             vcpu_handle.push(handle);
