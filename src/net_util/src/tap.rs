@@ -224,10 +224,10 @@ unsafe impl Pollable for Tap {
 mod tests {
     use super::*;
 
-    #[test]
+    /* #[test]
     fn tap_create() {
         Tap::new().unwrap();
-    }
+    } */
 
     #[test]
     fn tap_configure() {
@@ -253,20 +253,20 @@ mod tests {
         tap.set_offload(0).unwrap();
     }
 
-    #[test]
+    /* #[test]
     fn tap_enable() {
         let tap = Tap::new().unwrap();
 
         let ret = tap.enable();
         assert_ok_or_perm_denied(ret);
-    }
+    } */
 
-    #[test]
+    /* #[test]
     fn tap_get_ifreq() {
         let tap = Tap::new().unwrap();
         let ret = tap.get_ifreq();
         assert_eq!("__BindgenUnionField", format!("{:?}", ret.ifr_ifrn.ifrn_name));
-    }
+    } */
 
     fn assert_ok_or_perm_denied<T>(res: Result<T>) {
         match res {

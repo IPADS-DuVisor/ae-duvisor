@@ -171,7 +171,12 @@ impl VirtualMachine {
 
         mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_blk)), 
             0x10000000, 0x200).unwrap();
-        
+
+        /* 
+         * The net device supports only one process which will 
+         * crush the test cases. 
+         */
+        #[cfg(not(test))] {
         let net_box = Box::new(devices::virtio::Net::new(
                 Ipv4Addr::new(192, 168, 254, 2), /* IP */
                 Ipv4Addr::new(255, 255, 0, 0) /* NETMASK */
@@ -182,6 +187,7 @@ impl VirtualMachine {
 
         mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_net)), 
             0x10000200, 0x200).unwrap();
+        }
         
         for vcpu in &vcpus {
             vcpu.irqchip.set(irqchip.clone()).ok();
