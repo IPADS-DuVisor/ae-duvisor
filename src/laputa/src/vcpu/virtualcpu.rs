@@ -460,7 +460,23 @@ impl VirtualCpu {
                 i.value, i.level);
 
             if i.is_leaf() {
-                ret = ENOPERMIT;
+                let ucause 
+                    = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
+
+                /* No permission */
+                if ucause == EXC_LOAD_GUEST_PAGE_FAULT 
+                    && (i.value & PTE_READ) == 0 {
+                    ret = ENOPERMIT;
+                } else if ucause == EXC_STORE_GUEST_PAGE_FAULT 
+                    && (i.value & PTE_WRITE) == 0 {
+                    ret = ENOPERMIT;
+                } else if ucause == EXC_INST_GUEST_PAGE_FAULT 
+                    && (i.value & PTE_EXECUTE) == 0 {
+                    ret = ENOPERMIT;
+                }else {
+                    /* S2PT contention with other vcpus */
+                    return 0;
+                }
             } else {
                 dbgprintln!("QUERY is some but ENOMAPPING");
 
