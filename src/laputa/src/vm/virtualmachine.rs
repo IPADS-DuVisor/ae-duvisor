@@ -491,8 +491,8 @@ impl VirtualMachine {
                 (1 << EXC_VIRTUAL_INST_FAULT) |
                 (1 << EXC_LOAD_GUEST_PAGE_FAULT) |
                 (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
-            let ideleg = (1 << IRQ_S_SOFT) |
-                (1 << IRQ_U_VTIMER) as libc::c_ulong;
+            let ideleg = 
+                ((1 << IRQ_U_VTIMER) | (1 << IRQ_U_SOFT)) as libc::c_ulong;
             let deleg = [edeleg, ideleg];
             let deleg_ptr = (&deleg) as *const u64;
 

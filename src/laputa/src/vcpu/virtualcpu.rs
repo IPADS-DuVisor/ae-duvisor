@@ -171,7 +171,7 @@ impl VirtualCpu {
     }
 
     fn update_vipi(&self) {
-        self.virq.unset_pending_irq(IRQ_VS_SOFT);
+        //self.virq.unset_pending_irq(IRQ_VS_SOFT);
 
         if self.vipi.lock().unwrap().target_vcpu[self.vcpu_id as usize] == 1 {
             self.virq.set_pending_irq(IRQ_VS_SOFT);
@@ -604,6 +604,7 @@ impl VirtualCpu {
         vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
 
         if a7 == SBI_EXT_0_1_SEND_IPI {
+            println!("{} SEND IPI", self.vcpu_id);
             self.vipi.lock().unwrap().send_vipi(self.vcpu_id as u8);
         }
 
