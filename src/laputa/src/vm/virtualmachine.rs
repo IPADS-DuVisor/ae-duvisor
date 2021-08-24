@@ -177,10 +177,14 @@ impl VirtualMachine {
          * crush the test cases. 
          */
         #[cfg(not(test))] {
-        let net_box = Box::new(devices::virtio::Net::new(
+        /* let net_box = Box::new(devices::virtio::Net::new(
                 Ipv4Addr::new(192, 168, 254, 2), /* IP */
                 Ipv4Addr::new(255, 255, 0, 0) /* NETMASK */
-                ).unwrap());
+                ).unwrap()); */
+        let net_box = Box::new(devices::virtio::Net::new(
+            Ipv4Addr::new(192, 169, 1, 1), /* IP */
+            Ipv4Addr::new(255, 255, 255, 0) /* NETMASK */
+            ).unwrap());
         
         let mmio_net = devices::virtio::MmioDevice::new(
             guest_mem.clone(), net_box, irqchip.clone()).unwrap();
