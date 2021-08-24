@@ -16,6 +16,9 @@ use crate::mm::gparegion::GpaRegion;
 use crate::vm::dtb;
 use crate::devices::plic::Plic;
 use crate::devices::tty::Tty;
+use std::fs::{OpenOptions};
+#[allow(unused_imports)]
+use std::net::{Ipv4Addr};
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -23,8 +26,6 @@ use irq_util::IrqChip;
 extern crate devices;
 extern crate sys_util;
 use sys_util::GuestMemory;
-use std::fs::{OpenOptions};
-use std::net::{Ipv4Addr};
 
 #[allow(unused)]
 extern "C"
