@@ -20,6 +20,7 @@ use std::fs::{OpenOptions};
 #[allow(unused_imports)]
 use std::net::{Ipv4Addr};
 use crate::vcpu::utils::*;
+use crate::irq::vipi::VirtualIpi;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -76,6 +77,7 @@ impl VmSharedState {
 pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
     pub vcpus: Vec<Arc<virtualcpu::VirtualCpu>>,
+    pub vipi: Arc<Mutex<VirtualIpi>>,
     pub vcpu_num: u32,
     pub mem_size: u64,
     pub vm_image: image::VmImage,
@@ -147,6 +149,9 @@ impl VirtualMachine {
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let console = Arc::new(Mutex::new(tty));
 
+        let vipi = VirtualIpi::new();
+        let vipi_mutex = Arc::new(Mutex::new(vipi));
+
         let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
         let guest_mem = GuestMemory::new().unwrap();
         
@@ -154,7 +159,7 @@ impl VirtualMachine {
         for i in 0..vcpu_num {
             let vcpu = Arc::new(virtualcpu::VirtualCpu::new(i,
                     vm_state_mutex.clone(), console.clone(), 
-                    guest_mem.clone(), mmio_bus.clone()));
+                    guest_mem.clone(), mmio_bus.clone(), vipi_mutex.clone()));
             vcpus.push(vcpu);
         }
         
@@ -212,6 +217,7 @@ impl VirtualMachine {
             io_thread,
             mmio_bus,
             guest_mem,
+            vipi: vipi_mutex.clone(),
         }
     }
 
