@@ -220,6 +220,7 @@ unsafe impl Pollable for Tap {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,3 +278,4 @@ mod tests {
         }
     }
 }
+*/
