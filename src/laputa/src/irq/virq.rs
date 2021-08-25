@@ -1,5 +1,6 @@
 use crate::vcpu::utils::*;
 use std::sync::atomic::{AtomicU16, Ordering};
+use crate::irq::delegation::delegation_constants::*;
 
 #[allow(unused)]
 pub struct VirtualInterrupt {
@@ -36,6 +37,20 @@ impl VirtualInterrupt {
             } else {
                 unsafe { csrc!(HUVIP, 1 << i); }
             }
+        }
+    }
+
+    pub fn sync_pending_irq(&self) {
+        let huvip: u64;
+        unsafe { huvip = csrr!(HUVIP); }
+        
+        let real_vipi = ((huvip >> IRQ_VS_SOFT) & 0x1) == 0x1;
+        let pending = self.irq_pending.load(Ordering::SeqCst);
+        let pending_vipi = ((pending >> IRQ_VS_SOFT) & 0x1) == 0x1;
+        if real_vipi && !pending_vipi {
+            self.irq_pending.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst);
+        } else if !real_vipi && pending_vipi {
+            self.irq_pending.fetch_and(!(1 << IRQ_VS_SOFT), Ordering::SeqCst);
         }
     }
 }

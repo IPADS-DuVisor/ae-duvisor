@@ -709,9 +709,14 @@ impl VirtualCpu {
             /* Flush pending irqs into HUVIP */
             self.virq.flush_pending_irq();
 
+            //self.is_running.store(true, Ordering::SeqCst);
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
+            //self.is_running.store(false, Ordering::SeqCst);
+
+            /* FIXME: why KVM need this? */
+            //self.virq.sync_pending_irq();
 
             ret = self.handle_vcpu_exit();
         }

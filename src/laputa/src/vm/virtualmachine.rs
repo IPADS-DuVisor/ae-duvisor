@@ -77,7 +77,6 @@ impl VmSharedState {
 pub struct VirtualMachine {
     pub vm_state: Arc<Mutex<VmSharedState>>,
     pub vcpus: Vec<Arc<virtualcpu::VirtualCpu>>,
-    pub vipi: Arc<Mutex<VirtualIpi>>,
     pub vcpu_num: u32,
     pub mem_size: u64,
     pub vm_image: image::VmImage,
@@ -90,6 +89,7 @@ pub struct VirtualMachine {
     pub mmio_bus: Arc<RwLock<devices::Bus>>,
     /* Record GPA <--> HVA mappings */
     pub guest_mem: GuestMemory,
+    pub vipi: Arc<Mutex<VirtualIpi>>,
 }
 
 impl VirtualMachine {
