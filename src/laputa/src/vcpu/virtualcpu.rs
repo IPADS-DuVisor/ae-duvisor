@@ -675,9 +675,6 @@ impl VirtualCpu {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
 
-            /* FIXME: why KVM need this? */
-            //self.virq.sync_pending_irq();
-
             ret = self.handle_vcpu_exit();
         }
         
