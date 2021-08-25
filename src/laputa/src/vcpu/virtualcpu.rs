@@ -18,6 +18,7 @@ use crate::plat::opensbi::emulation::sbi_number::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::init::cmdline::MAX_VCPU;
 use std::thread;
+use atomic_enum::*;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -86,6 +87,8 @@ pub use inst_parsing_constants::*;
 
 pub const ECALL_VM_TEST_END: u64 = 0xFF;
 
+#[atomic_enum]
+#[derive(PartialEq)]
 pub enum ExitReason {
     ExitUnknown,
     ExitEaccess,
@@ -128,7 +131,7 @@ pub struct VirtualCpu {
     /* Cell for late init */
     pub irqchip: SyncOnceCell<Arc<dyn IrqChip>>,
     /* TODO: irq_pending with shared memory */
-    pub exit_reason: Mutex<ExitReason>,
+    pub exit_reason: AtomicExitReason,
     pub console: Arc<Mutex<Tty>>,
     pub guest_mem: GuestMemory,
     pub mmio_bus: Arc<RwLock<devices::Bus>>,
@@ -144,7 +147,7 @@ impl VirtualCpu {
         ) -> Self {
         let vcpu_ctx = Mutex::new(VcpuCtx::new());
         let virq = virq::VirtualInterrupt::new();
-        let exit_reason = Mutex::new(ExitReason::ExitUnknown);
+        let exit_reason = AtomicExitReason::new(ExitReason::ExitUnknown);
         let irqchip = SyncOnceCell::new();
         let is_running = AtomicBool::new(false);
 
@@ -489,32 +492,12 @@ impl VirtualCpu {
             ret = ENOMAPPING;
         }
         match ret {
-            ENOPERMIT => {
-                *self.exit_reason.lock().unwrap() = ExitReason::ExitEaccess;
-                dbgprintln!("Query return ENOPERMIT: {}", ret);
-            }
             ENOMAPPING => {
                 dbgprintln!("Query return ENOMAPPING: {}", ret);
                 /* Find hpa by fault_addr */
                 let fault_addr_query = gsmmu.gpa_block_query(fault_addr);
 
-                if fault_addr_query.is_some() {
-                    /* Fault gpa is already in a gpa_block and it is valid */
-                    let fault_hva = fault_addr_query.unwrap().0;
-                    let fault_hpa = fault_addr_query.unwrap().1;
-                    let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
-                        | PTE_EXECUTE;
-                        
-                    dbgprintln!("map gpa: {:x} to hpa: {:x}",
-                        fault_addr, fault_hpa);
-                        gsmmu.map_page(fault_addr, fault_hpa, flag);
-                    
-                    /* Record the HVA <--> GPA mapping*/
-                    self.guest_mem.insert_region(fault_hva, fault_addr, 
-                        PAGE_SIZE as usize);
-
-                    ret = 0;
-                } else {
+                if fault_addr_query.is_none() {
                     /* Fault gpa is not in a gpa_block and it is valid */
                     let len = PAGE_SIZE;
                     let res = gsmmu.gpa_block_add(fault_addr, len);
@@ -535,10 +518,30 @@ impl VirtualCpu {
                         panic!("Create gpa_block for fault addr {:x} failed!",
                             fault_addr);
                     }
+                } else {
+                    /* Fault gpa is already in a gpa_block and it is valid */
+                    let fault_hva = fault_addr_query.unwrap().0;
+                    let fault_hpa = fault_addr_query.unwrap().1;
+                    let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
+                        | PTE_EXECUTE;
+                        
+                    dbgprintln!("map gpa: {:x} to hpa: {:x}",
+                        fault_addr, fault_hpa);
+                        gsmmu.map_page(fault_addr, fault_hpa, flag);
+                    
+                    /* Record the HVA <--> GPA mapping*/
+                    self.guest_mem.insert_region(fault_hva, fault_addr, 
+                        PAGE_SIZE as usize);
+
+                    ret = 0;
                 }
             }
+            ENOPERMIT => {
+                self.exit_reason.store(ExitReason::ExitEaccess, Ordering::SeqCst);
+                dbgprintln!("Query return ENOPERMIT: {}", ret);
+            }
             _ => {
-                *self.exit_reason.lock().unwrap() = ExitReason::ExitEaccess;
+                self.exit_reason.store(ExitReason::ExitEaccess, Ordering::SeqCst);
                 dbgprintln!("Invalid query result: {}", ret);
             }
         }
@@ -648,10 +651,9 @@ impl VirtualCpu {
     fn handle_vcpu_exit(&self, vcpu_ctx: &mut VcpuCtx) -> i32 {
         let mut ret: i32 = -1;
         let ucause = vcpu_ctx.host_ctx.hyp_regs.ucause;
-        *self.exit_reason.lock().unwrap() = ExitReason::ExitUnknown;
         
         if (ucause & EXC_IRQ_MASK) != 0 {
-            *self.exit_reason.lock().unwrap() = ExitReason::ExitIntr;
+            self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
                 IRQ_U_VTIMER => {
@@ -671,6 +673,8 @@ impl VirtualCpu {
             }
             return ret;
         }
+
+        self.exit_reason.store(ExitReason::ExitUnknown, Ordering::SeqCst);
 
         match ucause {
             EXC_VIRTUAL_INST_FAULT => {

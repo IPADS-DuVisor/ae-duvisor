@@ -13,6 +13,7 @@ libc = ">=0.2.39"
 rusty-fork = "0.3.0"
 elf = "0.0.10"
 dtb = "0.2.0"
+atomic_enum = "0.1.1"
 
 byteorder = "1.2.1"
 devices = { path = "../devices" }
