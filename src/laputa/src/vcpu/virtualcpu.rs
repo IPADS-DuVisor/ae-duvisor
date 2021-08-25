@@ -175,7 +175,7 @@ impl VirtualCpu {
         0
     }
 
-    fn config_hugatp(&self) -> u64 {
+    fn config_hugatp(&self, vcpu_ctx: &mut VcpuCtx) -> u64 {
         let pt_pfn: u64 = 
             self.vm.lock().unwrap().gsmmu.page_table.paddr >> PAGE_SIZE_SHIFT;
         let hugatp: u64;
@@ -188,7 +188,7 @@ impl VirtualCpu {
             panic!("Invalid S2PT_MODE");
         }
 
-        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hugatp = hugatp;
+        vcpu_ctx.host_ctx.hyp_regs.hugatp = hugatp;
 
         unsafe { csrw!(HUGATP, hugatp); }
 
@@ -197,10 +197,12 @@ impl VirtualCpu {
         hugatp
     }
     
-    fn handle_virtual_inst_fault(&self) -> i32 {
+    fn handle_virtual_inst_fault(&self, vcpu_ctx: &mut VcpuCtx) -> i32 {
         let ret = 0;
 
-        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc += 4;
+        vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
+
+        //thread::yield_now();
         
         ret
     }
@@ -222,8 +224,8 @@ impl VirtualCpu {
         return 0;
     }
 
-    fn get_vm_inst_by_uepc(&self, read_insn: bool) -> u32 {
-        let uepc = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc;
+    fn get_vm_inst_by_uepc(&self, read_insn: bool, vcpu_ctx: &mut VcpuCtx) -> u32 {
+        let uepc = vcpu_ctx.host_ctx.hyp_regs.uepc;
         let val: u32;
 
         /* FIXME: why KVM swap HSTATUS & STVEC here? */
@@ -329,10 +331,10 @@ impl VirtualCpu {
     }
 
     fn store_emulation(&self, fault_addr: u64, target_reg: u64,
-                bit_width: u64) -> i32 {
+                bit_width: u64, vcpu_ctx: &mut VcpuCtx) -> i32 {
         let mut ret: i32 = 0;
         let bit_mask: u64 = (1 << bit_width) - 1;
-        let mut data: u32 = (self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
+        let mut data: u32 = (vcpu_ctx.guest_ctx.gp_regs
                 .x_reg[target_reg as usize] & bit_mask) as u32;
 
         /* TODO: replce with MMIO bus */
@@ -359,7 +361,7 @@ impl VirtualCpu {
     }
 
     fn load_emulation(&self, fault_addr: u64, target_reg: u64,
-                bit_width: u64) -> i32 {
+                bit_width: u64, vcpu_ctx: &mut VcpuCtx) -> i32 {
         let mut ret: i32 = 0;
         let bit_mask: u64 = (1 << bit_width) - 1;
         let mut data: u32 = 0;
@@ -382,7 +384,7 @@ impl VirtualCpu {
                 panic!("Unknown mmio (load) fault_addr: {:x}, ret {}", fault_addr, ret);
             }
         }
-        self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.
+        vcpu_ctx.guest_ctx.gp_regs.
             x_reg[target_reg as usize] = (data as u64) & bit_mask;
 
         return ret;
@@ -401,9 +403,9 @@ impl VirtualCpu {
      * Take the load inst as 'lb a0, 0x0(a0)' 
      * and the store inst as 'sb a2, 0x0(a1)'
      */
-    fn handle_mmio(&self, fault_addr: u64) -> i32 {
-        let ucause = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
-        let hutinst = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutinst;
+    fn handle_mmio(&self, fault_addr: u64, vcpu_ctx: &mut VcpuCtx) -> i32 {
+        let ucause = vcpu_ctx.host_ctx.hyp_regs.ucause;
+        let hutinst = vcpu_ctx.host_ctx.hyp_regs.hutinst;
         let inst: u32;
         let mut target_reg: u64 = 0xffff;
         let mut bit_width: u64 = 0;
@@ -412,7 +414,7 @@ impl VirtualCpu {
 
         if hutinst == 0x0 {
             /* The implementation has not support the function of hutinst */
-            inst = self.get_vm_inst_by_uepc(true);
+            inst = self.get_vm_inst_by_uepc(true, vcpu_ctx);
         } else {
             inst = hutinst as u32;
         }
@@ -425,22 +427,22 @@ impl VirtualCpu {
 
         if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
             /* Load */
-            ret = self.load_emulation(fault_addr, target_reg, bit_width);
+            ret = self.load_emulation(fault_addr, target_reg, bit_width, vcpu_ctx);
         } else if ucause == EXC_STORE_GUEST_PAGE_FAULT {
             /* Store */
-            ret = self.store_emulation(fault_addr, target_reg, bit_width);
+            ret = self.store_emulation(fault_addr, target_reg, bit_width, vcpu_ctx);
         } else {
             ret = 1;
         }
 
-        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc += inst_len;
+        vcpu_ctx.host_ctx.hyp_regs.uepc += inst_len;
 
         return ret;
     }
 
-    fn handle_stage2_page_fault(&self) -> i32 {
-        let hutval = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hutval;
-        let utval = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.utval;
+    fn handle_stage2_page_fault(&self, vcpu_ctx: &mut VcpuCtx) -> i32 {
+        let hutval = vcpu_ctx.host_ctx.hyp_regs.hutval;
+        let utval = vcpu_ctx.host_ctx.hyp_regs.utval;
         let mut fault_addr = (hutval << 2) | (utval & 0x3);
         let mut ret;
 
@@ -456,7 +458,7 @@ impl VirtualCpu {
                 panic!("Invalid gpa! {:x}", fault_addr);
             }
 
-            ret = self.handle_mmio(fault_addr);
+            ret = self.handle_mmio(fault_addr, vcpu_ctx);
 
             return ret;
         }
@@ -473,7 +475,7 @@ impl VirtualCpu {
 
             if i.is_leaf() {
                 let ucause 
-                    = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
+                    = vcpu_ctx.host_ctx.hyp_regs.ucause;
 
                 /* No permission */
                 if ucause == EXC_LOAD_GUEST_PAGE_FAULT 
@@ -580,9 +582,8 @@ impl VirtualCpu {
         return hart_mask;
     }
 
-    fn handle_supervisor_ecall(&self) -> i32 {
+    fn handle_supervisor_ecall(&self, vcpu_ctx: &mut VcpuCtx) -> i32 {
         let ret: i32;
-        let mut vcpu_ctx = self.vcpu_ctx.lock().unwrap();
         let a0 = vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; /* A0: 0th arg/ret 1 */
         let a1 = vcpu_ctx.guest_ctx.gp_regs.x_reg[11]; /* A1: 1st arg/ret 2 */
         let a2 = vcpu_ctx.guest_ctx.gp_regs.x_reg[12]; /* A2: 2nd arg  */
@@ -659,9 +660,9 @@ impl VirtualCpu {
         return 0;
     }
 
-    fn handle_vcpu_exit(&self) -> i32 {
+    fn handle_vcpu_exit(&self, vcpu_ctx: &mut VcpuCtx) -> i32 {
         let mut ret: i32 = -1;
-        let ucause = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
+        let ucause = vcpu_ctx.host_ctx.hyp_regs.ucause;
         *self.exit_reason.lock().unwrap() = ExitReason::ExitUnknown;
         
         if (ucause & EXC_IRQ_MASK) != 0 {
@@ -670,7 +671,7 @@ impl VirtualCpu {
             match ucause {
                 IRQ_U_VTIMER => {
                     dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", 
-                        ucause, self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc);
+                        ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
                 }
                 IRQ_U_VIPI => {
@@ -688,15 +689,15 @@ impl VirtualCpu {
 
         match ucause {
             EXC_VIRTUAL_INST_FAULT => {
-                self.handle_virtual_inst_fault();
+                self.handle_virtual_inst_fault(vcpu_ctx);
                 ret = 0;
             }
             EXC_INST_GUEST_PAGE_FAULT | EXC_LOAD_GUEST_PAGE_FAULT |
                 EXC_STORE_GUEST_PAGE_FAULT => {
-                ret = self.handle_stage2_page_fault();
+                ret = self.handle_stage2_page_fault(vcpu_ctx);
             }
             EXC_VIRTUAL_SUPERVISOR_SYSCALL => {
-                ret = self.handle_supervisor_ecall();
+                ret = self.handle_supervisor_ecall(vcpu_ctx);
             }
             _ => {
                 dbgprintln!("Invalid EXCP ucause: {}", ucause);
@@ -707,19 +708,26 @@ impl VirtualCpu {
             dbgprintln!("ERROR: handle_vcpu_exit ret: {}", ret);
 
             /* FIXME: save the exit reason in HOST_A0 before the vcpu down */
-            self.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
+            vcpu_ctx.host_ctx.gp_regs.x_reg[0] = (0 - ret) as u64;
         }
 
         ret
     }
 
+    fn config_hustatus(&self, vcpu_ctx: &mut VcpuCtx) {
+        vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) |
+            (1 << HUSTATUS_UPIE_SHIFT) as u64;
+    }
+
     pub fn thread_vcpu_run(&self, delta_time: i64) -> i32 {
         let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
         let mut _res;
+        let mut vcpu_ctx = self.vcpu_ctx.lock().unwrap();
 
-        self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.hustatus = 
-            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) | 
-            (1 << HUSTATUS_UPIE_SHIFT) as u64;
+        self.config_hustatus(&mut *vcpu_ctx);
+
+        self.vipi.vcpu_regist(self.vcpu_id, (self.vcpu_id + 1) as u64);
 
         unsafe {
             /* Register vcpu thread to the kernel */
@@ -727,7 +735,7 @@ impl VirtualCpu {
             dbgprintln!("IOCTL_LAPUTA_REGISTER_VCPU : {}", _res);
 
             /* Set hugatp */
-            let _hugatp = self.config_hugatp();
+            let _hugatp = self.config_hugatp(&mut *vcpu_ctx);
             dbgprintln!("Config hugatp: {:x}", _hugatp);
 
             /* Set trap handler */
@@ -745,7 +753,7 @@ impl VirtualCpu {
         /* FIXME: deadlock if ptr & ptr_u64 are not declared independently */
         let vcpu_ctx_ptr: *const VcpuCtx;
         let vcpu_ctx_ptr_u64: u64;
-        vcpu_ctx_ptr = &*self.vcpu_ctx.lock().unwrap() as *const VcpuCtx;
+        vcpu_ctx_ptr = &*vcpu_ctx as *const VcpuCtx;
         vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
         let mut ret: i32 = 0;
@@ -765,7 +773,7 @@ impl VirtualCpu {
             /* FIXME: why KVM need this? */
             //self.virq.sync_pending_irq();
 
-            ret = self.handle_vcpu_exit();
+            ret = self.handle_vcpu_exit(&mut *vcpu_ctx);
         }
         
         unsafe {
@@ -892,7 +900,10 @@ mod tests {
                             (test_buf_pfn + 4) | HUGATP_MODE_SV39;
                     }
                 }
-                ret = vcpu.handle_vcpu_exit();
+
+                let mut vcpu_ctx = vcpu.vcpu_ctx.lock().unwrap();
+
+                ret = vcpu.handle_vcpu_exit(&mut *vcpu_ctx);
             }
 
             unsafe {
