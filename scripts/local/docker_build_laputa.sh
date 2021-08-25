@@ -6,6 +6,9 @@ if [ -z "$first_arg" ]; then
     build_version="release"
 elif test ${first_arg} = debug; then
     build_version=""
+else
+    echo "Wrong arg."
+    exit
 fi
 
 sudo docker run -it \

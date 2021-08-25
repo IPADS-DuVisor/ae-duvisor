@@ -8,6 +8,9 @@ if [ -z "$first_arg" ]; then
 elif test ${first_arg} = release; then
     build_version="--release"
     build_path=release
+else
+    echo "Wrong arg."
+    exit
 fi
 
 if [ ${USER}1 == gitlab-runner1 ]; then
@@ -41,7 +44,6 @@ sudo mount $PREPARE/ubuntu-vdisk.img ./mnt
 sudo rm -r ./mnt/laputa
 sudo mkdir -p ./mnt/laputa/tests_bin
 sudo cp scripts/local/run_tests.sh $laputa_name ./mnt/laputa
-sudo cp scripts/local/up.sh ./mnt/
 sudo cp $laputa_test_names ./mnt/laputa/tests_bin/
 sudo mv ./mnt/laputa/$laputa_name_basename ./mnt/laputa/laputa
 sudo cp -r src ./mnt/laputa/
