@@ -44,7 +44,7 @@ impl Tap {
         // We just checked that the fd is valid.
         let tuntap = unsafe { File::from_raw_fd(fd) };
 
-        const TUNTAP_DEV_FORMAT: &'static [u8; 8usize] = b"vmtap%d\0";
+        const TUNTAP_DEV_FORMAT: &'static [u8; 8usize] = b"vmtap0\0\0";
 
         // This is pretty messy because of the unions used by ifreq. Since we
         // don't call as_mut on the same union field more than once, this block
@@ -220,6 +220,7 @@ unsafe impl Pollable for Tap {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,3 +278,4 @@ mod tests {
         }
     }
 }
+*/

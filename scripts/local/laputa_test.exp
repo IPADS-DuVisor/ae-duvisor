@@ -5,6 +5,8 @@ set timeout 180
 
 # set args_for_laputa_test [lindex $argv 0];
 
+spawn bash -c "killall qemu-system-riscv64"
+
 spawn bash -c "./scripts/local/boot.sh"
 
 

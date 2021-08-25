@@ -151,6 +151,40 @@ impl Request {
             status_addr: status_desc.addr,
         })
     }
+    
+    fn do_in_pages<F, T, E>(&self, cb: F, disk: &mut T) -> result::Result<(), E>
+        where
+            F: Fn(GuestAddress, &mut T, usize) -> result::Result<(), E>,
+            T: Read
+    {
+        let base_gpa = self.data_addr.offset();
+        let mut start_len = 0;
+        let (mid_len, end_len): (usize, usize);
+        let (mid_gpa, end_gpa): (usize, usize);
+        if ((base_gpa & 0xfff) != 0) || ((self.data_len & 0xfff) != 0) {
+            start_len = 4096 - (base_gpa & 0xfff);
+        }
+        if start_len > self.data_len as usize {
+            start_len = self.data_len as usize;
+        }
+        mid_gpa = base_gpa + start_len;
+        mid_len = ((self.data_len as usize) - start_len) & !0xfff;
+
+        end_gpa = mid_gpa + mid_len;
+        end_len = ((self.data_len as usize) - start_len) & 0xfff;
+
+        if start_len > 0 {
+            cb(self.data_addr, disk, start_len)?;
+        }
+        for gpa in (mid_gpa..end_gpa).step_by(4096) {
+            cb(GuestAddress(gpa), disk, 4096)?;
+        }
+        if end_len > 0 {
+            cb(GuestAddress(end_gpa), disk, end_len)?;
+        }
+
+        Ok(())
+    }
 
     fn execute<T: Seek + Read + Write>(
         &self,
@@ -161,66 +195,18 @@ impl Request {
             .map_err(ExecuteError::Seek)?;
         match self.request_type {
             RequestType::In => {
-                let base_gpa = self.data_addr.offset();
-                let mut start_len = 0;
-                let (mid_len, end_len): (usize, usize);
-                let (mid_gpa, end_gpa): (usize, usize);
-                if ((base_gpa & 0xfff) != 0) || ((self.data_len & 0xfff) != 0) {
-                    start_len = 4096 - (base_gpa & 0xfff);
-                }
-                if start_len > self.data_len as usize {
-                    start_len = self.data_len as usize;
-                }
-                mid_gpa = base_gpa + start_len;
-                mid_len = ((self.data_len as usize) - start_len) & !0xfff;
-
-                end_gpa = mid_gpa + mid_len;
-                end_len = ((self.data_len as usize) - start_len) & 0xfff;
-                
-                if start_len > 0 {
-                    mem.read_to_memory(self.data_addr, disk, start_len)
-                        .map_err(ExecuteError::Read)?;
-                }
-                for gpa in (mid_gpa..end_gpa).step_by(4096) {
-                    mem.read_to_memory(GuestAddress(gpa), disk, 4096)
-                        .map_err(ExecuteError::Read)?;
-                }
-                if end_len > 0 {
-                    mem.read_to_memory(GuestAddress(end_gpa), disk, end_len)
-                        .map_err(ExecuteError::Read)?;
-                }
+                self.do_in_pages(move |gpa, src, len| {
+                    mem.read_to_memory(gpa, src, len)
+                        .map_err(ExecuteError::Read)
+                    }, disk)?;
 
                 return Ok(self.data_len);
             }
             RequestType::Out => {
-                let base_gpa = self.data_addr.offset();
-                let mut start_len = 0;
-                let (mid_len, end_len): (usize, usize);
-                let (mid_gpa, end_gpa): (usize, usize);
-                if ((base_gpa & 0xfff) != 0) || ((self.data_len & 0xfff) != 0) {
-                    start_len = 4096 - (base_gpa & 0xfff);
-                }
-                if start_len > self.data_len as usize {
-                    start_len = self.data_len as usize;
-                }
-                mid_gpa = base_gpa + start_len;
-                mid_len = ((self.data_len as usize) - start_len) & !0xfff;
-
-                end_gpa = mid_gpa + mid_len;
-                end_len = ((self.data_len as usize) - start_len) & 0xfff;
-                
-                if start_len > 0 {
-                    mem.write_from_memory(self.data_addr, disk, start_len)
-                        .map_err(ExecuteError::Write)?;
-                }
-                for gpa in (mid_gpa..end_gpa).step_by(4096) {
-                    mem.write_from_memory(GuestAddress(gpa), disk, 4096)
-                        .map_err(ExecuteError::Write)?;
-                }
-                if end_len > 0 {
-                    mem.write_from_memory(GuestAddress(end_gpa), disk, end_len)
-                        .map_err(ExecuteError::Write)?;
-                }
+                self.do_in_pages(move |gpa, src, len| {
+                    mem.write_from_memory(gpa, src, len)
+                        .map_err(ExecuteError::Write)
+                    }, disk)?;
             }
             RequestType::Flush => disk.flush().map_err(ExecuteError::Flush)?,
             RequestType::Unsupported(t) => return Err(ExecuteError::Unsupported(t)),

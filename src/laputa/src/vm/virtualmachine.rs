@@ -106,6 +106,38 @@ impl VirtualMachine {
 
         ioctl_fd
     }
+    
+    fn create_block_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
+        guest_mem: &GuestMemory, irqchip: &Arc<Plic>) {
+        let root_image = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/blk-dev.img")
+            .unwrap();
+
+        let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
+        
+        let mmio_blk = devices::virtio::MmioDevice::new(
+            guest_mem.clone(), block_box, irqchip.clone()).unwrap();
+
+        mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_blk)), 
+            0x10000000, 0x200).unwrap();
+    }
+
+    #[allow(unused)]
+    fn create_network_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
+        guest_mem: &GuestMemory, irqchip: &Arc<Plic>) {
+        let net_box = Box::new(devices::virtio::Net::new(
+                Ipv4Addr::new(192, 168, 254, 2), /* IP */
+                Ipv4Addr::new(255, 255, 0, 0) /* NETMASK */
+                ).unwrap());
+        
+        let mmio_net = devices::virtio::MmioDevice::new(
+            guest_mem.clone(), net_box, irqchip.clone()).unwrap();
+
+        mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_net)), 
+            0x10000200, 0x200).unwrap();
+    }
 
     pub fn new(vm_config: VMConfig) -> Self {
         let vcpu_num = vm_config.vcpu_count;
@@ -165,40 +197,14 @@ impl VirtualMachine {
         
         let irqchip = Arc::new(Plic::new(&vcpus));
         
-        let root_image = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/blk-dev.img")
-            .unwrap();
-
-        let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
-        
-        let mmio_blk = devices::virtio::MmioDevice::new(
-            guest_mem.clone(), block_box, irqchip.clone()).unwrap();
-
-        mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_blk)), 
-            0x10000000, 0x200).unwrap();
+        VirtualMachine::create_block_dev(&mmio_bus, &guest_mem, &irqchip);
 
         /* 
          * The net device supports only one process which will 
          * crush the test cases. 
          */
-        #[cfg(not(test))] {
-        /* let net_box = Box::new(devices::virtio::Net::new(
-                Ipv4Addr::new(192, 168, 254, 2), /* IP */
-                Ipv4Addr::new(255, 255, 0, 0) /* NETMASK */
-                ).unwrap()); */
-        let net_box = Box::new(devices::virtio::Net::new(
-            Ipv4Addr::new(192, 169, 1, 1), /* IP */
-            Ipv4Addr::new(255, 255, 255, 0) /* NETMASK */
-            ).unwrap());
-        
-        let mmio_net = devices::virtio::MmioDevice::new(
-            guest_mem.clone(), net_box, irqchip.clone()).unwrap();
-
-        mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_net)), 
-            0x10000200, 0x200).unwrap();
-        }
+        #[cfg(not(test))]
+        VirtualMachine::create_network_dev(&mmio_bus, &guest_mem, &irqchip);
         
         for vcpu in &vcpus {
             vcpu.irqchip.set(irqchip.clone()).ok();
