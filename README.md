@@ -25,8 +25,14 @@ rm -r prepare
 ```
 
 ## Build laputa
+Release by default:
 ```
 ./scripts/local/docker_build_laputa.sh
+```
+
+If you want to build debug version, add `debug` arg:
+```
+./scripts/local/docker_build_laputa.sh debug
 ```
 
 ## Test laputa

@@ -10,7 +10,7 @@ Cargo.lock
 /tests/*/*.img
 /tests/*.img
 /tests/Image
-/src/vcpu/asm_offset.h
+/src/laputa/src/vcpu/asm_offset.h
 .gdbinit
 /.cargo
 /vendor
