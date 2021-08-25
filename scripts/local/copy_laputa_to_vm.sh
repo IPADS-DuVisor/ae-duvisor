@@ -1,20 +1,34 @@
 #!/bin/bash
 
+first_arg=$1
+
+if test ${first_arg}a = releasea; then
+    profile_opt="--release"
+    profile=release
+else
+    profile_opt=""
+    profile=debug
+fi
+
 if [ ${USER}1 == gitlab-runner1 ]; then
     # for CI environment
     PREPARE="$HOME/prepare"
+    profile_opt=""
+    profile=debug
 else
     PREPARE="./prepare"
 fi
 
+echo $profile_opt $profile
+
 cargo clean
-cargo build --target=riscv64gc-unknown-linux-gnu
-laputa_name=`find target/riscv64gc-unknown-linux-gnu/debug/deps/ -type f ! -name '*.*' `
+cargo build --target=riscv64gc-unknown-linux-gnu $profile_opt
+laputa_name=`find target/riscv64gc-unknown-linux-gnu/${profile}/deps/ -type f ! -name '*.*' `
 laputa_name_basename=`basename $laputa_name`
 
 # get laputa all the binary names
-cargo test --no-run --target=riscv64gc-unknown-linux-gnu
-laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/debug/deps/ -type f ! -name '*.*' `
+cargo test --no-run --target=riscv64gc-unknown-linux-gnu $profile_opt
+laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/${profile}/deps/ -type f ! -name '*.*' `
 
 ## Build test images
 sudo rm -r ./tests/integration/test_images/build
@@ -27,7 +41,7 @@ sudo mount $PREPARE/ubuntu-vdisk.img ./mnt
 sudo rm -r ./mnt/laputa
 sudo mkdir -p ./mnt/laputa/tests_bin
 sudo cp scripts/local/run_tests.sh $laputa_name ./mnt/laputa
-sudo cp scripts/local/laputa_linux.sh ./mnt/
+sudo cp scripts/local/up.sh ./mnt/
 sudo cp $laputa_test_names ./mnt/laputa/tests_bin/
 sudo mv ./mnt/laputa/$laputa_name_basename ./mnt/laputa/laputa
 sudo cp -r src ./mnt/laputa/

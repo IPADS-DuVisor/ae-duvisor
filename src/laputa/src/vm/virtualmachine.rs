@@ -123,10 +123,6 @@ impl VirtualMachine {
 
     fn create_network_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
         guest_mem: &GuestMemory, irqchip: &Arc<Plic>) {
-        /* 
-         * The net device supports only one process which will 
-         * crush the test cases. 
-         */
         let net_box = Box::new(devices::virtio::Net::new(
                 Ipv4Addr::new(192, 168, 254, 2), /* IP */
                 Ipv4Addr::new(255, 255, 0, 0) /* NETMASK */
@@ -195,6 +191,11 @@ impl VirtualMachine {
         let irqchip = Arc::new(Plic::new(&vcpus));
         
         VirtualMachine::create_block_dev(&mmio_bus, &guest_mem, &irqchip);
+
+        /* 
+         * The net device supports only one process which will 
+         * crush the test cases. 
+         */
         #[cfg(not(test))]
         VirtualMachine::create_network_dev(&mmio_bus, &guest_mem, &irqchip);
         
