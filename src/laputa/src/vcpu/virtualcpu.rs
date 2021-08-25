@@ -17,6 +17,7 @@ use crate::irq::vipi::VirtualIpi;
 use crate::plat::opensbi::emulation::sbi_number::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::init::cmdline::MAX_VCPU;
+use std::thread;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -120,7 +121,7 @@ extern "C"
 
 pub struct VirtualCpu {
     pub vcpu_id: u32,
-    pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
+    pub vm: Arc<virtualmachine::VmSharedState>,
     pub vipi: Arc<VirtualIpi>,
     pub vcpu_ctx: Mutex<VcpuCtx>,
     pub virq: virq::VirtualInterrupt,
@@ -136,7 +137,7 @@ pub struct VirtualCpu {
 
 impl VirtualCpu {
     pub fn new(vcpu_id: u32,
-            vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>,
+            vm_state: Arc<virtualmachine::VmSharedState>,
             console: Arc<Mutex<Tty>>, guest_mem: GuestMemory, 
             mmio_bus: Arc<RwLock<devices::Bus>>,
             vipi_ptr: Arc<VirtualIpi>
@@ -149,7 +150,7 @@ impl VirtualCpu {
 
         Self {
             vcpu_id,
-            vm: vm_mutex_ptr,
+            vm: vm_state,
             vcpu_ctx,
             virq,
             irqchip,
@@ -162,22 +163,9 @@ impl VirtualCpu {
         }
     }
 
-    /* For test case: test_vm_run */
-    pub fn test_change_guest_ctx(&self) -> u32 {
-        /* Change guest context */
-        self.vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10] += 10;
-        self.vcpu_ctx.lock().unwrap().guest_ctx.sys_regs.huvsscratch += 11;
-        self.vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs.hutinst += 12;
-
-        /* Increse vm_id in vm_state */
-        self.vm.lock().unwrap().vm_id += 100;
-
-        0
-    }
-
     fn config_hugatp(&self, vcpu_ctx: &mut VcpuCtx) -> u64 {
         let pt_pfn: u64 = 
-            self.vm.lock().unwrap().gsmmu.page_table.paddr >> PAGE_SIZE_SHIFT;
+            self.vm.gsmmu.lock().unwrap().page_table.paddr >> PAGE_SIZE_SHIFT;
         let hugatp: u64;
 
         if S2PT_MODE == 3 {
@@ -202,7 +190,7 @@ impl VirtualCpu {
 
         vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
 
-        //thread::yield_now();
+        thread::yield_now();
         
         ret
     }
@@ -445,14 +433,15 @@ impl VirtualCpu {
         let utval = vcpu_ctx.host_ctx.hyp_regs.utval;
         let mut fault_addr = (hutval << 2) | (utval & 0x3);
         let mut ret;
+        let mut gsmmu = self.vm.gsmmu.lock().unwrap();
 
         dbgprintln!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
         
-        let gpa_check = self.vm.lock().unwrap().gsmmu.check_gpa(fault_addr);
+        let gpa_check = gsmmu.check_gpa(fault_addr);
         if !gpa_check {
             /* Maybe mmio or illegal gpa */
-            let mmio_check = self.vm.lock().unwrap().gsmmu.check_mmio(fault_addr);
+            let mmio_check = gsmmu.check_mmio(fault_addr);
 
             if !mmio_check {
                 panic!("Invalid gpa! {:x}", fault_addr);
@@ -466,7 +455,7 @@ impl VirtualCpu {
         fault_addr &= !PAGE_SIZE_MASK;
 
         /* Map query */
-        let query = self.vm.lock().unwrap().gsmmu.map_query(fault_addr);
+        let query = gsmmu.map_query(fault_addr);
         if query.is_some() {
             let i = query.unwrap();
 
@@ -507,8 +496,7 @@ impl VirtualCpu {
             ENOMAPPING => {
                 dbgprintln!("Query return ENOMAPPING: {}", ret);
                 /* Find hpa by fault_addr */
-                let fault_addr_query = self.vm.lock().unwrap().gsmmu
-                    .gpa_block_query(fault_addr);
+                let fault_addr_query = gsmmu.gpa_block_query(fault_addr);
 
                 if fault_addr_query.is_some() {
                     /* Fault gpa is already in a gpa_block and it is valid */
@@ -519,8 +507,7 @@ impl VirtualCpu {
                         
                     dbgprintln!("map gpa: {:x} to hpa: {:x}",
                         fault_addr, fault_hpa);
-                    self.vm.lock().unwrap().gsmmu.map_page(
-                        fault_addr, fault_hpa, flag);
+                        gsmmu.map_page(fault_addr, fault_hpa, flag);
                     
                     /* Record the HVA <--> GPA mapping*/
                     self.guest_mem.insert_region(fault_hva, fault_addr, 
@@ -530,8 +517,7 @@ impl VirtualCpu {
                 } else {
                     /* Fault gpa is not in a gpa_block and it is valid */
                     let len = PAGE_SIZE;
-                    let res = self.vm.lock().unwrap().gsmmu
-                        .gpa_block_add(fault_addr, len);
+                    let res = gsmmu.gpa_block_add(fault_addr, len);
 
                     if res.is_ok() {
                         /* Map new page to VM if the region exists */
@@ -539,8 +525,7 @@ impl VirtualCpu {
                         let flag: u64 = PTE_USER | PTE_VALID | PTE_READ 
                             | PTE_WRITE | PTE_EXECUTE;
 
-                        self.vm.lock().unwrap().gsmmu.map_page(
-                            fault_addr, hpa, flag);
+                        gsmmu.map_page(fault_addr, hpa, flag);
 
                         /* Record the HVA <--> GPA mapping*/
                         self.guest_mem.insert_region(hva, fault_addr, len as usize);
@@ -615,7 +600,7 @@ impl VirtualCpu {
         target_ecall.ret[1] = a1;
 
         /* Part of SBIs should emulated via IOCTL */
-        let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd as i32;
+        let fd = self.vm.ioctl_fd as i32;
         ret = target_ecall.ecall_handler(fd, &self);
 
         /* Save the result */
@@ -721,7 +706,7 @@ impl VirtualCpu {
     }
 
     pub fn thread_vcpu_run(&self, delta_time: i64) -> i32 {
-        let fd = self.vm.lock().unwrap().gsmmu.allocator.ioctl_fd;
+        let fd = self.vm.ioctl_fd;
         let mut _res;
         let mut vcpu_ctx = self.vcpu_ctx.lock().unwrap();
 
@@ -788,7 +773,6 @@ impl VirtualCpu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::thread;
     use rusty_fork::rusty_fork_test;
     use crate::test::utils::configtest::test_vm_config_create;
 
@@ -799,7 +783,7 @@ mod tests {
             let vm_config = test_vm_config_create();
             let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
-            let fd = vm.vm_state.lock().unwrap().ioctl_fd;
+            let fd = vm.vm_state.ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
@@ -1012,65 +996,13 @@ mod tests {
             assert_eq!(tmp, ans);
         }
 
-        /* Check the Arc<Mutex<>> data access. */
-        #[test]
-        fn test_vcpu_run() {
-            let vcpu_num = 4;
-            let mut vm_config = test_vm_config_create();
-            vm_config.vcpu_count = vcpu_num;
-            let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-            let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
-            let mut handle: thread::JoinHandle<()>;
-
-            for i in &mut vm.vcpus {
-                /* Get a clone for the closure */
-                let vcpu = i.clone();
-
-                /* Start vcpu threads! */
-                handle = thread::spawn(move || {
-                    /* TODO: thread_vcpu_run */
-                    vcpu.test_change_guest_ctx();
-                });
-
-                vcpu_handle.push(handle);
-            }
-
-            /* All the vcpu thread finish */
-            for i in vcpu_handle {
-                i.join().unwrap();
-            }
-
-            /* Check the guest contexxt */
-            let gpreg;
-            let sysreg;
-            let hypreg;
-
-            gpreg = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs
-                .x_reg[10];
-            sysreg = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.sys_regs
-                .huvsscratch;
-            hypreg = vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.hyp_regs
-                .hutinst;
-
-            assert_eq!(gpreg, 10);
-            assert_eq!(sysreg, 11);
-            assert_eq!(hypreg, 12);
-
-            /* 
-             * The result should be 400 to prove the main thread can get the 
-             * correct value.
-             */
-            let result = vm.vm_state.lock().unwrap().vm_id;
-            assert_eq!(result, vcpu_num * 100);
-        }
-
         #[test]
         fn test_vcpu_ecall_exit() { 
             let vcpu_id = 0;
             let vm_config = test_vm_config_create();
             let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
-            let fd = vm.vm_state.lock().unwrap().ioctl_fd;
+            let fd = vm.vm_state.ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
@@ -1191,7 +1123,7 @@ mod tests {
             let vm_config = test_vm_config_create();
             let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
-            let fd = vm.vm_state.lock().unwrap().ioctl_fd;
+            let fd = vm.vm_state.ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
@@ -1393,8 +1325,8 @@ mod tests {
             /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_block_add(target_address, PAGE_SIZE);
+            let res = vm.vm_state.gsmmu.lock().unwrap()
+                .gpa_block_add(target_address, PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!");
             }
@@ -1406,7 +1338,7 @@ mod tests {
             /* Map the page on g-stage */
             let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
                     | PTE_EXECUTE;
-            vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
+            vm.vm_state.gsmmu.lock().unwrap().map_page(target_address, hpa, 
                     flag);
 
             vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
