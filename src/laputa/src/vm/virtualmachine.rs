@@ -121,6 +121,7 @@ impl VirtualMachine {
             0x10000000, 0x200).unwrap();
     }
 
+    #[allow(unused)]
     fn create_network_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
         guest_mem: &GuestMemory, irqchip: &Arc<Plic>) {
         let net_box = Box::new(devices::virtio::Net::new(
