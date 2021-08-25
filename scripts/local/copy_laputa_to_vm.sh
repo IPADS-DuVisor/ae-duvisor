@@ -2,33 +2,33 @@
 
 first_arg=$1
 
-if test ${first_arg}a = releasea; then
-    profile_opt="--release"
-    profile=release
-else
-    profile_opt=""
-    profile=debug
+if [ -z "$first_arg" ]; then
+    build_version=""
+    build_path=debug
+elif test ${first_arg} = release; then
+    build_version="--release"
+    build_path=release
 fi
 
 if [ ${USER}1 == gitlab-runner1 ]; then
     # for CI environment
     PREPARE="$HOME/prepare"
-    profile_opt=""
-    profile=debug
+    build_version=""
+    build_path=debug
 else
     PREPARE="./prepare"
 fi
 
-echo $profile_opt $profile
+echo $build_version
 
 cargo clean
-cargo build --target=riscv64gc-unknown-linux-gnu $profile_opt
-laputa_name=`find target/riscv64gc-unknown-linux-gnu/${profile}/deps/ -type f ! -name '*.*' `
+cargo build --target=riscv64gc-unknown-linux-gnu $build_version
+laputa_name=`find target/riscv64gc-unknown-linux-gnu/${build_path}/deps/ -type f ! -name '*.*' `
 laputa_name_basename=`basename $laputa_name`
 
 # get laputa all the binary names
-cargo test --no-run --target=riscv64gc-unknown-linux-gnu $profile_opt
-laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/${profile}/deps/ -type f ! -name '*.*' `
+cargo test --no-run --target=riscv64gc-unknown-linux-gnu $build_version
+laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/${build_path}/deps/ -type f ! -name '*.*' `
 
 ## Build test images
 sudo rm -r ./tests/integration/test_images/build

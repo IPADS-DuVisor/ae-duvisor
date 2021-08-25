@@ -2,10 +2,10 @@
 
 first_arg=$1
 
-if test ${first_arg}a = debuga; then
-    profile_opt=""
-else
-    profile_opt="release"
+if [ -z "$first_arg" ]; then
+    build_version="release"
+elif test ${first_arg} = debug; then
+    build_version=""
 fi
 
 sudo docker run -it \
@@ -15,4 +15,4 @@ sudo docker run -it \
     --network host \
     --privileged=true \
     1197744123/laputa:v4 \
-    ./scripts/local/copy_laputa_to_vm.sh $profile_opt
+    ./scripts/local/copy_laputa_to_vm.sh $build_version
