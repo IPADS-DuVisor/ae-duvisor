@@ -15,6 +15,8 @@ use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
 use crate::irq::vipi::VirtualIpi;
 use crate::plat::opensbi::emulation::sbi_number::*;
+use std::sync::atomic::{AtomicBool, Ordering};
+use crate::init::cmdline::MAX_VCPU;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -119,7 +121,7 @@ extern "C"
 pub struct VirtualCpu {
     pub vcpu_id: u32,
     pub vm: Arc<Mutex<virtualmachine::VmSharedState>>,
-    pub vipi: Arc<Mutex<VirtualIpi>>,
+    pub vipi: Arc<VirtualIpi>,
     pub vcpu_ctx: Mutex<VcpuCtx>,
     pub virq: virq::VirtualInterrupt,
     /* Cell for late init */
@@ -129,6 +131,7 @@ pub struct VirtualCpu {
     pub console: Arc<Mutex<Tty>>,
     pub guest_mem: GuestMemory,
     pub mmio_bus: Arc<RwLock<devices::Bus>>,
+    pub is_running: AtomicBool,
 }
 
 impl VirtualCpu {
@@ -136,12 +139,13 @@ impl VirtualCpu {
             vm_mutex_ptr: Arc<Mutex<virtualmachine::VmSharedState>>,
             console: Arc<Mutex<Tty>>, guest_mem: GuestMemory, 
             mmio_bus: Arc<RwLock<devices::Bus>>,
-            vipi_ptr: Arc<Mutex<VirtualIpi>>
+            vipi_ptr: Arc<VirtualIpi>
         ) -> Self {
         let vcpu_ctx = Mutex::new(VcpuCtx::new());
         let virq = virq::VirtualInterrupt::new();
         let exit_reason = Mutex::new(ExitReason::ExitUnknown);
         let irqchip = SyncOnceCell::new();
+        let is_running = AtomicBool::new(false);
 
         Self {
             vcpu_id,
@@ -154,6 +158,7 @@ impl VirtualCpu {
             guest_mem,
             mmio_bus,
             vipi: vipi_ptr,
+            is_running,
         }
     }
 
@@ -168,15 +173,6 @@ impl VirtualCpu {
         self.vm.lock().unwrap().vm_id += 100;
 
         0
-    }
-
-    fn update_vipi(&self) {
-        //self.virq.unset_pending_irq(IRQ_VS_SOFT);
-
-        if self.vipi.lock().unwrap().target_vcpu[self.vcpu_id as usize] == 1 {
-            self.virq.set_pending_irq(IRQ_VS_SOFT);
-            self.vipi.lock().unwrap().target_vcpu[self.vcpu_id as usize] = 0;
-        }
     }
 
     fn config_hugatp(&self) -> u64 {
@@ -562,6 +558,27 @@ impl VirtualCpu {
         ret
     }
 
+    fn get_hart_mask(&self, target_address: u64) -> u64 {
+        let a0 = target_address;
+        let hart_mask: u64;
+
+        unsafe {
+            asm!(
+                ".option push",
+                ".option norvc",
+
+                /* HULVX.HU t0, (t2) */
+                ".word 0x6c03c2f3",
+
+                /* HULVX.HU t1, (t2) */
+                out("t0") hart_mask,
+                in("t2") a0,
+            );
+        }
+
+        return hart_mask;
+    }
+
     fn handle_supervisor_ecall(&self) -> i32 {
         let ret: i32;
         let mut vcpu_ctx = self.vcpu_ctx.lock().unwrap();
@@ -604,8 +621,23 @@ impl VirtualCpu {
         vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
 
         if a7 == SBI_EXT_0_1_SEND_IPI {
-            println!("{} SEND IPI", self.vcpu_id);
-            self.vipi.lock().unwrap().send_vipi(self.vcpu_id as u8);
+            let hart_mask = self.get_hart_mask(a0);
+            let mut vipi_id: u64;
+            for i in 0..MAX_VCPU {
+                if ((1 << i) & hart_mask) != 0 {
+                    vipi_id = self.vipi.id_map[i as usize]
+                        .load(Ordering::SeqCst);
+                    dbgprintln!("Setting VIPI {} --> {}", 
+                        self.vcpu_id, vipi_id - 1);
+                    if self.irqchip.get().unwrap().trigger_soft_irq(i) {
+                        dbgprintln!("\t\tSending UIPI {} --> {}",
+                            self.vcpu_id, vipi_id - 1);
+                        self.vipi.send_uipi(vipi_id);
+                    }
+                }
+            }
+            dbgprintln!("hart mask 0x{:x}", hart_mask);
+            dbgprintln!("{} send ipi ...", self.vcpu_id);
         }
 
         /* Add uepc to start vm on next instruction */
@@ -703,17 +735,14 @@ impl VirtualCpu {
             /* Insert or clear tty irq on each vtimer irq */
             self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
 
-            /* Insert virtual ipi */
-            self.update_vipi();
-
             /* Flush pending irqs into HUVIP */
             self.virq.flush_pending_irq();
 
-            //self.is_running.store(true, Ordering::SeqCst);
+            self.is_running.store(true, Ordering::SeqCst);
             unsafe {
                 enter_guest(vcpu_ctx_ptr_u64);
             }
-            //self.is_running.store(false, Ordering::SeqCst);
+            self.is_running.store(false, Ordering::SeqCst);
 
             /* FIXME: why KVM need this? */
             //self.virq.sync_pending_irq();
@@ -742,15 +771,16 @@ mod tests {
         fn test_handle_stage2_page_fault() { 
             let vcpu_id = 0;
             let vm_config = test_vm_config_create();
+            let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
-            let vipi = VirtualIpi::new();
-            let vipi_mutex = Arc::new(Mutex::new(vipi));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_mutex);
+            let vipi = VirtualIpi::new(vcpu_num);
+            let vipi_ptr = Arc::new(vipi);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_ptr);
             let mut res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -870,14 +900,15 @@ mod tests {
         fn test_vcpu_new() { 
             let vcpu_id = 20;
             let vm_config = test_vm_config_create();
+            let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
-            let vipi = VirtualIpi::new();
-            let vipi_mutex = Arc::new(Mutex::new(vipi));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_mutex);
+            let vipi = VirtualIpi::new(vcpu_num);
+            let vipi_ptr = Arc::new(vipi);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_ptr);
 
             assert_eq!(vcpu.vcpu_id, vcpu_id);
         }
@@ -887,14 +918,15 @@ mod tests {
         fn test_vcpu_ctx_init() { 
             let vcpu_id = 1;
             let vm_config = test_vm_config_create();
+            let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
-            let vipi = VirtualIpi::new();
-            let vipi_mutex = Arc::new(Mutex::new(vipi));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_mutex);
+            let vipi = VirtualIpi::new(vcpu_num);
+            let vipi_ptr = Arc::new(vipi);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_ptr);
 
             let tmp = vcpu.vcpu_ctx.lock().unwrap().host_ctx.gp_regs.x_reg[10];
             assert_eq!(tmp, 0);
@@ -917,14 +949,15 @@ mod tests {
         fn test_vcpu_set_ctx() {  
             let vcpu_id = 1;
             let vm_config = test_vm_config_create();
+            let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
-            let vipi = VirtualIpi::new();
-            let vipi_mutex = Arc::new(Mutex::new(vipi));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_mutex);
+            let vipi = VirtualIpi::new(vcpu_num);
+            let vipi_ptr = Arc::new(vipi);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_ptr);
             let ans = 17;
 
             /* Guest ctx */
@@ -1006,15 +1039,16 @@ mod tests {
         fn test_vcpu_ecall_exit() { 
             let vcpu_id = 0;
             let vm_config = test_vm_config_create();
+            let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
-            let vipi = VirtualIpi::new();
-            let vipi_mutex = Arc::new(Mutex::new(vipi));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_mutex);
+            let vipi = VirtualIpi::new(vcpu_num);
+            let vipi_ptr = Arc::new(vipi);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_ptr);
             let res;
             let version: u64 = 0;
             let test_buf: u64;
@@ -1126,15 +1160,16 @@ mod tests {
         fn test_vcpu_add_all_gprs() { 
             let vcpu_id = 0;
             let vm_config = test_vm_config_create();
+            let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.lock().unwrap().ioctl_fd;
             let vm_mutex = vm.vm_state;
             let console = Arc::new(Mutex::new(Tty::new()));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
-            let vipi = VirtualIpi::new();
-            let vipi_mutex = Arc::new(Mutex::new(vipi));
-            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_mutex);
+            let vipi = VirtualIpi::new(vcpu_num);
+            let vipi_ptr = Arc::new(vipi);
+            let vcpu = VirtualCpu::new(vcpu_id, vm_mutex, console, guest_mem, mmio_bus, vipi_ptr);
             let res;
             let version: u64 = 0;
             let test_buf: u64;

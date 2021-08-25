@@ -240,6 +240,17 @@ pub const VTIMECMP:  u64 = 0x401;
 pub const VTIMECTL:  u64 = 0x402;
 pub const VTIMECMPH: u64 = 0x481;
 
+pub const HUVSSTATUS      : u64 = 0x400;
+pub const HUVSIP          : u64 = 0x444;
+pub const HUVSIE          : u64 = 0x404;
+pub const HUVSEPC         : u64 = 0x441;
+
+pub const VCPUID          : u64 = 0x482;
+pub const VIPI0           : u64 = 0x483;
+pub const VIPI1           : u64 = 0x484;
+pub const VIPI2           : u64 = 0x485;
+pub const VIPI3           : u64 = 0x486;
+
 pub const HSTATUS         : u64 = 0x600;
 pub const HEDELEG         : u64 = 0x602;
 pub const HIDELEG         : u64 = 0x603;

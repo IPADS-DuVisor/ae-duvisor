@@ -89,7 +89,7 @@ pub struct VirtualMachine {
     pub mmio_bus: Arc<RwLock<devices::Bus>>,
     /* Record GPA <--> HVA mappings */
     pub guest_mem: GuestMemory,
-    pub vipi: Arc<Mutex<VirtualIpi>>,
+    pub vipi: Arc<VirtualIpi>,
 }
 
 impl VirtualMachine {
@@ -181,8 +181,8 @@ impl VirtualMachine {
         let vm_state_mutex = Arc::new(Mutex::new(vm_state));
         let console = Arc::new(Mutex::new(tty));
 
-        let vipi = VirtualIpi::new();
-        let vipi_mutex = Arc::new(Mutex::new(vipi));
+        let vipi = VirtualIpi::new(vcpu_num);
+        let vipi_ptr = Arc::new(vipi);
 
         let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
         let guest_mem = GuestMemory::new().unwrap();
@@ -191,7 +191,7 @@ impl VirtualMachine {
         for i in 0..vcpu_num {
             let vcpu = Arc::new(virtualcpu::VirtualCpu::new(i,
                     vm_state_mutex.clone(), console.clone(), 
-                    guest_mem.clone(), mmio_bus.clone(), vipi_mutex.clone()));
+                    guest_mem.clone(), mmio_bus.clone(), vipi_ptr.clone()));
             vcpus.push(vcpu);
         }
         
@@ -223,7 +223,7 @@ impl VirtualMachine {
             io_thread,
             mmio_bus,
             guest_mem,
-            vipi: vipi_mutex.clone(),
+            vipi: vipi_ptr,
         }
     }
 
