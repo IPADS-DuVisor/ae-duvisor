@@ -218,6 +218,7 @@ impl VirtualCpu {
             /* Clear U VTIMER bit. Its counterpart in ARM is GIC EOI.  */
             csrc!(HUIP, 1 << IRQ_U_VTIMER);
         }
+
         return 0;
     }
 
@@ -646,6 +647,18 @@ impl VirtualCpu {
         ret
     }
 
+    fn handle_u_vipi_irq(&self) -> i32 {
+        let vcpu_id = self.vcpu_id;
+        let vipi_id = self.vipi.id_map[vcpu_id as usize].load(Ordering::SeqCst);
+
+        unsafe {
+            csrc!(VIPI0, 1 << vipi_id);
+            csrc!(HUIP, 1 << IRQ_U_SOFT);
+        }
+
+        return 0;
+    }
+
     fn handle_vcpu_exit(&self) -> i32 {
         let mut ret: i32 = -1;
         let ucause = self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.ucause;
@@ -659,6 +672,11 @@ impl VirtualCpu {
                     dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", 
                         ucause, self.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
+                }
+                IRQ_U_VIPI => {
+                    dbgprintln!("handler U VIPI, vcpu_id: {}", self.vcpu_id);
+
+                    ret = self.handle_u_vipi_irq();
                 }
                 _ => {
                     dbgprintln!("Invalid IRQ ucause: {}", ucause);

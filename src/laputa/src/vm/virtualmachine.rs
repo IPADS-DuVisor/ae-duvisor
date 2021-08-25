@@ -828,10 +828,12 @@ mod tests {
             let elf_path: &str = "./tests/integration/ecall_emulation_unsupported.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+            const UNSUPPORTED_NUM: usize = 2;
 
             /* Answer will be saved at 0x3000(gpa) */
             let mut retval: u64;
-            let answer: [u64; 3] = [SBI_ERR_NOT_SUPPORTED as u64; 3];
+            let answer: [u64; UNSUPPORTED_NUM] = 
+                [SBI_ERR_NOT_SUPPORTED as u64; UNSUPPORTED_NUM];
 
             vm.vm_init();
 
@@ -864,8 +866,8 @@ mod tests {
 
             /* Check the return value stored by the vm */
             unsafe {
-                for i in 0..3 {
-                    retval = *((hva + 16 * i) as *mut u64);
+                for i in 0..UNSUPPORTED_NUM {
+                    retval = *((hva + 16 * i as u64) as *mut u64);
                     assert_eq!(answer[i as usize], retval);
                 }
             }
