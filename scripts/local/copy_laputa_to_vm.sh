@@ -3,10 +3,10 @@
 first_arg=$1
 
 if [ -z "$first_arg" ]; then
-    build_version=""
+    build_level=""
     build_path=debug
 elif test ${first_arg} = release; then
-    build_version="--release"
+    build_level="--release"
     build_path=release
 else
     echo "Wrong arg."
@@ -16,21 +16,21 @@ fi
 if [ ${USER}1 == gitlab-runner1 ]; then
     # for CI environment
     PREPARE="$HOME/prepare"
-    build_version=""
+    build_level=""
     build_path=debug
 else
     PREPARE="./prepare"
 fi
 
-echo $build_version
+echo $build_level
 
 cargo clean
-cargo build --target=riscv64gc-unknown-linux-gnu $build_version
+cargo build --target=riscv64gc-unknown-linux-gnu $build_level
 laputa_name=`find target/riscv64gc-unknown-linux-gnu/${build_path}/deps/ -type f ! -name '*.*' `
 laputa_name_basename=`basename $laputa_name`
 
 # get laputa all the binary names
-cargo test --no-run --target=riscv64gc-unknown-linux-gnu $build_version
+cargo test --no-run --target=riscv64gc-unknown-linux-gnu $build_level
 laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/${build_path}/deps/ -type f ! -name '*.*' `
 
 ## Build test images
