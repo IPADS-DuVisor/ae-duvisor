@@ -729,7 +729,7 @@ impl VirtualCpu {
             csrw!(UTVEC, exit_guest as u64);
 
             /* Enable timer irq */
-            csrw!(HUIE, 1 << IRQ_U_VTIMER);
+            csrw!(HUIE, (1 << IRQ_U_VTIMER) | (1 << IRQ_U_SOFT));
 
             /* TODO: redesign scounteren register */
             /* Allow VM to directly access time register */
@@ -745,7 +745,7 @@ impl VirtualCpu {
         
         let mut ret: i32 = 0;
         while ret == 0 {
-            if self.vcpu_id == 1 {
+            if self.vcpu_id == 0 {
                 /* Insert or clear tty irq on each vtimer irq */
                 self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
             }

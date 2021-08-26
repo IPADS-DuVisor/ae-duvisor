@@ -344,7 +344,7 @@ impl GStageMmu {
         let pt_level: u64 = (S2PT_MODE - 1) as u64;
 
         if level == pt_level {
-            pte = flag;
+            pte = pte | flag;
         }
 
         pte = pte | PTE_VALID;
