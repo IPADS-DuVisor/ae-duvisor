@@ -1,0 +1,117 @@
+#!/usr/bin/expect -f
+set timeout 180
+
+
+set timeout 300
+set env(TERM) xterm-256color
+set env(SHELL) /bin/bash
+set env(HOME) /home/gitlab-runner
+set env(PATH) /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+set env(LOGNAME) gitlab-runner
+set env(SHLVL) 2
+set env(MAIL) /var/mail/gitlab-runner
+set env(SUDO_UID) 1000
+set env(SUDO_GID) 1000
+set env(SUDO_COMMAND) /bin/bash
+
+
+spawn bash -c "screen -r virt"
+ 
+expect "laputa"
+
+send "PREPARE=/home/gitlab-runner/laputa/prepare ./scripts/local/boot.sh\n"
+
+expect "root@(none)"
+
+send "cd laputa && ./laputa --smp 1 --initrd ./test-files-laputa/rootfs-net.img --dtb ./test-files-laputa/vmlinux.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt\n"
+expect {
+    "Busybox Rootfs" {
+        send "\n ls \n"
+        expect {
+            "guest-net.sh" {}
+        }
+    }
+    
+    timeout {
+        exit -1
+    }
+}
+
+send "./guest-net.sh\n ip a \n"
+expect {
+    "eth0: <BROADCAST,MULTICAST,UP,LOWER_UP>" {
+    }
+
+    timeout {
+        exit -1
+    }
+}
+
+set timeout 500
+
+expect "#"
+send "mount /dev/vda /root && chroot root bash\n"
+
+
+expect "#" 
+send "\n\n./apache_server.sh \n"
+
+
+expect {
+    "directive globally to suppress this message" {
+    }
+
+    timeout {
+        exit -1
+    }
+}
+
+sleep 2
+
+send "\x01"; send "d"
+
+expect "laputa"
+
+spawn bash  -c "screen -r host"
+
+expect "laputa"
+
+send "ab -c 1 -n 1 http://192.168.254.3/ \n"
+
+expect "Transfer rate"
+
+send "\x01"; send "d"
+
+spawn bash  -c "screen -r virt"
+
+expect "#"
+
+send "./mount_dev.sh && ./apache_kill.sh && ./memcached_server.sh \n"
+
+expect "#"
+
+sleep 3
+
+send "\x01"; send "d"
+
+expect "laputa"
+
+spawn bash  -c "screen -r host"
+
+expect "laputa"
+
+send "memcslap --concurrency=1 --servers=192.168.254.3:11211 \n"
+
+expect {
+    "Failure" {
+	puts "Test Failed"
+	exit -1
+    }
+
+    "seconds to load data" {
+
+    }
+
+}
+
+puts "Test OK"

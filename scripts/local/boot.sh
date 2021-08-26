@@ -2,9 +2,9 @@
 
 if [ ${USER}1 == gitlab-runner1 ]; then
     # for CI environment
-    PREPARE="$HOME/prepare"
+    PREPARE=${PREPARE:-"${HOME}/prepare"}
 else
-    PREPARE="./prepare"
+    PREPARE=${PREPARE:-"./prepare"}
 fi
 
 if ! [ -e /sys/class/net/br0 ]; then
@@ -20,15 +20,15 @@ if ! [ -e /sys/class/net/tap0 ]; then
     sudo ip link set dev tap0 up
 fi
 
-MACADDR=66:22:33:44:55:00
+MACADDR=66:22:33:44:55:11
 ROMFILE=./qemu-laputa/pc-bios/efi-virtio.rom
 #ROMFILE=./qemu-laputa/pc-bios/efi-e1000e.rom
 
 ./qemu-laputa/build/riscv64-softmmu/qemu-system-riscv64 \
     -nographic \
     -cpu rv64,x-h=true,x-z=true \
-    -smp 4 \
-    -m 8G \
+    -smp 8 \
+    -m 16G \
     -machine virt \
     -bios ./opensbi-laputa/build/platform/generic/firmware/fw_jump.elf \
     -kernel ./linux-laputa/arch/riscv/boot/Image \

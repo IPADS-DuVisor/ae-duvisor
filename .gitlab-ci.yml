@@ -11,6 +11,9 @@ laputa_test:
         - ./scripts/local/build_opensbi.sh
         - ./scripts/local/copy_laputa_to_vm.sh
         - ./scripts/expect_wrapper.sh ./scripts/local/laputa_test.exp
+        - ./scripts/local/copy_laputa_to_vm.sh release
+        - ./scripts/expect_wrapper.sh ./scripts/local/laputa_test_standalone.exp
+        - ./scripts/local/laputa_test_network.sh
     only:
         - merge_requests
         - schedules
