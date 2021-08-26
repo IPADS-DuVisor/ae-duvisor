@@ -6,6 +6,9 @@ use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::ioctl::ioctl_constants::*;
 use error_code::*;
 use sbi_number::*;
+use sbi_test::*;
+use crate::init::cmdline::MAX_VCPU;
+use std::sync::atomic::Ordering;
 
 pub mod sbi_number {
     pub const SBI_EXT_0_1_SET_TIMER: u64 = 0x0;
@@ -17,6 +20,18 @@ pub mod sbi_number {
     pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA: u64 = 0x6;
     pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID: u64 = 0x7;
     pub const SBI_EXT_0_1_SHUTDOWN: u64 = 0x8;
+}
+
+/*
+ * SBI introduced for evaluation, test cases of this project.
+ * The SBI extension space is 0xC000000-0xCFFFFFF
+ */
+pub mod sbi_test {
+    pub const SBI_TEST_SPACE_START: u64 = 0xC000000;
+    pub const SBI_TEST_SPACE_END: u64 = 0xCFFFFFF;
+    
+    pub const SBI_TEST_HU_USER_IPI: u64 = 0xC000000;
+    pub const SBI_TEST_HU_VIRTUAL_IPI: u64 = 0xC000001;
 }
 
 #[allow(unused)]
@@ -106,8 +121,21 @@ impl Ecall {
                 ret = self.unsupported_sbi();
             },
             SBI_EXT_0_1_SEND_IPI => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
-                ret = self.unsupported_sbi();
+                let hart_mask = self.get_hart_mask(self.arg[0]);
+                let mut vipi_id: u64;
+                for i in 0..MAX_VCPU {
+                    if ((1 << i) & hart_mask) != 0 {
+                        vipi_id = vcpu.vipi.id_map[i as usize]
+                            .load(Ordering::SeqCst);
+                        if vcpu.irqchip.get().unwrap().trigger_soft_irq(i) {
+                            vcpu.vipi.send_uipi(vipi_id);
+                        }
+                    }
+                }
+                dbgprintln!("hart mask 0x{:x}", hart_mask);
+                dbgprintln!("{} send ipi ...", vcpu.vcpu_id);
+
+                ret = 0;
             },
             SBI_EXT_0_1_SHUTDOWN => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
@@ -139,6 +167,28 @@ impl Ecall {
         }
 
         ret
+    }
+
+    /* Get hart_mask from guest memory by the address in a0 */
+    fn get_hart_mask(&self, target_address: u64) -> u64 {
+        let a0 = target_address;
+        let hart_mask: u64;
+
+        unsafe {
+            asm!(
+                ".option push",
+                ".option norvc",
+
+                /* HULVX.HU t0, (t2) */
+                ".word 0x6c03c2f3",
+
+                /* HULVX.HU t1, (t2) */
+                out("t0") hart_mask,
+                in("t2") a0,
+            );
+        }
+
+        return hart_mask;
     }
 
     fn console_putchar(&mut self) -> i32{

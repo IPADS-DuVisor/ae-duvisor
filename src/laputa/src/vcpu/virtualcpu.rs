@@ -14,9 +14,7 @@ use crate::vcpu::utils::*;
 use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
 use crate::irq::vipi::VirtualIpi;
-use crate::plat::opensbi::emulation::sbi_number::*;
 use std::sync::atomic::{AtomicBool, Ordering};
-use crate::init::cmdline::MAX_VCPU;
 use std::thread;
 use atomic_enum::*;
 
@@ -547,27 +545,6 @@ impl VirtualCpu {
         ret
     }
 
-    fn get_hart_mask(&self, target_address: u64) -> u64 {
-        let a0 = target_address;
-        let hart_mask: u64;
-
-        unsafe {
-            asm!(
-                ".option push",
-                ".option norvc",
-
-                /* HULVX.HU t0, (t2) */
-                ".word 0x6c03c2f3",
-
-                /* HULVX.HU t1, (t2) */
-                out("t0") hart_mask,
-                in("t2") a0,
-            );
-        }
-
-        return hart_mask;
-    }
-
     fn handle_supervisor_ecall(&self, vcpu_ctx: &mut VcpuCtx) -> i32 {
         let ret: i32;
         let a0 = vcpu_ctx.guest_ctx.gp_regs.x_reg[10]; /* A0: 0th arg/ret 1 */
@@ -607,26 +584,6 @@ impl VirtualCpu {
         /* Save the result */
         vcpu_ctx.guest_ctx.gp_regs.x_reg[10] = target_ecall.ret[0];
         vcpu_ctx.guest_ctx.gp_regs.x_reg[11] = target_ecall.ret[1];
-
-        if a7 == SBI_EXT_0_1_SEND_IPI {
-            let hart_mask = self.get_hart_mask(a0);
-            let mut vipi_id: u64;
-            for i in 0..MAX_VCPU {
-                if ((1 << i) & hart_mask) != 0 {
-                    vipi_id = self.vipi.id_map[i as usize]
-                        .load(Ordering::SeqCst);
-                    dbgprintln!("Setting VIPI {} --> {}", 
-                        self.vcpu_id, vipi_id - 1);
-                    if self.irqchip.get().unwrap().trigger_soft_irq(i) {
-                        dbgprintln!("\t\tSending UIPI {} --> {}",
-                            self.vcpu_id, vipi_id - 1);
-                        self.vipi.send_uipi(vipi_id);
-                    }
-                }
-            }
-            dbgprintln!("hart mask 0x{:x}", hart_mask);
-            dbgprintln!("{} send ipi ...", self.vcpu_id);
-        }
 
         /* Add uepc to start vm on next instruction */
         vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
@@ -759,8 +716,7 @@ impl VirtualCpu {
             }
             self.is_running.store(false, Ordering::SeqCst);
 
-            /* FIXME: why KVM need this? */
-            //self.virq.sync_pending_irq();
+            /* FIXME: why KVM need sync_pending_irq() here? */
 
             ret = self.handle_vcpu_exit(&mut *vcpu_ctx);
         }
