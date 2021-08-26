@@ -29,7 +29,10 @@ pub mod gsmmu_constants {
     pub const PTE_USER: u64 = 1u64 << 4;
     pub const PTE_GLOBAL: u64 = 1u64 << 5;
     pub const PTE_ACCESS: u64 = 1u64 << 6;
-    pub const PTE_DIRTY: u64 = 1u64 << 6;
+    pub const PTE_DIRTY: u64 = 1u64 << 7;
+
+    pub const PTE_VRWEU: u64 
+        = PTE_VALID | PTE_READ | PTE_WRITE | PTE_EXECUTE | PTE_USER;
 
     pub const PTE_PPN_SHIFT: u64 = 10;
 }
@@ -341,38 +344,10 @@ impl GStageMmu {
         let pt_level: u64 = (S2PT_MODE - 1) as u64;
 
         if level == pt_level {
-            pte = pte | PTE_VALID;
-
-                if (flag & PTE_READ) != 0 {
-                    pte = pte | PTE_READ;
-                }
-
-                if (flag & PTE_WRITE) != 0 {
-                    pte = pte | PTE_WRITE;
-                }
-
-                if (flag & PTE_EXECUTE) != 0 {
-                    pte = pte | PTE_EXECUTE;
-                }
-                
-                if (flag & PTE_USER) != 0 {
-                    pte = pte | PTE_USER;
-                }
-
-                if (flag & PTE_GLOBAL) != 0 {
-                    pte = pte | PTE_GLOBAL;
-                }
-
-                if (flag & PTE_ACCESS) != 0 {
-                    pte = pte | PTE_ACCESS;
-                }
-
-                if (flag & PTE_DIRTY) != 0 {
-                    pte = pte | PTE_DIRTY;
-                }
-        } else {
-            pte = pte | PTE_VALID;
+            pte = flag;
         }
+
+        pte = pte | PTE_VALID;
 
         pte
     }

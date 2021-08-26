@@ -459,7 +459,9 @@ impl VirtualCpu {
 
         /* Map query */
         let query = gsmmu.map_query(fault_addr);
-        if query.is_some() {
+        if query.is_none() {
+            ret = ENOMAPPING;
+        } else {
             let i = query.unwrap();
 
             dbgprintln!("Query PTE offset {}, value {}, level {}", i.offset, 
@@ -488,9 +490,8 @@ impl VirtualCpu {
 
                 ret = ENOMAPPING;
             }
-        } else {
-            ret = ENOMAPPING;
         }
+
         match ret {
             ENOMAPPING => {
                 dbgprintln!("Query return ENOMAPPING: {}", ret);
@@ -505,8 +506,7 @@ impl VirtualCpu {
                     if res.is_ok() {
                         /* Map new page to VM if the region exists */
                         let (hva, hpa) = res.unwrap();
-                        let flag: u64 = PTE_USER | PTE_VALID | PTE_READ 
-                            | PTE_WRITE | PTE_EXECUTE;
+                        let flag: u64 = PTE_VRWEU;
 
                         gsmmu.map_page(fault_addr, hpa, flag);
 
@@ -520,10 +520,8 @@ impl VirtualCpu {
                     }
                 } else {
                     /* Fault gpa is already in a gpa_block and it is valid */
-                    let fault_hva = fault_addr_query.unwrap().0;
-                    let fault_hpa = fault_addr_query.unwrap().1;
-                    let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
-                        | PTE_EXECUTE;
+                    let (fault_hva, fault_hpa) = fault_addr_query.unwrap();
+                    let flag: u64 = PTE_VRWEU;
                         
                     dbgprintln!("map gpa: {:x} to hpa: {:x}",
                         fault_addr, fault_hpa);
@@ -747,8 +745,10 @@ impl VirtualCpu {
         
         let mut ret: i32 = 0;
         while ret == 0 {
-            /* Insert or clear tty irq on each vtimer irq */
-            self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
+            if self.vcpu_id == 1 {
+                /* Insert or clear tty irq on each vtimer irq */
+                self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
+            }
 
             /* Flush pending irqs into HUVIP */
             self.virq.flush_pending_irq();
