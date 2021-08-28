@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 #[allow(unused)]
 use crate::vcpu::utils::*;
 use crate::vcpu::virtualcpu::SEND_UIPI_CNT;
+use crate::mm::utils::dbgprintln;
 
 #[allow(unused)]
 pub struct VirtualIpi {
@@ -169,7 +170,6 @@ pub mod tests {
             }
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
-            //vm_config.vcpu_count = 2;
             let elf_path: &str = "./tests/integration/vipi_user_ipi_remote.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
@@ -181,14 +181,10 @@ pub mod tests {
 
             vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                     = entry_point;
-            //vm.vcpus[1].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
-            //        = entry_point;
 
             /* Set a0 = vcpu_id */
             vm.vcpus[0].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10]
                 = vm.vcpus[0].vcpu_id as u64;
-            //vm.vcpus[1].vcpu_ctx.lock().unwrap().guest_ctx.gp_regs.x_reg[10]
-            //    = vm.vcpus[1].vcpu_id as u64;
 
             /* Set target address for sync */
             /* Target address will be set with 0x1 if the vcpu is ready */
@@ -239,7 +235,6 @@ pub mod tests {
                     println!("target_vipi_id: {}", target_vipi_id);
 
                     /* Send user ipi via VIPI0_CSR */
-                    //csrs!(VIPI0, 1 << target_vipi_id);
                     VirtualIpi::set_vipi(target_vipi_id);
 
                     /*
