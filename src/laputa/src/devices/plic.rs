@@ -3,6 +3,7 @@ use std::sync::{Arc, Weak, Mutex, RwLock};
 use std::sync::atomic::Ordering;
 use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
+use crate::irq::vipi::VirtualIpi;
 use crate::vcpu::utils::*;
 use crate::irq::delegation::delegation_constants::*;
 
@@ -162,9 +163,11 @@ impl Plic {
                 let vipi_id = vcpu.vipi.id_map[vcpu.vcpu_id as usize]
                     .load(Ordering::SeqCst);
 
-                unsafe {
+                VirtualIpi::set_vipi(vipi_id);
+
+                /* unsafe {
                     csrs!(VIPI0, 1 << vipi_id);
-                }
+                } */
             }
         }
     }

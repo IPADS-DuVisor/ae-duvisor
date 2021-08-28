@@ -606,7 +606,6 @@ impl VirtualCpu {
 
         unsafe {
             VirtualIpi::clear_vipi(vipi_id);
-            //csrc!(VIPI0, 1 << vipi_id);
             csrc!(HUIP, 1 << IRQ_U_SOFT);
             GET_UIPI_CNT += 1;
             dbgprintln!("SEND: {}, GET: {}", SEND_UIPI_CNT, GET_UIPI_CNT);

@@ -82,6 +82,42 @@ impl VirtualIpi {
         }
     }
 
+    pub fn set_vipi(vipi_id: u64) {
+        match vipi_id {
+            1..=63 => { /* Set VIPI0 */
+                println!("VIPI 0 SET");
+                unsafe {
+                    csrs!(VIPI0, 1 << vipi_id);
+                    SEND_UIPI_CNT += 1;
+                }
+            },
+            64..=127 => { /* Set VIPI1 */
+                println!("VIPI 1 SET");
+                unsafe {
+                    csrs!(VIPI1, 1 << (vipi_id - 64));
+                    SEND_UIPI_CNT += 1;
+                }
+            },
+            128..=191 => { /* Set VIPI2 */
+                println!("VIPI 2 SET");
+                unsafe {
+                    csrs!(VIPI2, 1 << (vipi_id - 128));
+                    SEND_UIPI_CNT += 1;
+                }
+            },
+            192..=255 => { /* Set VIPI3 */
+                println!("VIPI 3 SET");
+                unsafe {
+                    csrs!(VIPI3, 1 << (vipi_id - 192));
+                    SEND_UIPI_CNT += 1;
+                }
+            },
+            _ => {
+                println!("Invalid vipi id ! {}", vipi_id);
+            },
+        }
+    }
+
     pub fn clear_vipi(vipi_id: u64) {
         match vipi_id {
             1..=63 => { /* Clear VIPI0 */
@@ -121,6 +157,7 @@ pub mod tests {
     use crate::mm::utils::*;
     use crate::vcpu::utils::*;
     use crate::vcpu::virtualcpu::GET_UIPI_CNT;
+    use crate::irq::vipi::VirtualIpi;
     use crate::init::cmdline::MAX_VCPU;
 
     pub static mut HU_IPI_CNT: i32 = 0;
@@ -209,7 +246,8 @@ pub mod tests {
                     println!("target_vipi_id: {}", target_vipi_id);
 
                     /* Send user ipi via VIPI0_CSR */
-                    csrs!(VIPI0, 1 << target_vipi_id);
+                    //csrs!(VIPI0, 1 << target_vipi_id);
+                    VirtualIpi::set_vipi(target_vipi_id);
 
                     /*
                      * Set *0x3000 = 2 to drive the vcpu continue to end. 
@@ -317,7 +355,8 @@ pub mod tests {
                      * Send user ipi via VIPI0_CSR before change the
                      * sync data.
                      */
-                    csrs!(VIPI0, 1 << target_vipi_id);
+                    //csrs!(VIPI0, 1 << target_vipi_id);
+                    VirtualIpi::set_vipi(target_vipi_id);
 
                     /* 
                      * Set *0x3000 = 2 to drive the vcpu continue to end. 
@@ -345,7 +384,7 @@ pub mod tests {
             assert_eq!(1, u_ipi_cnt);
         }
 
-        /* #[test]
+        #[test]
         fn test_vipi_virtual_ipi_local() {
             unsafe {
                 println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
@@ -372,7 +411,7 @@ pub mod tests {
             vm.vm_destroy();
 
             /* This test case is passed if the vm_run can bypass the loop */
-        } */
+        }
 
         #[test]
         fn test_vipi_virtual_ipi_remote_running() { 
