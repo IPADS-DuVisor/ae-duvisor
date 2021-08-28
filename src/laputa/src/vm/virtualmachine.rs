@@ -58,16 +58,16 @@ extern "C"
 
 /* Export to vcpu */
 pub struct VmSharedState {
-    pub vm_id: u32,
+    pub vm_id: u64,
     pub ioctl_fd: i32,
     pub gsmmu: Mutex<gstagemmu::GStageMmu>,
 }
 
 impl VmSharedState {
-    pub fn new(ioctl_fd: i32, mem_size: u64, mmio_regions: Vec<GpaRegion>)
+    pub fn new(ioctl_fd: i32, mem_size: u64, mmio_regions: Vec<GpaRegion>, vm_id: u64)
         -> Self {
         Self {
-            vm_id: 0,
+            vm_id,
             ioctl_fd,
             gsmmu: Mutex::new(
                     gstagemmu::GStageMmu::new(
@@ -179,7 +179,14 @@ impl VirtualMachine {
         /* Get ioctl fd of "/dev/laputa_dev" */
         let ioctl_fd = VirtualMachine::open_ioctl();
 
-        let vm_state = Arc::new(VmSharedState::new(ioctl_fd, mem_size, mmio_regions));
+        let vmid: u64 = 0;
+
+        unsafe {
+            let vmid_ptr = (&vmid) as *const u64;
+            libc::ioctl(ioctl_fd, IOCTL_LAPUTA_GET_VMID, vmid_ptr);
+        }
+
+        let vm_state = Arc::new(VmSharedState::new(ioctl_fd, mem_size, mmio_regions, vmid));
         let console = Arc::new(Mutex::new(tty));
 
         let vipi = VirtualIpi::new(vcpu_num);

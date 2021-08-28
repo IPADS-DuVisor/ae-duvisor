@@ -17,6 +17,7 @@ use crate::irq::vipi::VirtualIpi;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use atomic_enum::*;
+use crate::init::cmdline::MAX_VCPU;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -608,7 +609,7 @@ impl VirtualCpu {
             csrc!(HUIP, 1 << IRQ_U_SOFT);
             GET_UIPI_CNT += 1;
             dbgprintln!("SEND: {}, GET: {}", SEND_UIPI_CNT, GET_UIPI_CNT);
-            println!("vcpu {}, vipi id {}", vcpu_id, unsafe {csrr!(VCPUID)});
+            //println!("vcpu {}, vipi id {}", vcpu_id, unsafe {csrr!(VCPUID)});
         }
 
         return 0;
@@ -682,7 +683,9 @@ impl VirtualCpu {
 
         self.config_hustatus(&mut *vcpu_ctx);
 
-        self.vipi.vcpu_regist(self.vcpu_id, (self.vcpu_id + 1) as u64);
+        let vmid: u64 = self.vm.vm_id;
+        let vipi_id: u64 = vmid * (MAX_VCPU as u64) + 1;
+        self.vipi.vcpu_regist(self.vcpu_id, vipi_id);
 
         unsafe {
             /* Register vcpu thread to the kernel */

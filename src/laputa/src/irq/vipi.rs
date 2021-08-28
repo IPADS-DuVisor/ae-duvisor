@@ -48,13 +48,34 @@ impl VirtualIpi {
 
     // TODO: use one VIPI csr for now
     pub fn send_uipi(&self, vipi_id: u64) {
-        if vipi_id < 64 {
-            unsafe {
-                csrs!(VIPI0, 1 << vipi_id);
-                SEND_UIPI_CNT += 1;
-            }
-        } else {
-            println!("Invalid vipi id");
+        match vipi_id {
+            1..=63 => { /* Set VIPI0 */
+                unsafe {
+                    csrs!(VIPI0, 1 << vipi_id);
+                    SEND_UIPI_CNT += 1;
+                }
+            },
+            64..=127 => { /* Set VIPI1 */
+                unsafe {
+                    csrs!(VIPI1, 1 << (vipi_id - 64));
+                    SEND_UIPI_CNT += 1;
+                }
+            },
+            128..=191 => { /* Set VIPI2 */
+                unsafe {
+                    csrs!(VIPI2, 1 << (vipi_id - 128));
+                    SEND_UIPI_CNT += 1;
+                }
+            },
+            192..=255 => { /* Set VIPI3 */
+                unsafe {
+                    csrs!(VIPI3, 1 << (vipi_id - 192));
+                    SEND_UIPI_CNT += 1;
+                }
+            },
+            _ => {
+                println!("Invalid vipi id ! {}", vipi_id);
+            },
         }
     }
 }

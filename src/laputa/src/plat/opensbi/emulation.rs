@@ -152,9 +152,9 @@ impl Ecall {
                 ret = self.unsupported_sbi();
             },
             SBI_EXT_0_1_SEND_IPI => {
-                println!("ready to hart mask");
+                dbgprintln!("ready to hart mask");
                 let hart_mask = self.get_hart_mask(self.arg[0]);
-                println!("finish hart mask");
+                dbgprintln!("finish hart mask");
 
                 let mut vipi_id: u64;
                 for i in 0..MAX_VCPU {
@@ -318,7 +318,7 @@ impl Ecall {
     fn get_hart_mask(&self, target_address: u64) -> u64 {
         let a0 = target_address;
         let hart_mask: u64;
-        println!("a0 = 0x{:x}", a0);
+        dbgprintln!("get_hart_mask a0 = 0x{:x}", a0);
         unsafe {
             asm!(
                 ".option push",
@@ -332,7 +332,6 @@ impl Ecall {
                 in("t2") a0,
             );
         }
-        println!("get hart mask");
 
         return hart_mask;
     }
