@@ -13,6 +13,7 @@ laputa_test:
         - ./scripts/expect_wrapper.sh ./scripts/local/laputa_test.exp
         - ./scripts/local/copy_laputa_to_vm.sh release
         - ./scripts/expect_wrapper.sh ./scripts/local/laputa_test_standalone.exp
+        - sleep 5
         - ./scripts/local/laputa_test_network.sh
     only:
         - merge_requests
