@@ -49,28 +49,24 @@ impl VirtualIpi {
     pub fn send_uipi(&self, vipi_id: u64) {
         match vipi_id {
             1..=63 => { /* Set VIPI0 */
-                println!("VIPI 0 SET");
                 unsafe {
                     csrs!(VIPI0, 1 << vipi_id);
                     SEND_UIPI_CNT += 1;
                 }
             },
             64..=127 => { /* Set VIPI1 */
-                println!("VIPI 1 SET");
                 unsafe {
                     csrs!(VIPI1, 1 << (vipi_id - 64));
                     SEND_UIPI_CNT += 1;
                 }
             },
             128..=191 => { /* Set VIPI2 */
-                println!("VIPI 2 SET");
                 unsafe {
                     csrs!(VIPI2, 1 << (vipi_id - 128));
                     SEND_UIPI_CNT += 1;
                 }
             },
             192..=255 => { /* Set VIPI3 */
-                println!("VIPI 3 SET");
                 unsafe {
                     csrs!(VIPI3, 1 << (vipi_id - 192));
                     SEND_UIPI_CNT += 1;
@@ -85,28 +81,24 @@ impl VirtualIpi {
     pub fn set_vipi(vipi_id: u64) {
         match vipi_id {
             1..=63 => { /* Set VIPI0 */
-                println!("VIPI 0 SET");
                 unsafe {
                     csrs!(VIPI0, 1 << vipi_id);
                     SEND_UIPI_CNT += 1;
                 }
             },
             64..=127 => { /* Set VIPI1 */
-                println!("VIPI 1 SET");
                 unsafe {
                     csrs!(VIPI1, 1 << (vipi_id - 64));
                     SEND_UIPI_CNT += 1;
                 }
             },
             128..=191 => { /* Set VIPI2 */
-                println!("VIPI 2 SET");
                 unsafe {
                     csrs!(VIPI2, 1 << (vipi_id - 128));
                     SEND_UIPI_CNT += 1;
                 }
             },
             192..=255 => { /* Set VIPI3 */
-                println!("VIPI 3 SET");
                 unsafe {
                     csrs!(VIPI3, 1 << (vipi_id - 192));
                     SEND_UIPI_CNT += 1;
@@ -276,14 +268,14 @@ pub mod tests {
         }
 
         #[test]
-        fn test_vipi_user_ipi_remote1() { 
+        fn test_vipi_user_ipi_remote_multi() { 
             unsafe {
                 println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
             }
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
             vm_config.vcpu_count = 2;
-            let elf_path: &str = "./tests/integration/vipi_user_ipi_remote1.img";
+            let elf_path: &str = "./tests/integration/vipi_user_ipi_remote_multi.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 

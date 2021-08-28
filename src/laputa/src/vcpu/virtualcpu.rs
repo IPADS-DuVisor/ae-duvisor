@@ -571,8 +571,6 @@ impl VirtualCpu {
         
             return ret as i32;
         }
-
-        //println!("vcpu {}, vipi id {}", self.vcpu_id, unsafe {csrr!(VCPUID)});
         
         let mut target_ecall = opensbi::emulation::Ecall::new();
         target_ecall.ext_id = a7;
@@ -609,7 +607,7 @@ impl VirtualCpu {
             csrc!(HUIP, 1 << IRQ_U_SOFT);
             GET_UIPI_CNT += 1;
             dbgprintln!("SEND: {}, GET: {}", SEND_UIPI_CNT, GET_UIPI_CNT);
-            println!("vcpu {}, vipi id {}", vcpu_id, unsafe {csrr!(VCPUID)});
+            dbgprintln!("vcpu {}, vipi id {}", vcpu_id, unsafe {csrr!(VCPUID)});
         }
 
         return 0;
