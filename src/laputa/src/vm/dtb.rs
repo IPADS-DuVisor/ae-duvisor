@@ -81,7 +81,7 @@ impl MachineMeta {
         if item.name().unwrap().contains("address-cells") {
             self.address_cells.pop();
             self.address_cells.push(item.value_u32_list(&mut file_data).unwrap()[0]);
-            dbgprintln!("match address-cells {:?}", self.address_cells);
+            //dbgprintln!("match address-cells {:?}", self.address_cells);
             return;
         }
 
@@ -89,7 +89,7 @@ impl MachineMeta {
         if item.name().unwrap().contains("size-cells") {
             self.size_cells.pop();
             self.size_cells.push(item.value_u32_list(&mut file_data).unwrap()[0]);
-            dbgprintln!("match size-cells {:?}", self.size_cells);
+            //dbgprintln!("match size-cells {:?}", self.size_cells);
             return;
         }
 
@@ -106,13 +106,13 @@ impl MachineMeta {
             size_cells = self.size_cells[sc_len - 2];
         }
 
-        dbgprintln!("cells {} {}", address_cells, size_cells);
+        //dbgprintln!("cells {} {}", address_cells, size_cells);
 
         for i in node_path {
             for j in DTB_TARGET_PROP.iter() {
                 if i.contains(j) {
                     match_flag = true;
-                    dbgprintln!("find {} in {}", j, i);
+                    //dbgprintln!("find {} in {}", j, i);
                     prop = j;
                     break;
                 }
@@ -126,46 +126,46 @@ impl MachineMeta {
         let prop_name = item.name().unwrap();
         match prop {
             "memory" => {
-                dbgprintln!("match memory");
+                //dbgprintln!("match memory");
                 /* Add bus region for memory */
                 if  prop_name == "reg" {
                     let values = item.value_u32_list(&mut file_data).unwrap();
-                    dbgprintln!("MEMORY REG {:x?}", values);
+                    //dbgprintln!("MEMORY REG {:x?}", values);
                     self.memory_parse(values, address_cells, size_cells);
                 }
             },
             "soc" => {
-                dbgprintln!("match soc");
+                //dbgprintln!("match soc");
 
                 if  prop_name == "reg" && node_path.len() == 3 {
                     let values = item.value_u32_list(&mut file_data).unwrap();
-                    dbgprintln!("SOC REG {:x?}", values);
+                    //dbgprintln!("SOC REG {:x?}", values);
                     self.soc_parse(values, address_cells, size_cells);
                 }
             },
             "chosen" => {
-                dbgprintln!("match chosen");
+                //dbgprintln!("match chosen");
 
                 if  prop_name == "linux,initrd-start" && node_path.len() == 2 {
                     let values = item.value_u32_list(&mut file_data).unwrap();
-                    dbgprintln!("INITRD REG {:x?}", values);
+                    //dbgprintln!("INITRD REG {:x?}", values);
                     self.initrd_parse(values, address_cells, size_cells, MachineMeta::INITRD_START);
                 }
 
                 if  prop_name == "linux,initrd-end" && node_path.len() == 2 {
                     let values = item.value_u32_list(&mut file_data).unwrap();
-                    dbgprintln!("INITRD REG {:x?}", values);
+                    //dbgprintln!("INITRD REG {:x?}", values);
                     self.initrd_parse(values, address_cells, size_cells, MachineMeta::INITRD_END);
                 }
             }
             _ => {
-                dbgprintln!("match nothing");
+                //dbgprintln!("match nothing");
             },
         }
     }
 
     pub fn soc_parse(&mut self, value_u32_list: &[u32], address_cells: u32, size_cells: u32) {
-        dbgprintln!("soc_parse {} {} {:x?}", address_cells, size_cells, value_u32_list);
+        //dbgprintln!("soc_parse {} {} {:x?}", address_cells, size_cells, value_u32_list);
         let len = value_u32_list.len() as u32;
         let t = address_cells + size_cells;
         let cycle: u32 = len / t;
@@ -189,7 +189,7 @@ impl MachineMeta {
 
             /* Add memory region */
             self.soc_regions.push(BusRegion::new(offset, size));
-            dbgprintln!("add soc region {:x} {:x}", offset, size);
+            //dbgprintln!("add soc region {:x} {:x}", offset, size);
         }
     }
 
@@ -207,7 +207,7 @@ impl MachineMeta {
             prop_value = (prop_value << 32) + (value_u32_list[i as usize] as u64);
         }
 
-        dbgprintln!("initrd_parse - prop_value 0x{:x}", prop_value);
+        //dbgprintln!("initrd_parse - prop_value 0x{:x}", prop_value);
 
         if value_type == MachineMeta::INITRD_START {
             self.initrd_region.start = prop_value;
@@ -217,7 +217,7 @@ impl MachineMeta {
     }
 
     pub fn memory_parse(&mut self, value_u32_list: &[u32], address_cells: u32, size_cells: u32) {
-        dbgprintln!("memory_parse {:x?}", value_u32_list);
+        //dbgprintln!("memory_parse {:x?}", value_u32_list);
         let len = value_u32_list.len() as u32;
         let t = address_cells + size_cells;
         let cycle: u32 = len / t;
@@ -241,7 +241,7 @@ impl MachineMeta {
 
             /* Add memory region */
             self.memory_regions.push(BusRegion::new(offset, size));
-            dbgprintln!("add memory region {:x} {:x}", offset, size);
+            //dbgprintln!("add memory region {:x} {:x}", offset, size);
         }
     }
 }
@@ -263,7 +263,7 @@ impl DeviceTree {
         let file_data = res.unwrap();
         let dtb_reader: dtb::Reader = dtb::Reader::read(file_data.as_slice()).unwrap();
 
-        dbgprintln!("dtb_reader success");
+        //dbgprintln!("dtb_reader success");
 
         let root = dtb_reader.struct_items();
 
@@ -275,7 +275,7 @@ impl DeviceTree {
         for i in root {
             if i.name().is_err() {
                 /* Endnode */
-                dbgprintln!("Endnode or error");
+                //dbgprintln!("Endnode or error");
                 node_path.pop();
                 meta_data.address_cells.pop();
                 meta_data.size_cells.pop();
@@ -288,7 +288,7 @@ impl DeviceTree {
                 } else {
                     /* Node */
                     node_path.push(name);
-                    dbgprintln!("Node name: {:?}, name: {}", node_path, name);
+                    //dbgprintln!("Node name: {:?}, name: {}", node_path, name);
 
                     /* A client should assume a default value of 2 for  */
                     /* #address-cells and a value of 1 for #size-cells */

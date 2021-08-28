@@ -9,6 +9,17 @@ use sbi_number::*;
 use sbi_test::*;
 use crate::init::cmdline::MAX_VCPU;
 use std::sync::atomic::Ordering;
+use std::{thread, time};
+use std::sync::Mutex;
+
+#[cfg(test)]
+use crate::irq::vipi::tests::HU_IPI_CNT;
+
+#[cfg(test)]
+use crate::irq::vipi::tests::TEST_SUCCESS_CNT;
+
+#[cfg(test)]
+use crate::irq::vipi::tests::INVALID_TARGET_VCPU;
 
 pub mod sbi_number {
     pub const SBI_EXT_0_1_SET_TIMER: u64 = 0x0;
@@ -24,6 +35,7 @@ pub mod sbi_number {
 
 /*
  * SBI introduced for evaluation, test cases of this project.
+ * Extension name: ULH Extension
  * The SBI extension space is 0xC000000-0xCFFFFFF
  */
 pub mod sbi_test {
@@ -32,6 +44,25 @@ pub mod sbi_test {
     
     pub const SBI_TEST_HU_USER_IPI: u64 = 0xC000000;
     pub const SBI_TEST_HU_VIRTUAL_IPI: u64 = 0xC000001;
+
+    /* Get vcpu id to perform different logic */
+    pub const SBI_TEST_GET_VCPU_ID: u64 = 0xC000002;
+
+    /* Sync for multi vcpu threads */
+    pub const SBI_TEST_SYNC_WAIT: u64 = 0xC000003;
+    pub const SBI_TEST_SYNC_SET: u64 = 0xC000004;
+
+    /* Timing for evaluation */
+    pub const SBI_TEST_TIME_START: u64 = 0xC000005;
+    pub const SBI_TEST_TIME_END: u64 = 0xC000006;
+
+    /* Test result */
+    pub const SBI_TEST_SUCCESS: u64 = 0xC000007;
+    pub const SBI_TEST_FAILED: u64 = 0xC000008;
+
+    /* Loop in HU-mode */
+    pub const SBI_TEST_HU_LOOP : u64 = 0xC100000;
+
 }
 
 #[allow(unused)]
@@ -121,10 +152,23 @@ impl Ecall {
                 ret = self.unsupported_sbi();
             },
             SBI_EXT_0_1_SEND_IPI => {
+                println!("ready to hart mask");
                 let hart_mask = self.get_hart_mask(self.arg[0]);
+                println!("finish hart mask");
+
                 let mut vipi_id: u64;
                 for i in 0..MAX_VCPU {
                     if ((1 << i) & hart_mask) != 0 {
+                        /* Check whether the target vcpu is valid */
+                        if i >= vcpu.vipi.vcpu_num {
+                            /* Invalid target */
+                            #[cfg(test)]
+                            unsafe {
+                                INVALID_TARGET_VCPU += 1;
+                            }
+
+                            continue;
+                        }
                         vipi_id = vcpu.vipi.id_map[i as usize]
                             .load(Ordering::SeqCst);
                         if vcpu.irqchip.get().unwrap().trigger_soft_irq(i) {
@@ -160,6 +204,9 @@ impl Ecall {
                 }
                 ret = 0;
             },
+            SBI_TEST_SPACE_START..=SBI_TEST_SPACE_END => { /* ULH Extension */
+                ret = self.ulh_extension_emulation(vcpu);
+            },
             _ => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
                 ret = self.unsupported_sbi();
@@ -169,11 +216,109 @@ impl Ecall {
         ret
     }
 
+    fn ulh_extension_emulation(&mut self, vcpu: &VirtualCpu) -> i32{
+        let ext_id = self.ext_id;
+        let ret: i32;
+
+        /* static for test */
+        static mut SYNC_MUTEX: u64 = 0;
+        //static mut SYNC_MUTEX: Mutex<u64> = Mutex::new(0);
+
+        match ext_id {
+            SBI_TEST_SYNC_SET => {
+                unsafe {
+                    dbgprintln!("Mutex set!");
+                    SYNC_MUTEX += 1;
+                }
+            },
+            SBI_TEST_SYNC_WAIT => {
+                dbgprintln!("Try mutex!");
+                unsafe {
+                    while SYNC_MUTEX == 0 {
+                        let ten_millis = time::Duration::from_millis(10);
+
+                        thread::sleep(ten_millis);
+                    }
+                }
+                dbgprintln!("Mutex pass!");
+            },
+            SBI_TEST_GET_VCPU_ID => {
+                self.ret[0] = vcpu.vcpu_id as u64;
+            },
+            SBI_TEST_HU_USER_IPI => {
+                /*
+                 * a0: src vcpu id
+                 * a1: dst vcpu id
+                 * Return:
+                 * a0: vcpu id
+                 */
+                let src_vcpu_id = self.arg[0];
+
+                #[cfg(test)]
+                unsafe {
+                    HU_IPI_CNT += 1;
+                }
+
+                /* Vcpu 0 can control the test. */
+                if src_vcpu_id == 0 {
+                    dbgprintln!("Send 0 -> 1");
+                    vcpu.vipi.send_uipi(self.arg[0] + 1);
+                }
+            },
+            SBI_TEST_HU_VIRTUAL_IPI => {
+                /* Set vipi for the vcpu itself */
+                vcpu.irqchip.get().unwrap().trigger_soft_irq(vcpu.vcpu_id);
+            },
+            SBI_TEST_HU_LOOP => {
+                /* Keep the vcpu thread in HU-mode */
+
+                /* Get hva of the sync data and the end signal */
+                let target_hva: u64 = self.arg[1];
+                let start_signal = self.arg[2];
+                let end_signal = self.arg[3];
+                println!("target a1: 0x{:x}", target_hva);
+                println!("start signal a2: {}", start_signal);
+                println!("end signal a3: {}", end_signal);
+
+                unsafe {
+                    /* Set up the start signal */
+                    *(target_hva as *mut u64) = start_signal;
+
+                    /* Wait for the end signal */
+                    while *(target_hva as *mut u64) != end_signal {
+                        let ten_millis = time::Duration::from_millis(10);
+
+                        thread::sleep(ten_millis);
+                    }
+                }
+
+                println!("SBI_TEST_HU_LOOP end!");
+            },
+            SBI_TEST_SUCCESS => {
+                #[cfg(test)]
+                unsafe {
+                    TEST_SUCCESS_CNT += 1;
+                }
+
+                dbgprintln!("***SBI_TEST_SUCCESS vcpu: {}", vcpu.vcpu_id);
+            },
+            SBI_TEST_FAILED => {
+                dbgprintln!("SBI_TEST_FAILED {}", vcpu.vcpu_id);
+            },
+            _ => {
+                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                ret = self.unsupported_sbi();
+            },
+        }
+
+        0
+    }
+
     /* Get hart_mask from guest memory by the address in a0 */
     fn get_hart_mask(&self, target_address: u64) -> u64 {
         let a0 = target_address;
         let hart_mask: u64;
-
+        println!("a0 = 0x{:x}", a0);
         unsafe {
             asm!(
                 ".option push",
@@ -187,6 +332,7 @@ impl Ecall {
                 in("t2") a0,
             );
         }
+        println!("get hart mask");
 
         return hart_mask;
     }

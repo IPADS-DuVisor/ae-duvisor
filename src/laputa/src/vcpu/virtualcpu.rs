@@ -33,6 +33,9 @@ mod errno_constants {
 }
 pub use errno_constants::*;
 
+pub static mut SEND_UIPI_CNT: i64 = 0;
+pub static mut GET_UIPI_CNT: i64 = 0;
+
 mod inst_parsing_constants {
     pub const INST_OPCODE_MASK: u32 =   0x007c;
     pub const INST_OPCODE_SHIFT: u32 =  2;
@@ -560,10 +563,15 @@ impl VirtualCpu {
         if a7 == ECALL_VM_TEST_END {
             ret = 0xdead;
 
+            let vipi_id = unsafe {csrr!(VCPUID)};
+            println!("ECALL_VM_TEST_END vcpu: {}, vipi_id {}", self.vcpu_id, vipi_id);
+
             vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret as u64;
         
             return ret as i32;
         }
+
+        //println!("vcpu {}, vipi id {}", self.vcpu_id, unsafe {csrr!(VCPUID)});
         
         let mut target_ecall = opensbi::emulation::Ecall::new();
         target_ecall.ext_id = a7;
@@ -598,6 +606,9 @@ impl VirtualCpu {
         unsafe {
             csrc!(VIPI0, 1 << vipi_id);
             csrc!(HUIP, 1 << IRQ_U_SOFT);
+            GET_UIPI_CNT += 1;
+            dbgprintln!("SEND: {}, GET: {}", SEND_UIPI_CNT, GET_UIPI_CNT);
+            println!("vcpu {}, vipi id {}", vcpu_id, unsafe {csrr!(VCPUID)});
         }
 
         return 0;
@@ -987,7 +998,7 @@ mod tests {
                     version);
 
                 let addr = 0 as *mut libc::c_void;
-                let mmap_ptr = libc::mmap(addr, test_buf_size, 
+                let mmap_ptr = libc::mmap(addr, test_buf_size,
                     libc::PROT_READ | libc::PROT_WRITE, 
                     libc::MAP_SHARED, fd, 0);
                 assert_ne!(mmap_ptr, libc::MAP_FAILED);
@@ -1038,7 +1049,7 @@ mod tests {
             ptr_u64 = ptr as u64;
             println!("the ptr is {:x}", ptr_u64);
 
-            let target_code = ((test_buf_pfn << PAGE_SHIFT) 
+            let target_code = ((test_buf_pfn << PAGE_SHIFT)
                 + PAGE_TABLE_REGION_SIZE) as u64;
             vcpu.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = target_code;
                 
