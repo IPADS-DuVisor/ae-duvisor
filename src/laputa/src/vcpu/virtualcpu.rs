@@ -605,11 +605,12 @@ impl VirtualCpu {
         let vipi_id = self.vipi.id_map[vcpu_id as usize].load(Ordering::SeqCst);
 
         unsafe {
-            csrc!(VIPI0, 1 << vipi_id);
+            VirtualIpi::clear_vipi(vipi_id);
+            //csrc!(VIPI0, 1 << vipi_id);
             csrc!(HUIP, 1 << IRQ_U_SOFT);
             GET_UIPI_CNT += 1;
             dbgprintln!("SEND: {}, GET: {}", SEND_UIPI_CNT, GET_UIPI_CNT);
-            //println!("vcpu {}, vipi id {}", vcpu_id, unsafe {csrr!(VCPUID)});
+            println!("vcpu {}, vipi id {}", vcpu_id, unsafe {csrr!(VCPUID)});
         }
 
         return 0;
@@ -684,7 +685,7 @@ impl VirtualCpu {
         self.config_hustatus(&mut *vcpu_ctx);
 
         let vmid: u64 = self.vm.vm_id;
-        let vipi_id: u64 = vmid * (MAX_VCPU as u64) + 1;
+        let vipi_id: u64 = vmid * (MAX_VCPU as u64) + self.vcpu_id as u64 + 1;
         self.vipi.vcpu_regist(self.vcpu_id, vipi_id);
 
         unsafe {

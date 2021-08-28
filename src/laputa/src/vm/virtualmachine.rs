@@ -179,12 +179,15 @@ impl VirtualMachine {
         /* Get ioctl fd of "/dev/laputa_dev" */
         let ioctl_fd = VirtualMachine::open_ioctl();
 
-        let vmid: u64 = 0;
+        let mut vmid: u64 = 0;
 
         unsafe {
             let vmid_ptr = (&vmid) as *const u64;
             libc::ioctl(ioctl_fd, IOCTL_LAPUTA_GET_VMID, vmid_ptr);
         }
+
+        /* Debug */
+        vmid = 8;
 
         let vm_state = Arc::new(VmSharedState::new(ioctl_fd, mem_size, mmio_regions, vmid));
         let console = Arc::new(Mutex::new(tty));
