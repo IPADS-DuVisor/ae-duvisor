@@ -73,7 +73,7 @@ impl VirtualIpi {
                 }
             },
             _ => {
-                println!("Invalid vipi id ! {}", vipi_id);
+                dbgprintln!("Invalid vipi id ! {}", vipi_id);
             },
         }
     }
@@ -105,7 +105,7 @@ impl VirtualIpi {
                 }
             },
             _ => {
-                println!("Invalid vipi id ! {}", vipi_id);
+                dbgprintln!("Invalid vipi id ! {}", vipi_id);
             },
         }
     }
@@ -133,7 +133,7 @@ impl VirtualIpi {
                 }
             },
             _ => {
-                println!("Invalid vipi id ! {}", vipi_id);
+                dbgprintln!("Invalid vipi id ! {}", vipi_id);
             },
         }
     }
@@ -151,6 +151,7 @@ pub mod tests {
     use crate::vcpu::virtualcpu::GET_UIPI_CNT;
     use crate::irq::vipi::VirtualIpi;
     use crate::init::cmdline::MAX_VCPU;
+    use crate::vm::virtualmachine::VIPI_OFFSET;
 
     pub static mut HU_IPI_CNT: i32 = 0;
 
@@ -164,7 +165,7 @@ pub mod tests {
         #[test]
         fn test_vipi_user_ipi_remote() {
             unsafe {
-                println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
+                VIPI_OFFSET = 0;
             }
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
@@ -270,7 +271,7 @@ pub mod tests {
         #[test]
         fn test_vipi_user_ipi_remote_multi() { 
             unsafe {
-                println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
+                VIPI_OFFSET = 1;
             }
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
@@ -379,7 +380,7 @@ pub mod tests {
         #[test]
         fn test_vipi_virtual_ipi_local() {
             unsafe {
-                println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
+                VIPI_OFFSET = 2;
             }
             let mut vm_config = test_vm_config_create();
             let elf_path: &str = "./tests/integration/vipi_virtual_ipi_local.img";
@@ -408,7 +409,7 @@ pub mod tests {
         #[test]
         fn test_vipi_virtual_ipi_remote_running() { 
             unsafe {
-                println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
+                VIPI_OFFSET = 3;
             }
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
@@ -482,7 +483,7 @@ pub mod tests {
         #[test]
         fn test_vipi_virtual_ipi_remote_not_running() { 
             unsafe {
-                println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
+                VIPI_OFFSET = 4;
             }
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
@@ -562,7 +563,7 @@ pub mod tests {
         #[test]
         fn test_vipi_virtual_ipi_remote_each() { 
             unsafe {
-                println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
+                VIPI_OFFSET = 5;
             }
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
@@ -642,7 +643,7 @@ pub mod tests {
         #[test]
         fn test_vipi_send_to_null_vcpu() { 
             unsafe {
-                println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
+                VIPI_OFFSET = 6;
             }
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
@@ -733,7 +734,7 @@ pub mod tests {
         #[test]
         fn test_vipi_virtual_ipi_accurate() { 
             unsafe {
-                println!("Init GET_UIPI_CNT {}", GET_UIPI_CNT);
+                VIPI_OFFSET = 7;
             }
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */

@@ -56,6 +56,9 @@ extern "C"
     fn getchar_emulation() -> i32;
 }
 
+#[cfg(test)]
+pub static mut VIPI_OFFSET: u64 = 256;
+
 /* Export to vcpu */
 pub struct VmSharedState {
     pub vm_id: u64,
@@ -186,8 +189,13 @@ impl VirtualMachine {
             libc::ioctl(ioctl_fd, IOCTL_LAPUTA_GET_VMID, vmid_ptr);
         }
 
-        /* Debug */
-        vmid = 8;
+        /* Most of the test cases should avoid range of vipi */
+        #[cfg(test)]
+        {
+            unsafe {
+                vmid = VIPI_OFFSET;
+            }
+        }
 
         let vm_state = Arc::new(VmSharedState::new(ioctl_fd, mem_size, mmio_regions, vmid));
         let console = Arc::new(Mutex::new(tty));
