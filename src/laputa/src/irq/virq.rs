@@ -1,6 +1,5 @@
 use crate::vcpu::utils::*;
 use std::sync::atomic::{AtomicU16, Ordering};
-use crate::irq::delegation::delegation_constants::*;
 
 #[allow(unused)]
 pub struct VirtualInterrupt {
