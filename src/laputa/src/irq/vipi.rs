@@ -10,7 +10,6 @@ use crate::init::cmdline::MAX_VCPU;
 use std::sync::atomic::{AtomicU64, Ordering}; 
 #[allow(unused)]
 use crate::vcpu::utils::*;
-use crate::vcpu::virtualcpu::SEND_UIPI_CNT;
 use crate::mm::utils::dbgprintln;
 
 #[allow(unused)]
@@ -59,25 +58,21 @@ impl VirtualIpi {
             1..=63 => { /* Set VIPI0 */
                 unsafe {
                     csrs!(VIPI0, 1 << vipi_id);
-                    SEND_UIPI_CNT += 1;
                 }
             },
             64..=127 => { /* Set VIPI1 */
                 unsafe {
                     csrs!(VIPI1, 1 << (vipi_id - 64));
-                    SEND_UIPI_CNT += 1;
                 }
             },
             128..=191 => { /* Set VIPI2 */
                 unsafe {
                     csrs!(VIPI2, 1 << (vipi_id - 128));
-                    SEND_UIPI_CNT += 1;
                 }
             },
             192..=255 => { /* Set VIPI3 */
                 unsafe {
                     csrs!(VIPI3, 1 << (vipi_id - 192));
-                    SEND_UIPI_CNT += 1;
                 }
             },
             _ => {
@@ -91,25 +86,21 @@ impl VirtualIpi {
             1..=63 => { /* Set VIPI0 */
                 unsafe {
                     csrs!(VIPI0, 1 << vipi_id);
-                    SEND_UIPI_CNT += 1;
                 }
             },
             64..=127 => { /* Set VIPI1 */
                 unsafe {
                     csrs!(VIPI1, 1 << (vipi_id - 64));
-                    SEND_UIPI_CNT += 1;
                 }
             },
             128..=191 => { /* Set VIPI2 */
                 unsafe {
                     csrs!(VIPI2, 1 << (vipi_id - 128));
-                    SEND_UIPI_CNT += 1;
                 }
             },
             192..=255 => { /* Set VIPI3 */
                 unsafe {
                     csrs!(VIPI3, 1 << (vipi_id - 192));
-                    SEND_UIPI_CNT += 1;
                 }
             },
             _ => {
@@ -155,7 +146,6 @@ pub mod tests {
     use std::{thread, time};
     use crate::mm::gstagemmu::*;
     use crate::mm::utils::*;
-    use crate::vcpu::virtualcpu::GET_UIPI_CNT;
     use crate::irq::vipi::VirtualIpi;
     use crate::init::cmdline::MAX_VCPU;
     use crate::vm::virtualmachine::VIPI_OFFSET;
@@ -182,14 +172,24 @@ pub mod tests {
     pub static mut INVALID_TARGET_VCPU: Lazy<Mutex<i32>>
         = Lazy::new(|| Mutex::new(0));
 
+    /* 
+     * Used by:
+     * test_vipi_user_ipi_remote
+     * test_vipi_user_ipi_remote_multi
+     */
+    pub static mut GET_UIPI_CNT: Lazy<Mutex<i64>>
+        = Lazy::new(|| Mutex::new(0));
+
     rusty_fork_test! {
+        /* 
+         * Use an additional thread to send user ipi to vcpu 0.
+         */
         #[test]
         fn test_vipi_user_ipi_remote() {
             unsafe {
                 VIPI_OFFSET = 0;
             }
             let mut vm_config = test_vm_config_create();
-            /* Multi vcpu test */
             let elf_path: &str = "./tests/integration/vipi_user_ipi_remote.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
@@ -270,7 +270,7 @@ pub mod tests {
             let u_ipi_cnt: i64;
 
             unsafe {
-                u_ipi_cnt = GET_UIPI_CNT;
+                u_ipi_cnt = *GET_UIPI_CNT.lock().unwrap();
             }
             
             println!("Get {} user ipi", u_ipi_cnt);
@@ -376,7 +376,7 @@ pub mod tests {
             let u_ipi_cnt: i64;
 
             unsafe {
-                u_ipi_cnt = GET_UIPI_CNT;
+                u_ipi_cnt = *GET_UIPI_CNT.lock().unwrap();
             }
             
             println!("Get {} user ipi", u_ipi_cnt);

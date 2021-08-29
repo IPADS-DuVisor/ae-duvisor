@@ -19,6 +19,9 @@ use std::thread;
 use atomic_enum::*;
 use crate::init::cmdline::MAX_VCPU;
 
+#[cfg(test)]
+use crate::irq::vipi::tests::GET_UIPI_CNT;
+
 extern crate irq_util;
 use irq_util::IrqChip;
 
@@ -33,9 +36,6 @@ mod errno_constants {
     pub const ENOMAPPING: i32 = -3;
 }
 pub use errno_constants::*;
-
-pub static mut SEND_UIPI_CNT: i64 = 0;
-pub static mut GET_UIPI_CNT: i64 = 0;
 
 mod inst_parsing_constants {
     pub const INST_OPCODE_MASK: u32 =   0x007c;
@@ -605,9 +605,12 @@ impl VirtualCpu {
         unsafe {
             VirtualIpi::clear_vipi(vipi_id);
             csrc!(HUIP, 1 << IRQ_U_SOFT);
-            GET_UIPI_CNT += 1;
-            dbgprintln!("SEND: {}, GET: {}", SEND_UIPI_CNT, GET_UIPI_CNT);
             dbgprintln!("vcpu {}, vipi id {}", vcpu_id, csrr!(VCPUID));
+        }
+
+        #[cfg(test)]
+        unsafe {
+            *GET_UIPI_CNT.lock().unwrap() += 1;
         }
 
         return 0;
