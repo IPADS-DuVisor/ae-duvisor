@@ -245,6 +245,7 @@ pub const HUVSIP          : u64 = 0x444;
 pub const HUVSIE          : u64 = 0x404;
 pub const HUVSEPC         : u64 = 0x441;
 
+/* TODO: Remove in the future for new hardware implementation */
 pub const VCPUID          : u64 = 0x482;
 pub const VIPI0           : u64 = 0x483;
 pub const VIPI1           : u64 = 0x484;

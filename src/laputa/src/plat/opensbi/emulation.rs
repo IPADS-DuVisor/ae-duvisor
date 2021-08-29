@@ -125,11 +125,15 @@ impl Ecall {
                 let next_cycle = self.arg[0];
                 
                 /*
-                 * Linux thinks that the IRQ_S_TIMER will be cleared when ecall SBI_EXT_0_1_SET_TIMER
-                 * For record, opensbi thinks that IRQ_M_TIMER should be cleared by software.
-                 * Qemu and xv6 think that IRQ_M_TIMER should be clear when writing timecmp.
+                 * Linux thinks that the IRQ_S_TIMER will be cleared when ecall
+                 * SBI_EXT_0_1_SET_TIMER
+                 * For record, opensbi thinks that IRQ_M_TIMER should be 
+                 * cleared by software.
+                 * Qemu and xv6 think that IRQ_M_TIMER should be clear when 
+                 * writing timecmp. 
                  * I think that IRQ_U_VTIMER should be cleared by software.
-                 * That's a drawback of riscv, unlike GIC which can provide the same interface for eoi. 
+                 * That's a drawback of riscv, unlike GIC which can provide the
+                 * same interface for eoi. 
                  */
                 vcpu.virq.unset_pending_irq(IRQ_VS_TIMER);
                 unsafe {
@@ -170,7 +174,7 @@ impl Ecall {
                         }
                         vipi_id = vcpu.vipi.vcpu_id_map[i as usize]
                             .load(Ordering::SeqCst);
-                        if vcpu.irqchip.get().unwrap().trigger_soft_irq(i) {
+                        if vcpu.irqchip.get().unwrap().trigger_virtual_irq(i) {
                             vcpu.vipi.send_uipi(vipi_id);
                         }
                     }
@@ -264,7 +268,7 @@ impl Ecall {
             },
             SBI_TEST_HU_VIRTUAL_IPI => {
                 /* Set vipi for the vcpu itself */
-                vcpu.irqchip.get().unwrap().trigger_soft_irq(vcpu.vcpu_id);
+                vcpu.irqchip.get().unwrap().trigger_virtual_irq(vcpu.vcpu_id);
             },
             SBI_TEST_HU_LOOP => {
                 /* Keep the vcpu thread in HU-mode */

@@ -417,7 +417,7 @@ impl IrqChip for Plic {
         self.plic_trigger_irq(irq, true, true);
     }
 
-    fn trigger_soft_irq(&self, vcpu_id: u32) -> bool {
+    fn trigger_virtual_irq(&self, vcpu_id: u32) -> bool {
         let ctx_id = (vcpu_id * 2) as usize;
         let vcpu = self.plic_contexts[ctx_id].lock().unwrap()
             .vcpu.upgrade().unwrap();

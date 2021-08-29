@@ -9,10 +9,10 @@ pub mod delegation_constants {
     pub const EXC_IRQ_MASK: u64 = 1 << 63;
 
     /* Interrupt delegation */
+    /* TODO: A general define for both FPGA and qemu */
     pub const IRQ_U_SOFT: u64 = 0;
     pub const IRQ_VS_SOFT: u64 = 2;
     pub const IRQ_VS_TIMER: u64 = 6;
     pub const IRQ_VS_EXT: u64 = 10;
     pub const IRQ_U_VTIMER: u64 = 16;
-    pub const IRQ_U_VIPI: u64 = 0;
 }

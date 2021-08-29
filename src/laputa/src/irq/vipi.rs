@@ -1,3 +1,11 @@
+/* 
+ * TODO: Virutal ipi should be implemented by adding new instructions, not
+ * additional CSRs.
+ */
+/* 
+ * TODO: Expose too much info of vm to the hardware now. Vcpu should be
+ * pinned and use software to find the target pcpu.
+ */
 use crate::init::cmdline::MAX_VCPU;
 use std::sync::atomic::{AtomicU64, Ordering}; 
 #[allow(unused)]

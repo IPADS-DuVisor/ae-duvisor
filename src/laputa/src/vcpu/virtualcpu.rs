@@ -626,7 +626,7 @@ impl VirtualCpu {
                         ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
                 }
-                IRQ_U_VIPI => {
+                IRQ_U_SOFT => {
                     dbgprintln!("handler U VIPI, vcpu_id: {}", self.vcpu_id);
 
                     ret = self.handle_u_vipi_irq();
