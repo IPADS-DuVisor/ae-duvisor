@@ -48,20 +48,7 @@ proc main_test { } {
     send "/guest-net.sh \n ip a \n"
     expect {
         "eth0: <BROADCAST,MULTICAST,UP,LOWER_UP>" {
-            send "/ping-test.sh 10 \n"
-            expect {
-                "Ping test OK" {}
-            }
         }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "/block-test.sh 5 5 \n"
-    expect {
-        "Block test OK" {}
 
         timeout {
             exit -1
