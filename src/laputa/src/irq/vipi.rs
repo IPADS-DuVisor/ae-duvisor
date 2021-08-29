@@ -152,8 +152,6 @@ pub mod tests {
     use std::sync::Mutex;
     use once_cell::sync::Lazy;
 
-    pub static mut HU_IPI_CNT: i32 = 0;
-
     /* 
      * Used by:
      * test_vipi_virtual_ipi_remote_running
@@ -234,7 +232,7 @@ pub mod tests {
             }
 
             let vmid = vm.vm_state.vm_id;
-            println!("******Test 1 vmid {}", vmid);
+            println!("******Test 0 vmid {}", vmid);
 
             /* Start a thread to wait for vcpu 1 ready and send user ipi */
             thread::spawn(move || {
@@ -342,7 +340,7 @@ pub mod tests {
             }
 
             let vmid = vm.vm_state.vm_id;
-            println!("******Test 2 vmid {}", vmid);
+            println!("******Test 1 vmid {}", vmid);
 
             /* Start a thread to wait for vcpu 1 ready and send user ipi */
             thread::spawn(move || {
@@ -412,7 +410,7 @@ pub mod tests {
             vm.vm_init();
 
             let vmid = vm.vm_state.vm_id;
-            println!("******Test 3 vmid {}", vmid);
+            println!("******Test 2 vmid {}", vmid);
 
             /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
@@ -449,7 +447,7 @@ pub mod tests {
             vm.vm_init();
 
             let vmid = vm.vm_state.vm_id;
-            println!("******Test 4 vmid {}", vmid);
+            println!("******Test 3 vmid {}", vmid);
 
             /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
@@ -530,7 +528,7 @@ pub mod tests {
             vm.vm_init();
 
             let vmid = vm.vm_state.vm_id;
-            println!("******Test 5 vmid {}", vmid);
+            println!("******Test 4 vmid {}", vmid);
 
             /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
@@ -616,7 +614,7 @@ pub mod tests {
             vm.vm_init();
 
             let vmid = vm.vm_state.vm_id;
-            println!("******Test 6 vmid {}", vmid);
+            println!("******Test 5 vmid {}", vmid);
 
             /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
@@ -702,7 +700,7 @@ pub mod tests {
             vm.vm_init();
 
             let vmid = vm.vm_state.vm_id;
-            println!("******Test 7 vmid {}", vmid);
+            println!("******Test 6 vmid {}", vmid);
 
             /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
@@ -798,7 +796,7 @@ pub mod tests {
             vm.vm_init();
 
             let vmid = vm.vm_state.vm_id;
-            println!("******Test 8 vmid {}", vmid);
+            println!("******Test 7 vmid {}", vmid);
 
             /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;

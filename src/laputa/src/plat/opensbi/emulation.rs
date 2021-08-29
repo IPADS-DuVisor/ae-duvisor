@@ -12,9 +12,6 @@ use std::sync::atomic::Ordering;
 use std::{thread, time};
 
 #[cfg(test)]
-use crate::irq::vipi::tests::HU_IPI_CNT;
-
-#[cfg(test)]
 use crate::irq::vipi::tests::TEST_SUCCESS_CNT;
 
 #[cfg(test)]
@@ -41,19 +38,7 @@ pub mod sbi_test {
     pub const SBI_TEST_SPACE_START: u64 = 0xC000000;
     pub const SBI_TEST_SPACE_END: u64 = 0xCFFFFFF;
     
-    pub const SBI_TEST_HU_USER_IPI: u64 = 0xC000000;
     pub const SBI_TEST_HU_VIRTUAL_IPI: u64 = 0xC000001;
-
-    /* Get vcpu id to perform different logic */
-    pub const SBI_TEST_GET_VCPU_ID: u64 = 0xC000002;
-
-    /* Sync for multi vcpu threads */
-    pub const SBI_TEST_SYNC_WAIT: u64 = 0xC000003;
-    pub const SBI_TEST_SYNC_SET: u64 = 0xC000004;
-
-    /* Timing for evaluation */
-    pub const SBI_TEST_TIME_START: u64 = 0xC000005;
-    pub const SBI_TEST_TIME_END: u64 = 0xC000006;
 
     /* Test result */
     pub const SBI_TEST_SUCCESS: u64 = 0xC000007;
@@ -222,50 +207,7 @@ impl Ecall {
     fn ulh_extension_emulation(&mut self, vcpu: &VirtualCpu) -> i32{
         let ext_id = self.ext_id;
 
-        /* static for test */
-        static mut SYNC_MUTEX: u64 = 0;
-
         match ext_id {
-            SBI_TEST_SYNC_SET => {
-                unsafe {
-                    dbgprintln!("Mutex set!");
-                    SYNC_MUTEX += 1;
-                }
-            },
-            SBI_TEST_SYNC_WAIT => {
-                dbgprintln!("Try mutex!");
-                unsafe {
-                    while SYNC_MUTEX == 0 {
-                        let ten_millis = time::Duration::from_millis(10);
-
-                        thread::sleep(ten_millis);
-                    }
-                }
-                dbgprintln!("Mutex pass!");
-            },
-            SBI_TEST_GET_VCPU_ID => {
-                self.ret[0] = vcpu.vcpu_id as u64;
-            },
-            SBI_TEST_HU_USER_IPI => {
-                /*
-                 * a0: src vcpu id
-                 * a1: dst vcpu id
-                 * Return:
-                 * a0: vcpu id
-                 */
-                let src_vcpu_id = self.arg[0];
-
-                #[cfg(test)]
-                unsafe {
-                    HU_IPI_CNT += 1;
-                }
-
-                /* Vcpu 0 can control the test. */
-                if src_vcpu_id == 0 {
-                    dbgprintln!("Send 0 -> 1");
-                    vcpu.vipi.send_uipi(self.arg[0] + 1);
-                }
-            },
             SBI_TEST_HU_VIRTUAL_IPI => {
                 /* Set vipi for the vcpu itself */
                 vcpu.irqchip.get().unwrap().trigger_virtual_irq(vcpu.vcpu_id);
