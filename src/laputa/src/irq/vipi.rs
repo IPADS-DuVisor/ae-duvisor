@@ -20,7 +20,8 @@ pub struct VirtualIpi {
 
 impl VirtualIpi {
     pub fn new(vcpu_num: u32) -> Self {
-        let mut vcpu_id_map: Vec<AtomicU64> = Vec::with_capacity(vcpu_num as usize);
+        let mut vcpu_id_map: Vec<AtomicU64>
+            = Vec::with_capacity(vcpu_num as usize);
         
         for _ in 0..vcpu_num {
             vcpu_id_map.push(AtomicU64::new(0));
@@ -48,36 +49,8 @@ impl VirtualIpi {
         for i in 0..MAX_VCPU {
             if ((1 << i) & hart_mask) != 0 {
                 vipi_id = self.vcpu_id_map[i as usize].load(Ordering::SeqCst);
-                self.send_uipi(vipi_id);
+                VirtualIpi::set_vipi(vipi_id);
             }
-        }
-    }
-
-    pub fn send_uipi(&self, vipi_id: u64) {
-        match vipi_id {
-            1..=63 => { /* Set VIPI0 */
-                unsafe {
-                    csrs!(VIPI0, 1 << vipi_id);
-                }
-            },
-            64..=127 => { /* Set VIPI1 */
-                unsafe {
-                    csrs!(VIPI1, 1 << (vipi_id - 64));
-                }
-            },
-            128..=191 => { /* Set VIPI2 */
-                unsafe {
-                    csrs!(VIPI2, 1 << (vipi_id - 128));
-                }
-            },
-            192..=255 => { /* Set VIPI3 */
-                unsafe {
-                    csrs!(VIPI3, 1 << (vipi_id - 192));
-                }
-            },
-            _ => {
-                dbgprintln!("Invalid vipi id ! {}", vipi_id);
-            },
         }
     }
 
@@ -189,7 +162,8 @@ pub mod tests {
                 VIPI_OFFSET = 0;
             }
             let mut vm_config = test_vm_config_create();
-            let elf_path: &str = "./tests/integration/vipi_user_ipi_remote.img";
+            let elf_path: &str
+                = "./tests/integration/vipi_user_ipi_remote.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
@@ -293,7 +267,8 @@ pub mod tests {
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
             vm_config.vcpu_count = 2;
-            let elf_path: &str = "./tests/integration/vipi_user_ipi_remote_multi.img";
+            let elf_path: &str
+                = "./tests/integration/vipi_user_ipi_remote_multi.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
@@ -403,7 +378,8 @@ pub mod tests {
                 VIPI_OFFSET = 2;
             }
             let mut vm_config = test_vm_config_create();
-            let elf_path: &str = "./tests/integration/vipi_virtual_ipi_local.img";
+            let elf_path: &str
+                = "./tests/integration/vipi_virtual_ipi_local.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
@@ -440,7 +416,8 @@ pub mod tests {
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
             vm_config.vcpu_count = 2;
-            let elf_path: &str = "./tests/integration/vipi_virtual_ipi_remote_running.img";
+            let elf_path: &str 
+                = "./tests/integration/vipi_virtual_ipi_remote_running.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
@@ -521,7 +498,8 @@ pub mod tests {
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
             vm_config.vcpu_count = 2;
-            let elf_path: &str = "./tests/integration/vipi_virtual_ipi_remote_not_running.img";
+            let elf_path: &str = 
+                "./tests/integration/vipi_virtual_ipi_remote_not_running.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
@@ -607,7 +585,8 @@ pub mod tests {
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
             vm_config.vcpu_count = 2;
-            let elf_path: &str = "./tests/integration/vipi_virtual_ipi_remote_each.img";
+            let elf_path: &str
+                = "./tests/integration/vipi_virtual_ipi_remote_each.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
@@ -693,7 +672,8 @@ pub mod tests {
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
             vm_config.vcpu_count = 2;
-            let elf_path: &str = "./tests/integration/vipi_send_to_null_vcpu.img";
+            let elf_path: &str 
+                = "./tests/integration/vipi_send_to_null_vcpu.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 
@@ -789,7 +769,8 @@ pub mod tests {
             let mut vm_config = test_vm_config_create();
             /* Multi vcpu test */
             vm_config.vcpu_count = 3;
-            let elf_path: &str = "./tests/integration/vipi_virtual_ipi_accurate.img";
+            let elf_path: &str
+                = "./tests/integration/vipi_virtual_ipi_accurate.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
 

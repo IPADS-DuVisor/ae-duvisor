@@ -10,6 +10,7 @@ use sbi_test::*;
 use crate::init::cmdline::MAX_VCPU;
 use std::sync::atomic::Ordering;
 use std::{thread, time};
+use crate::irq::vipi::VirtualIpi;
 
 #[cfg(test)]
 use crate::irq::vipi::tests::TEST_SUCCESS_CNT;
@@ -105,8 +106,11 @@ impl Ecall {
 
         match ext_id {
             SBI_EXT_0_1_SET_TIMER => {
-                /* TODO: add rust feature to tell between rv64 and rv32 */
-                /* TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if rv32 */
+                /* 
+                 * TODO: add rust feature to tell between rv64 and rv32
+                 * TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if
+                 * rv32
+                 */
                 let next_cycle = self.arg[0];
                 
                 /*
@@ -123,7 +127,8 @@ impl Ecall {
                 vcpu.virq.unset_pending_irq(IRQ_VS_TIMER);
                 unsafe {
                     /* Set timer ctl register to enable u vtimer */
-                    csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
+                    csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) 
+                        | (1 << VTIMECTL_ENABLE));
                     csrw!(VTIMECMP, next_cycle);
                 }
                 dbgprintln!("set vtimer for ulh");
@@ -160,7 +165,7 @@ impl Ecall {
                         vipi_id = vcpu.vipi.vcpu_id_map[i as usize]
                             .load(Ordering::SeqCst);
                         if vcpu.irqchip.get().unwrap().trigger_virtual_irq(i) {
-                            vcpu.vipi.send_uipi(vipi_id);
+                            VirtualIpi::set_vipi(vipi_id);
                         }
                     }
                 }
