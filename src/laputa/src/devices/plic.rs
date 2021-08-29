@@ -4,7 +4,6 @@ use std::sync::atomic::Ordering;
 use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
 use crate::irq::vipi::VirtualIpi;
-use crate::vcpu::utils::*;
 use crate::irq::delegation::delegation_constants::*;
 
 extern crate irq_util;
@@ -160,14 +159,10 @@ impl Plic {
             vcpu.virq.set_pending_irq(IRQ_VS_EXT);
 
             if vcpu.is_running.load(Ordering::SeqCst) {
-                let vipi_id = vcpu.vipi.id_map[vcpu.vcpu_id as usize]
+                let vipi_id = vcpu.vipi.vcpu_id_map[vcpu.vcpu_id as usize]
                     .load(Ordering::SeqCst);
 
                 VirtualIpi::set_vipi(vipi_id);
-
-                /* unsafe {
-                    csrs!(VIPI0, 1 << vipi_id);
-                } */
             }
         }
     }

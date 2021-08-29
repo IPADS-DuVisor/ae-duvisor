@@ -10,16 +10,12 @@ use sbi_test::*;
 use crate::init::cmdline::MAX_VCPU;
 use std::sync::atomic::Ordering;
 use std::{thread, time};
-use std::sync::Mutex;
 
 #[cfg(test)]
 use crate::irq::vipi::tests::HU_IPI_CNT;
 
 #[cfg(test)]
 use crate::irq::vipi::tests::TEST_SUCCESS_CNT;
-
-#[cfg(test)]
-use crate::irq::vipi::tests::TEST_SUCCESS_CNT_MUTEX;
 
 #[cfg(test)]
 use crate::irq::vipi::tests::INVALID_TARGET_VCPU;
@@ -167,12 +163,12 @@ impl Ecall {
                             /* Invalid target */
                             #[cfg(test)]
                             unsafe {
-                                INVALID_TARGET_VCPU += 1;
+                                *INVALID_TARGET_VCPU.lock().unwrap() += 1;
                             }
 
                             continue;
                         }
-                        vipi_id = vcpu.vipi.id_map[i as usize]
+                        vipi_id = vcpu.vipi.vcpu_id_map[i as usize]
                             .load(Ordering::SeqCst);
                         if vcpu.irqchip.get().unwrap().trigger_soft_irq(i) {
                             vcpu.vipi.send_uipi(vipi_id);
@@ -221,11 +217,9 @@ impl Ecall {
 
     fn ulh_extension_emulation(&mut self, vcpu: &VirtualCpu) -> i32{
         let ext_id = self.ext_id;
-        let ret: i32;
 
         /* static for test */
         static mut SYNC_MUTEX: u64 = 0;
-        //static mut SYNC_MUTEX: Mutex<u64> = Mutex::new(0);
 
         match ext_id {
             SBI_TEST_SYNC_SET => {
@@ -300,8 +294,7 @@ impl Ecall {
             SBI_TEST_SUCCESS => {
                 #[cfg(test)]
                 unsafe {
-                    TEST_SUCCESS_CNT += 1;
-                    *TEST_SUCCESS_CNT_MUTEX.lock().unwrap() += 1;
+                    *TEST_SUCCESS_CNT.lock().unwrap() += 1;
                 }
 
                 dbgprintln!("***SBI_TEST_SUCCESS vcpu: {}", vcpu.vcpu_id);
@@ -311,7 +304,7 @@ impl Ecall {
             },
             _ => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
-                ret = self.unsupported_sbi();
+                self.unsupported_sbi();
             },
         }
 

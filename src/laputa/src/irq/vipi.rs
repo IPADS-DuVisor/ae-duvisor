@@ -7,27 +7,26 @@ use crate::mm::utils::dbgprintln;
 
 #[allow(unused)]
 pub struct VirtualIpi {
-    pub id_map: Vec<AtomicU64>,
+    pub vcpu_id_map: Vec<AtomicU64>,
     pub vcpu_num: u32,
 }
 
 impl VirtualIpi {
     pub fn new(vcpu_num: u32) -> Self {
-        let mut id_map: Vec<AtomicU64> = Vec::with_capacity(vcpu_num as usize);
+        let mut vcpu_id_map: Vec<AtomicU64> = Vec::with_capacity(vcpu_num as usize);
         
         for _ in 0..vcpu_num {
-            id_map.push(AtomicU64::new(0));
+            vcpu_id_map.push(AtomicU64::new(0));
         }
 
         Self {
-            id_map,
+            vcpu_id_map,
             vcpu_num,
         }
     }
 
-    // VIPI_ID = MAX_VCPU * VMID + VCPUID + 1
     pub fn vcpu_regist(&self, vcpu_id: u32, vipi_id: u64) {
-        self.id_map[vcpu_id as usize].store(vipi_id, Ordering::SeqCst);
+        self.vcpu_id_map[vcpu_id as usize].store(vipi_id, Ordering::SeqCst);
 
         unsafe {
             csrw!(VCPUID, vipi_id);
@@ -41,7 +40,7 @@ impl VirtualIpi {
         let mut vipi_id: u64;
         for i in 0..MAX_VCPU {
             if ((1 << i) & hart_mask) != 0 {
-                vipi_id = self.id_map[i as usize].load(Ordering::SeqCst);
+                vipi_id = self.vcpu_id_map[i as usize].load(Ordering::SeqCst);
                 self.send_uipi(vipi_id);
             }
         }
@@ -148,7 +147,6 @@ pub mod tests {
     use std::{thread, time};
     use crate::mm::gstagemmu::*;
     use crate::mm::utils::*;
-    use crate::vcpu::utils::*;
     use crate::vcpu::virtualcpu::GET_UIPI_CNT;
     use crate::irq::vipi::VirtualIpi;
     use crate::init::cmdline::MAX_VCPU;
@@ -158,14 +156,23 @@ pub mod tests {
 
     pub static mut HU_IPI_CNT: i32 = 0;
 
-    /* test_vipi_virtual_ipi_remote_running */
-    pub static mut TEST_SUCCESS_CNT: i32 = 0;
-
-    pub static mut TEST_SUCCESS_CNT_MUTEX: Lazy<Mutex<i32>>
+    /* 
+     * Used by:
+     * test_vipi_virtual_ipi_remote_running
+     * test_vipi_virtual_ipi_remote_not_running
+     * test_vipi_virtual_ipi_remote_each
+     * test_vipi_send_to_null_vcpu
+     * test_vipi_virtual_ipi_accurate
+     */
+    pub static mut TEST_SUCCESS_CNT: Lazy<Mutex<i32>>
         = Lazy::new(|| Mutex::new(0));
 
-    /* test_vipi_send_to_null_vcpu */
-    pub static mut INVALID_TARGET_VCPU: i32 = 0;
+    /* 
+     * Used by:
+     * test_vipi_send_to_null_vcpu
+     */
+    pub static mut INVALID_TARGET_VCPU: Lazy<Mutex<i32>>
+        = Lazy::new(|| Mutex::new(0));
 
     rusty_fork_test! {
         #[test]
@@ -221,9 +228,7 @@ pub mod tests {
             println!("******Test 1 vmid {}", vmid);
 
             /* Start a thread to wait for vcpu 1 ready and send user ipi */
-            let handle: thread::JoinHandle<()>;
-
-            handle = thread::spawn(move || {
+            thread::spawn(move || {
                 println!("Wait for vcpu 1");
 
                 unsafe {
@@ -326,9 +331,7 @@ pub mod tests {
             println!("******Test 2 vmid {}", vmid);
 
             /* Start a thread to wait for vcpu 1 ready and send user ipi */
-            let handle: thread::JoinHandle<()>;
-
-            handle = thread::spawn(move || {
+            thread::spawn(move || {
                 println!("Wait for vcpu 1");
 
                 unsafe {
@@ -348,7 +351,6 @@ pub mod tests {
                      * Send user ipi via VIPI0_CSR before change the
                      * sync data.
                      */
-                    //csrs!(VIPI0, 1 << target_vipi_id);
                     VirtualIpi::set_vipi(target_vipi_id);
 
                     /* 
@@ -469,7 +471,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
+                success_cnt = *TEST_SUCCESS_CNT.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);
@@ -549,7 +551,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
+                success_cnt = *TEST_SUCCESS_CNT.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);
@@ -629,7 +631,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
+                success_cnt = *TEST_SUCCESS_CNT.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);
@@ -711,7 +713,7 @@ pub mod tests {
             let invalid_cnt: i32;
 
             unsafe {
-                invalid_cnt = INVALID_TARGET_VCPU;
+                invalid_cnt = *INVALID_TARGET_VCPU.lock().unwrap();
             }
             
             println!("Get {} invalid cnt", invalid_cnt);
@@ -723,7 +725,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
+                success_cnt = *TEST_SUCCESS_CNT.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);
@@ -798,7 +800,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
+                success_cnt = *TEST_SUCCESS_CNT.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);

@@ -182,8 +182,10 @@ impl VirtualMachine {
         /* Get ioctl fd of "/dev/laputa_dev" */
         let ioctl_fd = VirtualMachine::open_ioctl();
 
-        let mut vmid: u64 = 0;
+        #[cfg(not(test))]
+        let vmid: u64 = 0;
 
+        #[cfg(not(test))]
         unsafe {
             let vmid_ptr = (&vmid) as *const u64;
             libc::ioctl(ioctl_fd, IOCTL_LAPUTA_GET_VMID, vmid_ptr);
@@ -191,10 +193,11 @@ impl VirtualMachine {
 
         /* Most of the test cases should avoid range of vipi */
         #[cfg(test)]
-        {
-            unsafe {
-                vmid = VIPI_OFFSET;
-            }
+        let vmid: u64;
+
+        #[cfg(test)]
+        unsafe {
+            vmid = VIPI_OFFSET;
         }
 
         let vm_state = Arc::new(VmSharedState::new(ioctl_fd, mem_size, mmio_regions, vmid));

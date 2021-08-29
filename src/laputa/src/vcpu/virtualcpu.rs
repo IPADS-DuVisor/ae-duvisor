@@ -600,14 +600,14 @@ impl VirtualCpu {
 
     fn handle_u_vipi_irq(&self) -> i32 {
         let vcpu_id = self.vcpu_id;
-        let vipi_id = self.vipi.id_map[vcpu_id as usize].load(Ordering::SeqCst);
+        let vipi_id = self.vipi.vcpu_id_map[vcpu_id as usize].load(Ordering::SeqCst);
 
         unsafe {
             VirtualIpi::clear_vipi(vipi_id);
             csrc!(HUIP, 1 << IRQ_U_SOFT);
             GET_UIPI_CNT += 1;
             dbgprintln!("SEND: {}, GET: {}", SEND_UIPI_CNT, GET_UIPI_CNT);
-            dbgprintln!("vcpu {}, vipi id {}", vcpu_id, unsafe {csrr!(VCPUID)});
+            dbgprintln!("vcpu {}, vipi id {}", vcpu_id, csrr!(VCPUID));
         }
 
         return 0;
