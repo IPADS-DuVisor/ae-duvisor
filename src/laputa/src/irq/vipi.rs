@@ -182,7 +182,8 @@ pub mod tests {
 
     rusty_fork_test! {
         /* 
-         * Use an additional thread to send user ipi to vcpu 0.
+         * Use an additional thread to send one user ipi to vcpu 0.
+         * Vcpu 0 should get one irq caused by the user ipi.
          */
         #[test]
         fn test_vipi_user_ipi_remote() {
@@ -281,6 +282,11 @@ pub mod tests {
             assert_eq!(1, u_ipi_cnt);
         }
 
+        /* 
+         * Use an additional thread to send one user ipi to vcpu 1 and no user
+         * ipis for vcpu 0. Vcpu 1 and vcpu 0 should get one irq caused by the
+         * user ipi in sum.
+         */
         #[test]
         fn test_vipi_user_ipi_remote_multi() { 
             unsafe {
@@ -387,6 +393,12 @@ pub mod tests {
             assert_eq!(1, u_ipi_cnt);
         }
 
+        /* 
+         * Vcpu 0 will send vipi to itself to test local vipi.
+         * After the vipi is sent, vcpu 0 will wait for it.
+         * The vipi will cause vcpu 0 jump into irq_handler and
+         * end the test.
+         */
         #[test]
         fn test_vipi_virtual_ipi_local() {
             unsafe {
@@ -416,8 +428,14 @@ pub mod tests {
             /* This test case is passed if the vm_run can bypass the loop */
         }
 
+        /* 
+         * Vcpu 0 will send a virtual ipi to the running vcpu 1.
+         * This test case must ensure that the vcpu 1 is not in HU-mode.
+         * So vcpu 1 will set up a signal via sync data before it loops and vpu 0
+         * will send the vipi after it get this signal.
+         */
         #[test]
-        fn test_vipi_virtual_ipi_remote_running() { 
+        fn test_vipi_virtual_ipi_remote_running() {
             unsafe {
                 VIPI_OFFSET = 3;
             }
@@ -490,6 +508,13 @@ pub mod tests {
             assert_eq!(1, success_cnt);
         }
 
+        /* 
+         * Vcpu 0 will send a virtual ipi to the non-running vcpu 1.
+         * This test case must ensure that the vcpu 1 is not in V-mode.
+         * So vcpu 1 will ecall SBI_TEST_HU_LOOP to loop in HU-mode and
+         * send a signal to vpu 0 the latter will send the vipi after 
+         * it get the signal.
+         */
         #[test]
         fn test_vipi_virtual_ipi_remote_not_running() { 
             unsafe {
@@ -570,6 +595,12 @@ pub mod tests {
             assert_eq!(1, success_cnt);
         }
 
+        /* 
+         * Vcpu 0 will send a vipi to vcpu 1 and vcpu1 will response via a 
+         * vipi.
+         * Only when vcpu 0 get the vipi sent by vcpu 1 and trigger 
+         * irq_hadnler_0, the test case can pass.
+         */
         #[test]
         fn test_vipi_virtual_ipi_remote_each() { 
             unsafe {
@@ -650,6 +681,12 @@ pub mod tests {
             assert_eq!(1, success_cnt);
         }
 
+        /* 
+         * Vcpu 0 will send vipi to vcpu [1,2,3,4,5,6,7] and the vm has only
+         * 2 vcpus. Vcpu 1 should get the vipi, but the vipis for vcpu 
+         * [2,3,4,5,6,7] should be detected and throw out. INVALID_TARGET_VCPU
+         * is the count value of vipis with invalid target vcpus.
+         */
         #[test]
         fn test_vipi_send_to_null_vcpu() { 
             unsafe {
@@ -741,6 +778,11 @@ pub mod tests {
             assert_eq!(1, success_cnt);
         }
 
+        /* 
+         * Vcpu 1 and 2 will wait for the vipi send by vcpu 0.
+         * But vcpu 0 will only send one vipi to vcpu 1. So vcpu
+         * 1 should exit from irq_handler_1 but vcpu 2 should not.
+         */
         #[test]
         fn test_vipi_virtual_ipi_accurate() { 
             unsafe {
