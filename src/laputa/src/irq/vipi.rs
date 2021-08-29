@@ -153,11 +153,16 @@ pub mod tests {
     use crate::irq::vipi::VirtualIpi;
     use crate::init::cmdline::MAX_VCPU;
     use crate::vm::virtualmachine::VIPI_OFFSET;
+    use std::sync::Mutex;
+    use once_cell::sync::Lazy;
 
     pub static mut HU_IPI_CNT: i32 = 0;
 
     /* test_vipi_virtual_ipi_remote_running */
     pub static mut TEST_SUCCESS_CNT: i32 = 0;
+
+    pub static mut TEST_SUCCESS_CNT_MUTEX: Lazy<Mutex<i32>>
+        = Lazy::new(|| Mutex::new(0));
 
     /* test_vipi_send_to_null_vcpu */
     pub static mut INVALID_TARGET_VCPU: i32 = 0;
@@ -464,7 +469,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = TEST_SUCCESS_CNT;
+                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);
@@ -544,7 +549,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = TEST_SUCCESS_CNT;
+                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);
@@ -624,7 +629,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = TEST_SUCCESS_CNT;
+                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);
@@ -718,7 +723,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = TEST_SUCCESS_CNT;
+                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);
@@ -793,7 +798,7 @@ pub mod tests {
             let success_cnt: i32;
 
             unsafe {
-                success_cnt = TEST_SUCCESS_CNT;
+                success_cnt = *TEST_SUCCESS_CNT_MUTEX.lock().unwrap();
             }
             
             println!("Get {} success cnt", success_cnt);

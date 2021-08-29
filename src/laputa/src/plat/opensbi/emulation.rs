@@ -19,6 +19,9 @@ use crate::irq::vipi::tests::HU_IPI_CNT;
 use crate::irq::vipi::tests::TEST_SUCCESS_CNT;
 
 #[cfg(test)]
+use crate::irq::vipi::tests::TEST_SUCCESS_CNT_MUTEX;
+
+#[cfg(test)]
 use crate::irq::vipi::tests::INVALID_TARGET_VCPU;
 
 pub mod sbi_number {
@@ -298,6 +301,7 @@ impl Ecall {
                 #[cfg(test)]
                 unsafe {
                     TEST_SUCCESS_CNT += 1;
+                    *TEST_SUCCESS_CNT_MUTEX.lock().unwrap() += 1;
                 }
 
                 dbgprintln!("***SBI_TEST_SUCCESS vcpu: {}", vcpu.vcpu_id);
