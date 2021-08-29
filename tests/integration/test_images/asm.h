@@ -25,6 +25,18 @@
 #define SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID (0x7)
 #define SBI_EXT_0_1_SHUTDOWN (0x8)
 
+/* ULH EXT ID */
+#define SBI_TEST_HU_USER_IPI (0xC000000)
+#define SBI_TEST_HU_VIRTUAL_IPI (0xC000001)
+#define SBI_TEST_GET_VCPU_ID (0xC000002)
+#define SBI_TEST_SYNC_WAIT (0xC000003)
+#define SBI_TEST_SYNC_SET (0xC000004)
+#define SBI_TEST_TIME_START (0xC000005)
+#define SBI_TEST_TIME_END (0xC000006)
+#define SBI_TEST_SUCCESS (0xC000007)
+#define SBI_TEST_FAILED (0xC000008)
+#define SBI_TEST_HU_LOOP (0xC100000)
+
 #define BEGIN_FUNC(_name)        \
 	.global _name;           \
 	.type _name, % function; \

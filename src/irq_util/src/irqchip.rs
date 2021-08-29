@@ -4,4 +4,7 @@ pub trait IrqChip: Send + Sync {
     fn trigger_level_irq(&self, irq: u32, level: bool);
     
     fn trigger_edge_irq(&self, irq: u32);
+
+    /* TODO: Vcpu should find running vcpus via plic, remove it */
+    fn trigger_virtual_irq(&self, vcpu_id: u32) -> bool;
 }

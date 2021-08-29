@@ -19,6 +19,8 @@ use crate::devices::tty::Tty;
 use std::fs::{OpenOptions};
 #[allow(unused_imports)]
 use std::net::{Ipv4Addr};
+use crate::vcpu::utils::*;
+use crate::irq::vipi::VirtualIpi;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -54,26 +56,31 @@ extern "C"
     fn getchar_emulation() -> i32;
 }
 
+#[cfg(test)]
+pub static mut VIPI_OFFSET: u64 = 256;
+
 /* Export to vcpu */
 pub struct VmSharedState {
-    pub vm_id: u32,
+    pub vm_id: u64,
     pub ioctl_fd: i32,
-    pub gsmmu: gstagemmu::GStageMmu,
+    pub gsmmu: Mutex<gstagemmu::GStageMmu>,
 }
 
 impl VmSharedState {
-    pub fn new(ioctl_fd: i32, mem_size: u64, mmio_regions: Vec<GpaRegion>)
+    pub fn new(ioctl_fd: i32, mem_size: u64, mmio_regions: Vec<GpaRegion>, vm_id: u64)
         -> Self {
         Self {
-            vm_id: 0,
+            vm_id,
             ioctl_fd,
-            gsmmu: gstagemmu::GStageMmu::new(ioctl_fd, mem_size, mmio_regions),
+            gsmmu: Mutex::new(
+                    gstagemmu::GStageMmu::new(
+                        ioctl_fd, mem_size, mmio_regions)),
         }
     }
 }
 
 pub struct VirtualMachine {
-    pub vm_state: Arc<Mutex<VmSharedState>>,
+    pub vm_state: Arc<VmSharedState>,
     pub vcpus: Vec<Arc<virtualcpu::VirtualCpu>>,
     pub vcpu_num: u32,
     pub mem_size: u64,
@@ -87,6 +94,7 @@ pub struct VirtualMachine {
     pub mmio_bus: Arc<RwLock<devices::Bus>>,
     /* Record GPA <--> HVA mappings */
     pub guest_mem: GuestMemory,
+    pub vipi: Arc<VirtualIpi>,
 }
 
 impl VirtualMachine {
@@ -174,9 +182,29 @@ impl VirtualMachine {
         /* Get ioctl fd of "/dev/laputa_dev" */
         let ioctl_fd = VirtualMachine::open_ioctl();
 
-        let vm_state = VmSharedState::new(ioctl_fd, mem_size, mmio_regions);
-        let vm_state_mutex = Arc::new(Mutex::new(vm_state));
+        #[cfg(not(test))]
+        let vmid: u64 = 0;
+
+        #[cfg(not(test))]
+        unsafe {
+            let vmid_ptr = (&vmid) as *const u64;
+            libc::ioctl(ioctl_fd, IOCTL_LAPUTA_GET_VMID, vmid_ptr);
+        }
+
+        /* Most of the test cases should avoid range of vipi */
+        #[cfg(test)]
+        let vmid: u64;
+
+        #[cfg(test)]
+        unsafe {
+            vmid = VIPI_OFFSET;
+        }
+
+        let vm_state = Arc::new(VmSharedState::new(ioctl_fd, mem_size, mmio_regions, vmid));
         let console = Arc::new(Mutex::new(tty));
+
+        let vipi = VirtualIpi::new(vcpu_num);
+        let vipi_ptr = Arc::new(vipi);
 
         let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
         let guest_mem = GuestMemory::new().unwrap();
@@ -184,8 +212,8 @@ impl VirtualMachine {
         /* Create vcpu struct instances */
         for i in 0..vcpu_num {
             let vcpu = Arc::new(virtualcpu::VirtualCpu::new(i,
-                    vm_state_mutex.clone(), console.clone(), 
-                    guest_mem.clone(), mmio_bus.clone()));
+                    vm_state.clone(), console.clone(), 
+                    guest_mem.clone(), mmio_bus.clone(), vipi_ptr.clone()));
             vcpus.push(vcpu);
         }
         
@@ -207,7 +235,7 @@ impl VirtualMachine {
         Self {
             vcpus,
             vcpu_num,
-            vm_state: vm_state_mutex.clone(),
+            vm_state: vm_state.clone(),
             mem_size,
             vm_image,
             dtb_file,
@@ -217,6 +245,7 @@ impl VirtualMachine {
             io_thread,
             mmio_bus,
             guest_mem,
+            vipi: vipi_ptr,
         }
     }
 
@@ -250,7 +279,7 @@ impl VirtualMachine {
             size = i.filesz;
             ph_data_ptr = img_data_ptr + offset;
 
-            let res = self.vm_state.lock().unwrap().gsmmu
+            let res = self.vm_state.gsmmu.lock().unwrap()
                 .gpa_block_add(gpa, page_size_round_up(size));
             if !res.is_ok() {
                 panic!("gpa block add failed");
@@ -271,7 +300,7 @@ impl VirtualMachine {
         let dtb_gpa: u64 = dtb::DTB_GPA;
         let dtb_size: u64 = self.dtb_file.file_data.len() as u64;
 
-        let res = self.vm_state.lock().unwrap().gsmmu.gpa_block_add(dtb_gpa,
+        let res = self.vm_state.gsmmu.lock().unwrap().gpa_block_add(dtb_gpa,
                 page_size_round_up(dtb_size));
         if !res.is_ok() {
             return None;
@@ -307,7 +336,7 @@ impl VirtualMachine {
         }
 
         let initrd_data = initrd_data_res.unwrap();
-        let initrd_res = self.vm_state.lock().unwrap().gsmmu.gpa_block_add(
+        let initrd_res = self.vm_state.gsmmu.lock().unwrap().gpa_block_add(
                 initrd_gpa - page_offset,
                 page_size_round_up(initrd_size + page_offset));
         if !initrd_res.is_ok() {
@@ -340,7 +369,7 @@ impl VirtualMachine {
             return hva_list;
         }
 
-        let res = self.vm_state.lock().unwrap().gsmmu.gpa_block_add(gpa,
+        let res = self.vm_state.gsmmu.lock().unwrap().gpa_block_add(gpa,
             page_size_round_up(size));
         if !res.is_ok() {
             println!("gpa block add failed");
@@ -360,13 +389,13 @@ impl VirtualMachine {
 
     /* Init vm & vcpu before vm_run(), return for test */
     pub fn vm_init(&mut self) -> Vec<u64> {
-        let ioctl_fd = self.vm_state.lock().unwrap().ioctl_fd;
+        let ioctl_fd = self.vm_state.ioctl_fd;
         let mut dtb_gpa: u64 = 0;
         let mut kernel_gpa: u64 = image::RISCV_RAM_GPA_START + image::KERNEL_OFFSET;
 
         /* Delegate traps via ioctl */
         VirtualMachine::hu_delegation(ioctl_fd);
-        self.vm_state.lock().unwrap().gsmmu.allocator.set_ioctl_fd(ioctl_fd);
+        self.vm_state.gsmmu.lock().unwrap().allocator.set_ioctl_fd(ioctl_fd);
 
         /* Load DTB */
         let dtb_res = self.init_gpa_block_dtb();
@@ -411,8 +440,8 @@ impl VirtualMachine {
     }
 
     pub fn vm_img_load(&mut self, gpa_start: u64, length: u64) -> u64{
-        let res = self.vm_state.lock().unwrap().
-            gsmmu.gpa_block_add(gpa_start, length);
+        let res = self.vm_state.gsmmu.lock().unwrap()
+            .gpa_block_add(gpa_start, length);
         if !res.is_ok() {
             panic!("vm_img_load failed");
         }
@@ -452,6 +481,7 @@ impl VirtualMachine {
         let mut vcpu_handle: Vec<thread::JoinHandle<()>> = Vec::new();
         let mut handle: thread::JoinHandle<()>;
         let io_handle: thread::JoinHandle<()>;
+        let delta_time :i64 = unsafe { csrr!(TIME) as i64 };
 
         /* IO thread */
         if self.io_thread {
@@ -464,7 +494,7 @@ impl VirtualMachine {
 
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
-                vcpu.thread_vcpu_run();
+                vcpu.thread_vcpu_run(delta_time);
             });
 
             vcpu_handle.push(handle);
@@ -477,7 +507,7 @@ impl VirtualMachine {
 
     pub fn vm_destroy(&mut self) {
         unsafe {
-            libc::close(self.vm_state.lock().unwrap().ioctl_fd);
+            libc::close(self.vm_state.ioctl_fd);
         }
     }
 
@@ -489,8 +519,8 @@ impl VirtualMachine {
                 (1 << EXC_VIRTUAL_INST_FAULT) |
                 (1 << EXC_LOAD_GUEST_PAGE_FAULT) |
                 (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
-            let ideleg = (1 << IRQ_S_SOFT) |
-                (1 << IRQ_U_VTIMER) as libc::c_ulong;
+            let ideleg = 
+                ((1 << IRQ_U_VTIMER) | (1 << IRQ_U_SOFT)) as libc::c_ulong;
             let deleg = [edeleg, ideleg];
             let deleg_ptr = (&deleg) as *const u64;
 
@@ -566,14 +596,14 @@ mod tests {
             let mut gb_hpa;
             let mut gb_length;
             let mut target_hva = 0;
-            for i in &vm.vm_state.lock().unwrap().gsmmu.mem_gpa_regions {
+            for i in &vm.vm_state.gsmmu.lock().unwrap().mem_gpa_regions {
                 gb_gpa = i.gpa;
                 gb_length = i.length;
                 println!("gpa_regions - gpa {:x}, length {:x}", gb_gpa,
                     gb_length);
             }
 
-            for i in &vm.vm_state.lock().unwrap().gsmmu.gpa_blocks {
+            for i in &vm.vm_state.gsmmu.lock().unwrap().gpa_blocks {
                 gb_gpa = i.gpa;
                 gb_hpa = i.hpa;
                 gb_length = i.length;
@@ -820,10 +850,12 @@ mod tests {
             let elf_path: &str = "./tests/integration/ecall_emulation_unsupported.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
+            const UNSUPPORTED_NUM: usize = 2;
 
             /* Answer will be saved at 0x3000(gpa) */
             let mut retval: u64;
-            let answer: [u64; 3] = [SBI_ERR_NOT_SUPPORTED as u64; 3];
+            let answer: [u64; UNSUPPORTED_NUM] = 
+                [SBI_ERR_NOT_SUPPORTED as u64; UNSUPPORTED_NUM];
 
             vm.vm_init();
 
@@ -833,8 +865,8 @@ mod tests {
             /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_block_add(target_address, PAGE_SIZE);
+            let res = vm.vm_state.gsmmu.lock().unwrap()
+                .gpa_block_add(target_address, PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!");
             }
@@ -846,7 +878,7 @@ mod tests {
             /* Map the page on g-stage */
             let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
                     | PTE_EXECUTE;
-            vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
+            vm.vm_state.gsmmu.lock().unwrap().map_page(target_address, hpa, 
                     flag);
 
             vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
@@ -856,8 +888,8 @@ mod tests {
 
             /* Check the return value stored by the vm */
             unsafe {
-                for i in 0..3 {
-                    retval = *((hva + 16 * i) as *mut u64);
+                for i in 0..UNSUPPORTED_NUM {
+                    retval = *((hva + 16 * i as u64) as *mut u64);
                     assert_eq!(answer[i as usize], retval);
                 }
             }
@@ -885,8 +917,8 @@ mod tests {
             /* Set entry point */
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_block_add(target_address, PAGE_SIZE);
+            let res = vm.vm_state.gsmmu.lock().unwrap()
+                .gpa_block_add(target_address, PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!");
             }
@@ -898,7 +930,7 @@ mod tests {
             /* Map the page on g-stage */
             let flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
                     | PTE_EXECUTE;
-            vm.vm_state.lock().unwrap().gsmmu.map_page(target_address, hpa, 
+            vm.vm_state.gsmmu.lock().unwrap().map_page(target_address, hpa, 
                     flag);
 
             vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
@@ -1103,8 +1135,8 @@ mod tests {
 
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_block_add(ro_address, PAGE_SIZE);
+            let res = vm.vm_state.gsmmu.lock().unwrap()
+                .gpa_block_add(ro_address, PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
@@ -1113,11 +1145,11 @@ mod tests {
             let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE 
                 | PTE_EXECUTE;
 
-            vm.vm_state.lock().unwrap().gsmmu.map_page(ro_address, hpa, flag);
+            vm.vm_state.gsmmu.lock().unwrap().map_page(ro_address, hpa, flag);
 
             /* Read-only */
             flag = PTE_USER | PTE_VALID | PTE_READ;
-            vm.vm_state.lock().unwrap().gsmmu.map_protect(ro_address, flag);
+            vm.vm_state.gsmmu.lock().unwrap().map_protect(ro_address, flag);
 
             vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                 = entry_point;
@@ -1146,8 +1178,8 @@ mod tests {
 
             let entry_point: u64 = vm.vm_image.elf_file.ehdr.entry;
 
-            let res = vm.vm_state.lock().unwrap()
-                .gsmmu.gpa_block_add(nx_address, PAGE_SIZE);
+            let res = vm.vm_state.gsmmu.lock().unwrap()
+                .gpa_block_add(nx_address, PAGE_SIZE);
             if !res.is_ok() {
                 panic!("gpa region add failed!")
             }
@@ -1156,11 +1188,11 @@ mod tests {
             let mut flag: u64 = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE
                 | PTE_EXECUTE;
 
-            vm.vm_state.lock().unwrap().gsmmu.map_page(nx_address, hpa, flag);
+            vm.vm_state.gsmmu.lock().unwrap().map_page(nx_address, hpa, flag);
 
             /* Non-execute */
             flag = PTE_USER | PTE_VALID | PTE_READ | PTE_WRITE;
-            vm.vm_state.lock().unwrap().gsmmu.map_protect(nx_address, flag);
+            vm.vm_state.gsmmu.lock().unwrap().map_protect(nx_address, flag);
 
             vm.vcpus[0].vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc
                 = entry_point;

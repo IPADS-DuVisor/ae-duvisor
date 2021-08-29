@@ -1,9 +1,10 @@
 use std::vec::Vec;
 use std::sync::{Arc, Weak, Mutex, RwLock};
-
+use std::sync::atomic::Ordering;
 use crate::mm::utils::dbgprintln;
 use crate::vcpu::virtualcpu::VirtualCpu;
-use crate::irq::delegation::delegation_constants::IRQ_VS_EXT;
+use crate::irq::vipi::VirtualIpi;
+use crate::irq::delegation::delegation_constants::*;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -157,7 +158,12 @@ impl Plic {
             /* Set irq */
             vcpu.virq.set_pending_irq(IRQ_VS_EXT);
 
-            /* TODO: vipi should also be set here */
+            if vcpu.is_running.load(Ordering::SeqCst) {
+                let vipi_id = vcpu.vipi.vcpu_id_map[vcpu.vcpu_id as usize]
+                    .load(Ordering::SeqCst);
+
+                VirtualIpi::set_vipi(vipi_id);
+            }
         }
     }
 
@@ -409,6 +415,15 @@ impl IrqChip for Plic {
     
     fn trigger_edge_irq(&self, irq: u32) {
         self.plic_trigger_irq(irq, true, true);
+    }
+
+    fn trigger_virtual_irq(&self, vcpu_id: u32) -> bool {
+        let ctx_id = (vcpu_id * 2) as usize;
+        let vcpu = self.plic_contexts[ctx_id].lock().unwrap()
+            .vcpu.upgrade().unwrap();
+        vcpu.virq.set_pending_irq(IRQ_VS_SOFT);
+
+        vcpu.is_running.load(Ordering::SeqCst)
     }
 }
 

@@ -6,6 +6,17 @@ use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::ioctl::ioctl_constants::*;
 use error_code::*;
 use sbi_number::*;
+use sbi_test::*;
+use crate::init::cmdline::MAX_VCPU;
+use std::sync::atomic::Ordering;
+use std::{thread, time};
+use crate::irq::vipi::VirtualIpi;
+
+#[cfg(test)]
+use crate::irq::vipi::tests::TEST_SUCCESS_CNT;
+
+#[cfg(test)]
+use crate::irq::vipi::tests::INVALID_TARGET_VCPU;
 
 pub mod sbi_number {
     pub const SBI_EXT_0_1_SET_TIMER: u64 = 0x0;
@@ -17,6 +28,26 @@ pub mod sbi_number {
     pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA: u64 = 0x6;
     pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID: u64 = 0x7;
     pub const SBI_EXT_0_1_SHUTDOWN: u64 = 0x8;
+}
+
+/*
+ * SBI introduced for evaluation, test cases of this project.
+ * Extension name: ULH Extension
+ * The SBI extension space is 0xC000000-0xCFFFFFF
+ */
+pub mod sbi_test {
+    pub const SBI_TEST_SPACE_START: u64 = 0xC000000;
+    pub const SBI_TEST_SPACE_END: u64 = 0xCFFFFFF;
+    
+    pub const SBI_TEST_HU_VIRTUAL_IPI: u64 = 0xC000001;
+
+    /* Test result */
+    pub const SBI_TEST_SUCCESS: u64 = 0xC000007;
+    pub const SBI_TEST_FAILED: u64 = 0xC000008;
+
+    /* Loop in HU-mode */
+    pub const SBI_TEST_HU_LOOP : u64 = 0xC100000;
+
 }
 
 #[allow(unused)]
@@ -75,21 +106,29 @@ impl Ecall {
 
         match ext_id {
             SBI_EXT_0_1_SET_TIMER => {
-                /* TODO: add rust feature to tell between rv64 and rv32 */
-                /* TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if rv32 */
+                /* 
+                 * TODO: add rust feature to tell between rv64 and rv32
+                 * TODO: next_cycle = ((u64)cp->a1 << 32) | (u64)cp->a0; if
+                 * rv32
+                 */
                 let next_cycle = self.arg[0];
                 
                 /*
-                 * Linux thinks that the IRQ_S_TIMER will be cleared when ecall SBI_EXT_0_1_SET_TIMER
-                 * For record, opensbi thinks that IRQ_M_TIMER should be cleared by software.
-                 * Qemu and xv6 think that IRQ_M_TIMER should be clear when writing timecmp.
+                 * Linux thinks that the IRQ_S_TIMER will be cleared when ecall
+                 * SBI_EXT_0_1_SET_TIMER
+                 * For record, opensbi thinks that IRQ_M_TIMER should be 
+                 * cleared by software.
+                 * Qemu and xv6 think that IRQ_M_TIMER should be clear when 
+                 * writing timecmp. 
                  * I think that IRQ_U_VTIMER should be cleared by software.
-                 * That's a drawback of riscv, unlike GIC which can provide the same interface for eoi. 
+                 * That's a drawback of riscv, unlike GIC which can provide the
+                 * same interface for eoi. 
                  */
                 vcpu.virq.unset_pending_irq(IRQ_VS_TIMER);
                 unsafe {
                     /* Set timer ctl register to enable u vtimer */
-                    csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
+                    csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) 
+                        | (1 << VTIMECTL_ENABLE));
                     csrw!(VTIMECMP, next_cycle);
                 }
                 dbgprintln!("set vtimer for ulh");
@@ -106,8 +145,34 @@ impl Ecall {
                 ret = self.unsupported_sbi();
             },
             SBI_EXT_0_1_SEND_IPI => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
-                ret = self.unsupported_sbi();
+                dbgprintln!("ready to hart mask");
+                let hart_mask = self.get_hart_mask(self.arg[0]);
+                dbgprintln!("finish hart mask");
+
+                let mut vipi_id: u64;
+                for i in 0..MAX_VCPU {
+                    if ((1 << i) & hart_mask) != 0 {
+                        /* Check whether the target vcpu is valid */
+                        if i >= vcpu.vipi.vcpu_num {
+                            /* Invalid target */
+                            #[cfg(test)]
+                            unsafe {
+                                *INVALID_TARGET_VCPU.lock().unwrap() += 1;
+                            }
+
+                            continue;
+                        }
+                        vipi_id = vcpu.vipi.vcpu_id_map[i as usize]
+                            .load(Ordering::SeqCst);
+                        if vcpu.irqchip.get().unwrap().trigger_virtual_irq(i) {
+                            VirtualIpi::set_vipi(vipi_id);
+                        }
+                    }
+                }
+                dbgprintln!("hart mask 0x{:x}", hart_mask);
+                dbgprintln!("{} send ipi ...", vcpu.vcpu_id);
+
+                ret = 0;
             },
             SBI_EXT_0_1_SHUTDOWN => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
@@ -132,6 +197,9 @@ impl Ecall {
                 }
                 ret = 0;
             },
+            SBI_TEST_SPACE_START..=SBI_TEST_SPACE_END => { /* ULH Extension */
+                ret = self.ulh_extension_emulation(vcpu);
+            },
             _ => {
                 dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
                 ret = self.unsupported_sbi();
@@ -139,6 +207,81 @@ impl Ecall {
         }
 
         ret
+    }
+
+    fn ulh_extension_emulation(&mut self, vcpu: &VirtualCpu) -> i32{
+        let ext_id = self.ext_id;
+
+        match ext_id {
+            SBI_TEST_HU_VIRTUAL_IPI => {
+                /* Set vipi for the vcpu itself */
+                vcpu.irqchip.get().unwrap().trigger_virtual_irq(vcpu.vcpu_id);
+            },
+            SBI_TEST_HU_LOOP => {
+                /* Keep the vcpu thread in HU-mode */
+
+                /* Get hva of the sync data and the end signal */
+                let target_hva: u64 = self.arg[1];
+                let start_signal = self.arg[2];
+                let end_signal = self.arg[3];
+                println!("target a1: 0x{:x}", target_hva);
+                println!("start signal a2: {}", start_signal);
+                println!("end signal a3: {}", end_signal);
+
+                unsafe {
+                    /* Set up the start signal */
+                    *(target_hva as *mut u64) = start_signal;
+
+                    /* Wait for the end signal */
+                    while *(target_hva as *mut u64) != end_signal {
+                        let ten_millis = time::Duration::from_millis(10);
+
+                        thread::sleep(ten_millis);
+                    }
+                }
+
+                println!("SBI_TEST_HU_LOOP end!");
+            },
+            SBI_TEST_SUCCESS => {
+                #[cfg(test)]
+                unsafe {
+                    *TEST_SUCCESS_CNT.lock().unwrap() += 1;
+                }
+
+                dbgprintln!("***SBI_TEST_SUCCESS vcpu: {}", vcpu.vcpu_id);
+            },
+            SBI_TEST_FAILED => {
+                dbgprintln!("SBI_TEST_FAILED {}", vcpu.vcpu_id);
+            },
+            _ => {
+                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                self.unsupported_sbi();
+            },
+        }
+
+        0
+    }
+
+    /* Get hart_mask from guest memory by the address in a0 */
+    fn get_hart_mask(&self, target_address: u64) -> u64 {
+        let a0 = target_address;
+        let hart_mask: u64;
+        dbgprintln!("get_hart_mask a0 = 0x{:x}", a0);
+        unsafe {
+            asm!(
+                ".option push",
+                ".option norvc",
+
+                /* HULVX.HU t0, (t2) */
+                ".word 0x6c03c2f3",
+
+                /* HULVX.HU t1, (t2) */
+                out("t0") hart_mask,
+                in("t2") a0,
+            );
+        }
+
+        return hart_mask;
     }
 
     fn console_putchar(&mut self) -> i32{

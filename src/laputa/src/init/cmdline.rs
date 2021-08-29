@@ -5,6 +5,8 @@ use crate::mm::gparegion::GpaRegion;
 
 use clap::App;
 
+pub const MAX_VCPU: u32 = 8;
+
 pub struct VMConfig {
     pub vcpu_count: u32,
     pub mem_size: u64,
@@ -143,7 +145,7 @@ impl VMConfig {
      * Check whether arguments in vm_config are legal or not.
      */
     pub fn verify_args(vm_config: &VMConfig) -> bool {
-        if vm_config.vcpu_count == 0 || vm_config.vcpu_count > 8 {
+        if vm_config.vcpu_count == 0 || vm_config.vcpu_count > MAX_VCPU {
             eprintln!("{} failed to set vcpu_count", "error:".bright_red());
             return false;
         }
