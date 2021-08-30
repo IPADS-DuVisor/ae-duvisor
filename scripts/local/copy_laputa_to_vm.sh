@@ -13,14 +13,18 @@ else
     exit
 fi
 
-if [ ${USER}1 == gitlab-runner1 ]; then
+if [ `hostname` == liuyuxuan ]; then
     # for CI environment
-    PREPARE="$HOME/prepare"
-    build_level=""
-    build_path=debug
+    PREPARE=${PREPARE:-"$HOME/prepare"}
+#    build_level=""
+#    build_path=debug
 else
     PREPARE="./prepare"
 fi
+
+echo prepare dirctory is ${PREPARE}
+
+echo `hostname`
 
 echo $build_level
 
