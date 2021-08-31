@@ -403,7 +403,7 @@ impl VirtualMachine {
             println!("Load DTB failed");
         } else {
             let (gpa, _hva) = dtb_res.unwrap();
-            dtb_gpa = gpa
+            dtb_gpa = gpa;
         }
 
         /* Set up init state as opensbi for kernel */

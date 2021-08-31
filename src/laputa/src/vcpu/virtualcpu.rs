@@ -205,7 +205,7 @@ impl VirtualCpu {
         self.virq.set_pending_irq(IRQ_VS_TIMER);
         unsafe {
             /* 
-             * FIXME: There may be unexpected pending bit IRQ_U_VTIMER when 
+             * FIXME: There may be unexpected pending bit IRQ_U_VTIMER when
              * traped to kernel disable timer.
              */
             csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
@@ -217,7 +217,8 @@ impl VirtualCpu {
         return 0;
     }
 
-    fn get_vm_inst_by_uepc(&self, read_insn: bool, vcpu_ctx: &mut VcpuCtx) -> u32 {
+    fn get_vm_inst_by_uepc(&self, read_insn: bool, vcpu_ctx: &mut VcpuCtx)
+        -> u32 {
         let uepc = vcpu_ctx.host_ctx.hyp_regs.uepc;
         let val: u32;
 
@@ -283,7 +284,8 @@ impl VirtualCpu {
             } else if (inst & INST_MASK_LB) == INST_MATCH_LB {
                 *bit_width = 1 * 8;
             } else {
-                panic!("parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
+                panic!(
+                    "parse_load_inst: unsupported inst {:x}, inst_len {:x}", 
                     inst, inst_len);
             }
         }
@@ -305,7 +307,8 @@ impl VirtualCpu {
                 dbgprintln!("--- SW: inst {:x}, inst_len {:x}, reg: {}", 
                     inst, inst_len, target_reg);
             } else {
-                panic!("parse_store_inst: unsupported inst {:x}, inst_len {:x}", 
+                panic!(
+                    "parse_store_inst: unsupported inst {:x}, inst_len {:x}", 
                     inst, inst_len);
             }
         } else {
@@ -317,7 +320,8 @@ impl VirtualCpu {
             } else if (inst & INST_MASK_SB) == INST_MATCH_SB {
                 *bit_width = 1 * 8;
             } else {
-                panic!("parse_store_inst: unsupported inst {:x}, inst_len {:x}", 
+                panic!(
+                    "parse_store_inst: unsupported inst {:x}, inst_len {:x}", 
                     inst, inst_len);
             }
         }
@@ -335,10 +339,12 @@ impl VirtualCpu {
             fault_addr < (0xc000000 + 0x1000000) { true } else { false };
 
         if is_irqchip_mmio {
-            self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data, true);
+            self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data,
+                true);
         } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
             ret = self.console.lock().unwrap()
-                .store_emulation(fault_addr, data as u8, &self.irqchip.get().unwrap());
+                .store_emulation(fault_addr, data as u8,
+                    &self.irqchip.get().unwrap());
         } else {
             let slice = &mut data.to_le_bytes();
             if self.mmio_bus.read().unwrap().write(fault_addr, slice) {
@@ -363,10 +369,12 @@ impl VirtualCpu {
             fault_addr < (0xc000000 + 0x1000000) { true } else { false };
 
         if is_irqchip_mmio {
-            self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data, false);
+            self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data,
+                false);
         } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
             data = self.console.lock().unwrap().
-                load_emulation(fault_addr, &self.irqchip.get().unwrap()) as u32;
+                load_emulation(fault_addr, 
+                    &self.irqchip.get().unwrap()) as u32;
         } else {
             let slice = &mut data.to_le_bytes();
             if self.mmio_bus.read().unwrap().read(fault_addr, slice) {
@@ -374,7 +382,8 @@ impl VirtualCpu {
                 ret = 0;
             } else {
                 ret = 1;
-                panic!("Unknown mmio (load) fault_addr: {:x}, ret {}", fault_addr, ret);
+                panic!("Unknown mmio (load) fault_addr: {:x}, ret {}",
+                    fault_addr, ret);
             }
         }
         vcpu_ctx.guest_ctx.gp_regs.
@@ -413,17 +422,21 @@ impl VirtualCpu {
         }
 
         if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
-            self.parse_load_inst(inst, &mut inst_len, &mut bit_width, &mut target_reg);
+            self.parse_load_inst(inst, &mut inst_len, &mut bit_width,
+                &mut target_reg);
         } else {
-            self.parse_store_inst(inst, &mut inst_len, &mut bit_width, &mut target_reg);
+            self.parse_store_inst(inst, &mut inst_len, &mut bit_width,
+                &mut target_reg);
         }
 
         if ucause == EXC_LOAD_GUEST_PAGE_FAULT {
             /* Load */
-            ret = self.load_emulation(fault_addr, target_reg, bit_width, vcpu_ctx);
+            ret = self.load_emulation(fault_addr, target_reg, bit_width,
+                vcpu_ctx);
         } else if ucause == EXC_STORE_GUEST_PAGE_FAULT {
             /* Store */
-            ret = self.store_emulation(fault_addr, target_reg, bit_width, vcpu_ctx);
+            ret = self.store_emulation(fault_addr, target_reg, bit_width,
+                vcpu_ctx);
         } else {
             ret = 1;
         }
@@ -440,7 +453,8 @@ impl VirtualCpu {
         let mut ret;
         let mut gsmmu = self.vm.gsmmu.lock().unwrap();
 
-        dbgprintln!("gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
+        dbgprintln!(
+            "gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
         
         let gpa_check = gsmmu.check_gpa(fault_addr);
@@ -466,7 +480,7 @@ impl VirtualCpu {
         } else {
             let i = query.unwrap();
 
-            dbgprintln!("Query PTE offset {}, value {}, level {}", i.offset, 
+            dbgprintln!("Query PTE offset {}, value {}, level {}", i.offset,
                 i.value, i.level);
 
             if i.is_leaf() {
@@ -513,7 +527,8 @@ impl VirtualCpu {
                         gsmmu.map_page(fault_addr, hpa, flag);
 
                         /* Record the HVA <--> GPA mapping*/
-                        self.guest_mem.insert_region(hva, fault_addr, len as usize);
+                        self.guest_mem.insert_region(hva, fault_addr,
+                            len as usize);
 
                         ret = 0;
                     } else {
@@ -537,11 +552,13 @@ impl VirtualCpu {
                 }
             }
             ENOPERMIT => {
-                self.exit_reason.store(ExitReason::ExitEaccess, Ordering::SeqCst);
+                self.exit_reason.store(ExitReason::ExitEaccess,
+                    Ordering::SeqCst);
                 dbgprintln!("Query return ENOPERMIT: {}", ret);
             }
             _ => {
-                self.exit_reason.store(ExitReason::ExitEaccess, Ordering::SeqCst);
+                self.exit_reason.store(ExitReason::ExitEaccess,
+                    Ordering::SeqCst);
                 dbgprintln!("Invalid query result: {}", ret);
             }
         }
@@ -565,7 +582,8 @@ impl VirtualCpu {
             ret = 0xdead;
 
             let vipi_id = unsafe {csrr!(VCPUID)};
-            println!("ECALL_VM_TEST_END vcpu: {}, vipi_id {}", self.vcpu_id, vipi_id);
+            println!("ECALL_VM_TEST_END vcpu: {}, vipi_id {}", self.vcpu_id,
+                vipi_id);
 
             vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret as u64;
         
@@ -600,7 +618,8 @@ impl VirtualCpu {
 
     fn handle_u_vipi_irq(&self) -> i32 {
         let vcpu_id = self.vcpu_id;
-        let vipi_id = self.vipi.vcpu_id_map[vcpu_id as usize].load(Ordering::SeqCst);
+        let vipi_id = 
+            self.vipi.vcpu_id_map[vcpu_id as usize].load(Ordering::SeqCst);
 
         unsafe {
             VirtualIpi::clear_vipi(vipi_id);
