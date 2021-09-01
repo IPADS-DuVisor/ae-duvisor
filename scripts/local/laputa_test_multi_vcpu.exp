@@ -1,0 +1,77 @@
+#!/usr/bin/expect -f
+
+set timeout 300
+spawn bash -c "killall qemu-system-riscv64"
+
+spawn bash -c "PREPARE=/home/gitlab-runner/laputa/prepare ./scripts/local/boot.sh"
+
+expect "root@(none)"
+
+send "cd laputa && ./laputa --smp 2 --initrd ./test-files-laputa/rootfs-net.img --dtb ./test-files-laputa/vmlinux.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt\n"
+expect {
+    "Busybox Rootfs" {
+        send "\n ls \n"
+        expect {
+            "guest-net.sh" {}
+        }
+    }
+    
+    timeout {
+        exit -1
+    }
+}
+
+send "./guest-net.sh\n ip a \n"
+expect {
+    "eth0: <BROADCAST,MULTICAST,UP,LOWER_UP>" {
+        send "/ping-test.sh 10 \n"
+        expect {
+            "Ping test OK" {}
+        }
+    }
+
+    timeout {
+        exit -1
+    }
+}
+
+set timeout 500
+
+send "mount /dev/vda /root && chroot root \n"
+expect "#" 
+
+send "./untar.sh \n"
+expect {
+	"pagefaults" {
+    }
+
+    timeout {
+        exit -1
+    }
+}
+
+send "hackbench \n" 
+expect {
+	"Time:" {
+    }
+	
+    timeout {
+        exit -1
+    }
+
+}
+
+set timeout 1000
+
+send "./lmbench.sh \n"
+expect {
+	"Simple syscall" {
+        
+    }
+
+    timeout {
+        exit -1
+    }
+}
+
+puts "\nTest OK\n"

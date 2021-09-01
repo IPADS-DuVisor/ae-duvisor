@@ -20,6 +20,18 @@ args:
         help: Sets the number of virtual CPUs
         conflicts_with:
             - vm_config
+    - vmtap:
+        long: vmtap
+        value_name: VMTAP
+        help: Sets the number of vmtap
+        conflicts_with:
+            - vm_config
+    - tty:
+        long: tty
+        value_name: TTY
+        help: Tty input control
+        conflicts_with:
+            - vm_config
     - memory:
         long: memory
         value_name: MEMORY

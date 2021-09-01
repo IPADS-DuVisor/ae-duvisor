@@ -18,6 +18,9 @@ use crate::irq::vipi::tests::TEST_SUCCESS_CNT;
 #[cfg(test)]
 use crate::irq::vipi::tests::INVALID_TARGET_VCPU;
 
+/* Flag for SBI SHUTDOWN */
+pub static mut SHUTDOWN_FLAG: i32 = 0;
+
 pub mod sbi_number {
     pub const SBI_EXT_0_1_SET_TIMER: u64 = 0x0;
     pub const SBI_EXT_0_1_CONSOLE_PUTCHAR: u64 = 0x1;
@@ -175,8 +178,11 @@ impl Ecall {
                 ret = 0;
             },
             SBI_EXT_0_1_SHUTDOWN => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
-                ret = self.unsupported_sbi();
+                println!("Poweroff the virtual machine!");
+                ret = -100;
+                unsafe {
+                    SHUTDOWN_FLAG = 1;
+                }
             },
             SBI_EXT_0_1_REMOTE_FENCE_I | SBI_EXT_0_1_REMOTE_SFENCE_VMA 
                     | SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID=> {

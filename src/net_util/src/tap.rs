@@ -28,7 +28,7 @@ pub struct Tap {
 
 impl Tap {
     /// Create a new tap interface.
-    pub fn new() -> Result<Tap> {
+    pub fn new(vmtap_num: u32) -> Result<Tap> {
         // Open calls are safe because we give a constant nul-terminated
         // string and verify the result.
         let fd = unsafe {
@@ -44,7 +44,13 @@ impl Tap {
         // We just checked that the fd is valid.
         let tuntap = unsafe { File::from_raw_fd(fd) };
 
-        const TUNTAP_DEV_FORMAT: &'static [u8; 8usize] = b"vmtap0\0\0";
+        //const TUNTAP_DEV_FORMAT: &'static [u8; 8usize] = b"vmtap1\0\0";
+        let tuntap_dev_format: &'static [u8; 8usize];
+        if vmtap_num == 0 {
+            tuntap_dev_format = b"vmtap0\0\0";
+        } else {
+            tuntap_dev_format = b"vmtap1\0\0";
+        }
 
         // This is pretty messy because of the unions used by ifreq. Since we
         // don't call as_mut on the same union field more than once, this block
@@ -53,8 +59,8 @@ impl Tap {
         unsafe {
             let ifrn_name = ifreq.ifr_ifrn.ifrn_name.as_mut();
             let ifru_flags = ifreq.ifr_ifru.ifru_flags.as_mut();
-            let name_slice = &mut ifrn_name[..TUNTAP_DEV_FORMAT.len()];
-            name_slice.copy_from_slice(TUNTAP_DEV_FORMAT);
+            let name_slice = &mut ifrn_name[..tuntap_dev_format.len()];
+            name_slice.copy_from_slice(tuntap_dev_format);
             *ifru_flags =
                 (net_sys::IFF_TAP | net_sys::IFF_NO_PI | net_sys::IFF_VNET_HDR) as c_short;
         }

@@ -7,6 +7,11 @@ use clap::App;
 
 pub const MAX_VCPU: u32 = 8;
 
+pub static mut VMTAP_NUM: u32 = 0;
+
+/* 0: Open input, 1: close input */
+pub static mut TTY_INPUT_FLAG: u32 = 0;
+
 pub struct VMConfig {
     pub vcpu_count: u32,
     pub mem_size: u64,
@@ -55,6 +60,19 @@ impl VMConfig {
             vm_config.vcpu_count = value_t!(matches.value_of("smp"), u32).unwrap_or(0);
             if vm_config.vcpu_count == 0 {
                 return Err("please set vcpu count by using --smp or config files.");
+            }
+
+            /* Get vmtap number */
+            let vmtap_num: u32 = value_t!(matches.value_of("vmtap"), u32).unwrap_or(0);
+            println!("*****Get vmtap number: {}", vmtap_num);
+            unsafe {
+                VMTAP_NUM = vmtap_num;
+            }
+
+            let tty_input_flag: u32 = value_t!(matches.value_of("tty"), u32).unwrap_or(0);
+            println!("*****TTY INPUT FLAG: {}", tty_input_flag);
+            unsafe {
+                TTY_INPUT_FLAG = tty_input_flag;
             }
 
             /* Get memory size */

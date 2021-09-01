@@ -54,4 +54,14 @@ proc main_test { } {
             exit -1
         }
     }
+
+    send "poweroff -f \n"
+    expect {
+        "root@(none)" {
+        }
+
+        timeout {
+            exit -1
+        }
+    }
 }

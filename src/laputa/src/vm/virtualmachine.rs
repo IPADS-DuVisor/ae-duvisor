@@ -21,6 +21,10 @@ use std::fs::{OpenOptions};
 use std::net::{Ipv4Addr};
 use crate::vcpu::utils::*;
 use crate::irq::vipi::VirtualIpi;
+use std::process::exit;
+use crate::plat::opensbi::emulation::SHUTDOWN_FLAG;
+use crate::init::cmdline::VMTAP_NUM;
+use crate::init::cmdline::TTY_INPUT_FLAG;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -132,10 +136,13 @@ impl VirtualMachine {
     #[allow(unused)]
     fn create_network_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
         guest_mem: &GuestMemory, irqchip: &Arc<Plic>) {
+
+        let vmtap: u32 = unsafe{ VMTAP_NUM };
+
         let net_box = Box::new(devices::virtio::Net::new(
                 Ipv4Addr::new(192, 168, 254, 2), /* IP */
-                Ipv4Addr::new(255, 255, 0, 0) /* NETMASK */
-                ).unwrap());
+                Ipv4Addr::new(255, 255, 0, 0), /* NETMASK */
+                vmtap).unwrap());
         
         let mmio_net = devices::virtio::MmioDevice::new(
             guest_mem.clone(), net_box, irqchip.clone()).unwrap();
@@ -461,15 +468,17 @@ impl VirtualMachine {
         println!("IO thread start polling");
 
         handle = thread::spawn(move || {
-            loop {
-                unsafe {
-                    let input = getchar_emulation();
-                    let input_char: u8 = (input & 0xff) as u8;
+            unsafe {
+                if TTY_INPUT_FLAG == 0 {
+                    loop {
+                        let input = getchar_emulation();
+                        let input_char: u8 = (input & 0xff) as u8;
 
-                    let res = console.lock().unwrap().recv_char(input_char as char);
-                    if res == 1 {
-                        println!("Full!");
-                    }   
+                        let res = console.lock().unwrap().recv_char(input_char as char);
+                        if res == 1 {
+                            println!("Full!");
+                        }
+                    }
                 }
             }
         });
@@ -495,6 +504,13 @@ impl VirtualMachine {
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
                 vcpu.thread_vcpu_run(delta_time);
+
+                unsafe {
+                    if SHUTDOWN_FLAG != 0 {
+                        println!("VM end");
+                        exit(1);
+                    }
+                }
             });
 
             vcpu_handle.push(handle);
@@ -850,7 +866,7 @@ mod tests {
             let elf_path: &str = "./tests/integration/ecall_emulation_unsupported.img";
             vm_config.kernel_img_path = String::from(elf_path);
             let mut vm = virtualmachine::VirtualMachine::new(vm_config);
-            const UNSUPPORTED_NUM: usize = 2;
+            const UNSUPPORTED_NUM: usize = 1;
 
             /* Answer will be saved at 0x3000(gpa) */
             let mut retval: u64;

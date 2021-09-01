@@ -8,4 +8,4 @@ docker run -it \
     --cap-add=NET_ADMIN \
     --network host \
     1197744123/laputa:v4 \
-    ./scripts/local/laputa_test.exp $@
+    ./scripts/local/laputa_test.sh $@
