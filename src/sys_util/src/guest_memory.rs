@@ -89,11 +89,22 @@ impl GuestMemory {
         Ok(GuestMemory { regions: Arc::new(RwLock::new(regions)) })
     }
 
-    pub fn insert_region(&self, hva: u64, gpa: u64, len: usize) {
-        let host_mapping = MemoryMapping::new(hva, len).unwrap();
+    pub fn insert_region(&self, hva: u64, gpa: u64, hpa: u64, len: usize) {
+        let host_mapping = MemoryMapping::new(hva, hpa, len).unwrap();
         let guest_base = GuestAddress(gpa as usize);
         
         self.regions.write().unwrap().insert(guest_base, host_mapping);
+    }
+
+    pub fn query_region(&self, gpa: u64) -> Option<(u64, u64)> {
+        let guest_base = GuestAddress(gpa as usize);
+        
+        match self.regions.read().unwrap().get(&guest_base) {
+            Some(mmap) => {
+                return Some((mmap.hva(), mmap.hpa()));
+            },
+            None => { return None; }
+        }
     }
 
     /// Returns the end address of memory.

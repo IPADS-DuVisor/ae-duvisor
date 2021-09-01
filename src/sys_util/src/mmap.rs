@@ -38,6 +38,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct MemoryMapping {
     addr: *mut u8,
     size: usize,
+    hpa: u64,
 }
 
 // Send and Sync aren't automatically inherited for the raw address pointer.
@@ -76,10 +77,11 @@ impl MemoryMapping {
     }
     */
 
-    pub fn new(hva: u64, len: usize) -> Result<MemoryMapping> {
+    pub fn new(hva: u64, hpa: u64, len: usize) -> Result<MemoryMapping> {
         Ok(MemoryMapping {
             addr: hva as *mut u8,
             size: len,
+            hpa,
         })
     }
 
@@ -107,6 +109,7 @@ impl MemoryMapping {
         Ok(MemoryMapping {
             addr: addr as *mut u8,
             size: size,
+            hpa: 0,
         })
     }
 
@@ -116,9 +119,19 @@ impl MemoryMapping {
         self.addr
     }
 
+    /// Returns the HVA of the memory region in bytes.
+    pub fn hva(&self) -> u64 {
+        self.addr as u64
+    }
+
     /// Returns the size of the memory region in bytes.
     pub fn size(&self) -> usize {
         self.size
+    }
+
+    /// Returns the HPA of the memory region in bytes.
+    pub fn hpa(&self) -> u64 {
+        self.hpa
     }
 
     /// Writes a slice to the memory region at the specified offset.
