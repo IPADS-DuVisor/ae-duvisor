@@ -23,7 +23,7 @@ use crate::vcpu::utils::*;
 use crate::irq::vipi::VirtualIpi;
 use std::process::exit;
 use crate::plat::opensbi::emulation::SHUTDOWN_FLAG;
-use crate::init::cmdline::VMTAP_NUM;
+use crate::init::cmdline::VMTAP_ID;
 use crate::init::cmdline::TTY_INPUT_FLAG;
 
 extern crate irq_util;
@@ -137,12 +137,12 @@ impl VirtualMachine {
     fn create_network_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
         guest_mem: &GuestMemory, irqchip: &Arc<Plic>) {
 
-        let vmtap: u32 = unsafe{ VMTAP_NUM };
+        let vmtap_id: u32 = unsafe{ VMTAP_ID };
 
         let net_box = Box::new(devices::virtio::Net::new(
                 Ipv4Addr::new(192, 168, 254, 2), /* IP */
                 Ipv4Addr::new(255, 255, 0, 0), /* NETMASK */
-                vmtap).unwrap());
+                vmtap_id).unwrap());
         
         let mmio_net = devices::virtio::MmioDevice::new(
             guest_mem.clone(), net_box, irqchip.clone()).unwrap();
@@ -470,6 +470,8 @@ impl VirtualMachine {
         handle = thread::spawn(move || {
             unsafe {
                 if TTY_INPUT_FLAG == 0 {
+                    println!("TTY input started ...");
+
                     loop {
                         let input = getchar_emulation();
                         let input_char: u8 = (input & 0xff) as u8;
@@ -480,6 +482,8 @@ impl VirtualMachine {
                         }
                     }
                 }
+
+                println!("TTY input closed.");
             }
         });
 

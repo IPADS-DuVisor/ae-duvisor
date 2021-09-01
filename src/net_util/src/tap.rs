@@ -28,7 +28,7 @@ pub struct Tap {
 
 impl Tap {
     /// Create a new tap interface.
-    pub fn new(vmtap_num: u32) -> Result<Tap> {
+    pub fn new(vmtap_id: u32) -> Result<Tap> {
         // Open calls are safe because we give a constant nul-terminated
         // string and verify the result.
         let fd = unsafe {
@@ -44,12 +44,18 @@ impl Tap {
         // We just checked that the fd is valid.
         let tuntap = unsafe { File::from_raw_fd(fd) };
 
-        //const TUNTAP_DEV_FORMAT: &'static [u8; 8usize] = b"vmtap1\0\0";
+        /* Each VM should choose one vmtap to avoid conflict */
         let tuntap_dev_format: &'static [u8; 8usize];
-        if vmtap_num == 0 {
-            tuntap_dev_format = b"vmtap0\0\0";
-        } else {
-            tuntap_dev_format = b"vmtap1\0\0";
+        match vmtap_id {
+            0 => {
+                tuntap_dev_format = b"vmtap0\0\0";
+            },
+            1 => {
+                tuntap_dev_format = b"vmtap1\0\0";
+            },
+            _ => {
+                tuntap_dev_format = b"vmtap%d\0";
+            }
         }
 
         // This is pretty messy because of the unions used by ifreq. Since we
@@ -225,63 +231,3 @@ unsafe impl Pollable for Tap {
         self.tap_file.as_raw_fd()
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tap_create() {
-        Tap::new().unwrap();
-    }
-
-    #[test]
-    fn tap_configure() {
-        let tap = Tap::new().unwrap();
-        let ip_addr: net::Ipv4Addr = "100.115.92.5".parse().unwrap();
-        let netmask: net::Ipv4Addr = "255.255.255.252".parse().unwrap();
-
-        let ret = tap.set_ip_addr(ip_addr);
-        assert_ok_or_perm_denied(ret);
-        let ret = tap.set_netmask(netmask);
-        assert_ok_or_perm_denied(ret);
-    }
-
-    /// This test will only work if the test is run with root permissions and, unlike other tests
-    /// in this file, do not return PermissionDenied. They fail because the TAP FD is not
-    /// initialized (as opposed to permission denial). Run this with "cargo test -- --ignored".
-    #[test]
-    #[ignore]
-    fn root_only_tests() {
-        // This line will fail to provide an initialized FD if the test is not run as root.
-        let tap = Tap::new().unwrap();
-        tap.set_vnet_hdr_size(16).unwrap();
-        tap.set_offload(0).unwrap();
-    }
-
-    #[test]
-    fn tap_enable() {
-        let tap = Tap::new().unwrap();
-
-        let ret = tap.enable();
-        assert_ok_or_perm_denied(ret);
-    }
-
-    #[test]
-    fn tap_get_ifreq() {
-        let tap = Tap::new().unwrap();
-        let ret = tap.get_ifreq();
-        assert_eq!("__BindgenUnionField", format!("{:?}", ret.ifr_ifrn.ifrn_name));
-    }
-
-    fn assert_ok_or_perm_denied<T>(res: Result<T>) {
-        match res {
-            // We won't have permission in test environments; allow that
-            Ok(_t) => {},
-            Err(Error::IoctlError(ref ioe)) if ioe.kind() == ErrorKind::PermissionDenied => {},
-            Err(e) => panic!("Unexpected Error:\n{:?}", e),
-        }
-    }
-}
-*/

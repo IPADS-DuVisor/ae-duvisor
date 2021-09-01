@@ -7,7 +7,7 @@ use clap::App;
 
 pub const MAX_VCPU: u32 = 8;
 
-pub static mut VMTAP_NUM: u32 = 0;
+pub static mut VMTAP_ID: u32 = 0;
 
 /* 0: Open input, 1: close input */
 pub static mut TTY_INPUT_FLAG: u32 = 0;
@@ -63,10 +63,10 @@ impl VMConfig {
             }
 
             /* Get vmtap number */
-            let vmtap_num: u32 = value_t!(matches.value_of("vmtap"), u32).unwrap_or(0);
-            println!("*****Get vmtap number: {}", vmtap_num);
+            let vmtap_id: u32 = value_t!(matches.value_of("vmtap"), u32).unwrap_or(0);
+            println!("*****Get vmtap id: {}", vmtap_id);
             unsafe {
-                VMTAP_NUM = vmtap_num;
+                VMTAP_ID = vmtap_id;
             }
 
             let tty_input_flag: u32 = value_t!(matches.value_of("tty"), u32).unwrap_or(0);
