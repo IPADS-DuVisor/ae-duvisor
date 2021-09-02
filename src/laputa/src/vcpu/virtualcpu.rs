@@ -521,14 +521,10 @@ impl VirtualCpu {
 
                     if res.is_ok() {
                         /* Map new page to VM if the region exists */
-                        let (hva, hpa) = res.unwrap();
+                        let (_hva, hpa) = res.unwrap();
                         let flag: u64 = PTE_VRWEU;
 
                         gsmmu.map_page(fault_addr, hpa, flag);
-
-                        /* Record the HVA <--> GPA mapping*/
-                        self.guest_mem.insert_region(hva, fault_addr,
-                            len as usize);
 
                         ret = 0;
                     } else {
@@ -537,16 +533,12 @@ impl VirtualCpu {
                     }
                 } else {
                     /* Fault gpa is already in a gpa_block and it is valid */
-                    let (fault_hva, fault_hpa) = fault_addr_query.unwrap();
+                    let (_fault_hva, fault_hpa) = fault_addr_query.unwrap();
                     let flag: u64 = PTE_VRWEU;
                         
                     dbgprintln!("map gpa: {:x} to hpa: {:x}",
                         fault_addr, fault_hpa);
                         gsmmu.map_page(fault_addr, fault_hpa, flag);
-                    
-                    /* Record the HVA <--> GPA mapping*/
-                    self.guest_mem.insert_region(fault_hva, fault_addr, 
-                        PAGE_SIZE as usize);
 
                     ret = 0;
                 }
