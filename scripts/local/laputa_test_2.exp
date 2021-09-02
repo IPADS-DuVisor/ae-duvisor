@@ -3,7 +3,7 @@ source [file join [file dirname $argv0] ./laputa_test_main.tcl]
 source [file join [file dirname $argv0] ./laputa_test_main_multi_vcpu.tcl]
 source [file join [file dirname $argv0] ./laputa_test_main_multi_vm.tcl]
 
-set timeout 180
+set timeout 18000
 set env(TERM) xterm-256color
 set env(SHELL) /bin/bash
 set env(HOME) /home/gitlab-runner
@@ -19,9 +19,7 @@ set env(SUDO_COMMAND) /bin/bash
 
 spawn bash -c "killall qemu-system-riscv64"
 
-spawn bash -c "screen -r virt"
-
-send "./scripts/local/boot.sh \n"
+spawn bash -c "./scripts/local/boot.sh"
 
 expect {
     "Please press Enter to activate this console" {
@@ -34,16 +32,13 @@ expect {
     }
 
     "root@(none)" {
-        send "cd laputa && ./run_tests.sh $argv\n"
+        send "cd laputa && ./run_tests.sh irq::vipi::tests\n"
         expect {
-            "test failed" {
-                exit -1
-            }
             "ALL TEST PASSED" {
-        
-            }
-            timeout {
-                exit -1
+                read -p "1"
+                pause "Bug find"
+                shihdsihdishdi
+                sleep 100000000                
             }
         }
     }
@@ -51,17 +46,5 @@ expect {
         exit -1
     }
 }
-
-main_test
-
-main_test_multi_vcpu
-
-main_test_multi_vm
-
-send "\x01"; send "d"
-
-spawn bash  -c "screen -r host"
-
-main_test_multi_vm_host
 
 puts "Test OK"
