@@ -45,7 +45,7 @@ proc main_test_multi_vm { } {
 proc main_test_multi_vm_host { } {
     # Test the binary
 
-    send "ssh root@192.168.254.7 \n"
+    send "ssh root@192.168.254.7 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
         }
@@ -99,7 +99,7 @@ proc main_test_multi_vm_host { } {
 
     sleep 2
 
-    send "ssh root@192.168.254.8 \n"
+    send "ssh root@192.168.254.8 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
         }

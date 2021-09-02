@@ -55,6 +55,16 @@ proc main_test { } {
         }
     }
 
+    send "sync \n"
+    expect {
+        "#" {
+        }
+
+        timeout {
+            exit -1
+        }
+    }
+
     send "poweroff -f \n"
     expect {
         "root@(none)" {

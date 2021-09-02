@@ -26,6 +26,16 @@ proc main_test_multi_vcpu { } {
         }
     }
 
+    send "sync \n"
+    expect {
+        "#" {
+        }
+
+        timeout {
+            exit -1
+        }
+    }
+
     send "poweroff -f \n"
     expect {
         "root@(none)" {
