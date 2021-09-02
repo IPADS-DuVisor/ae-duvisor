@@ -10,7 +10,6 @@ laputa_test:
         - ./scripts/local/build_linux.sh
         - ./scripts/local/build_opensbi.sh
         - ./scripts/local/docker_build_laputa.sh debug
-        - ./scripts/expect_wrapper.sh ./scripts/local/laputa_test.exp
         - ./scripts/local/docker_build_laputa.sh
         - ./scripts/expect_wrapper.sh ./scripts/local/laputa_test_standalone.exp
         - sleep 5
