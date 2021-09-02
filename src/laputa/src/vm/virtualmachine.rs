@@ -67,14 +67,15 @@ pub struct VmSharedState {
 }
 
 impl VmSharedState {
-    pub fn new(ioctl_fd: i32, mem_size: u64, mmio_regions: Vec<GpaRegion>, vm_id: u64)
+    pub fn new(ioctl_fd: i32, mem_size: u64, guest_mem: &GuestMemory,
+        mmio_regions: Vec<GpaRegion>, vm_id: u64)
         -> Self {
         Self {
             vm_id,
             ioctl_fd,
             gsmmu: Mutex::new(
                     gstagemmu::GStageMmu::new(
-                        ioctl_fd, mem_size, mmio_regions)),
+                        ioctl_fd, mem_size, guest_mem.clone(), mmio_regions)),
         }
     }
 }
@@ -200,7 +201,6 @@ impl VirtualMachine {
             vmid = VIPI_OFFSET;
         }
 
-        let vm_state = Arc::new(VmSharedState::new(ioctl_fd, mem_size, mmio_regions, vmid));
         let console = Arc::new(Mutex::new(tty));
 
         let vipi = VirtualIpi::new(vcpu_num);
@@ -208,6 +208,9 @@ impl VirtualMachine {
 
         let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
         let guest_mem = GuestMemory::new().unwrap();
+        
+        let vm_state = Arc::new(VmSharedState::new(ioctl_fd, mem_size,
+                &guest_mem, mmio_regions, vmid));
         
         /* Create vcpu struct instances */
         for i in 0..vcpu_num {
@@ -593,7 +596,6 @@ mod tests {
             hva_list = vm.vm_init();
 
             let mut gb_gpa;
-            let mut gb_hpa;
             let mut gb_length;
             let mut target_hva = 0;
             for i in &vm.vm_state.gsmmu.lock().unwrap().mem_gpa_regions {
@@ -601,14 +603,6 @@ mod tests {
                 gb_length = i.length;
                 println!("gpa_regions - gpa {:x}, length {:x}", gb_gpa,
                     gb_length);
-            }
-
-            for i in &vm.vm_state.gsmmu.lock().unwrap().gpa_blocks {
-                gb_gpa = i.gpa;
-                gb_hpa = i.hpa;
-                gb_length = i.length;
-                println!("gpa_blocks - gpa {:x}, hpa {:x}, length {:x}",
-                    gb_gpa, gb_hpa, gb_length);
             }
 
             for i in hva_list {

@@ -4,6 +4,9 @@ use crate::mm::mmio;
 use core::mem;
 use crate::mm::utils::*;
 
+extern crate sys_util;
+use sys_util::GuestMemory;
+
 #[allow(unused)]
 extern "C"
 {
@@ -180,16 +183,15 @@ impl PageTableRegion {
 #[allow(unused)]
 pub struct GStageMmu {
     pub page_table: PageTableRegion,
-    pub gpa_blocks: Vec<gparegion::GpaBlock>, /* Gpa block list */
+    pub guest_mem: GuestMemory,
     pub allocator: hpmallocator::HpmAllocator,
     pub mmio_manager: mmio::MmioManager,
     pub mem_gpa_regions: Vec<gparegion::GpaRegion>,
 }
 
 impl GStageMmu {
-    pub fn new(ioctl_fd: i32, mem_size: u64,
+    pub fn new(ioctl_fd: i32, mem_size: u64, guest_mem: GuestMemory,
         mmio_regions: Vec<gparegion::GpaRegion>) -> Self {    
-        let gpa_blocks: Vec<gparegion::GpaBlock> = Vec::new();
         let mut allocator = hpmallocator::HpmAllocator::new(ioctl_fd);
         let mut page_table = PageTableRegion::new(&mut allocator);
         let mmio_manager = mmio::MmioManager::new(mmio_regions);
@@ -202,38 +204,21 @@ impl GStageMmu {
 
         Self {
             page_table,
-            gpa_blocks,
+            guest_mem,
             allocator,
             mmio_manager,
             mem_gpa_regions,
         }
     }
 
-    fn region_overlap(first_region_start: u64, first_region_len: u64, 
-            second_region_start: u64, second_region_len: u64) -> bool {
-        if first_region_start >= second_region_start + second_region_len 
-            || first_region_start + first_region_len <= second_region_start {
-            return false;
-        }
-
-        return true;
-    }
-
     pub fn gpa_block_overlap(&mut self, gpa: u64, length: u64) -> bool {
-        let mut start_block: u64;
-        let mut length_block: u64;
- 
-        for i in &self.gpa_blocks {
-            start_block = i.gpa;
-            length_block = i.length;
-
-            if GStageMmu::region_overlap(gpa, length, start_block,
-                    length_block) {
-                /* Overlapped */
-                return true;
+        for offset in (0..length as usize).step_by(PAGE_SIZE as usize) {
+            match self.guest_mem.query_region(gpa + offset as u64) {
+                Some(_mmap) => { return true; }
+                None => { continue; }
             }
         }
-
+        
         return false;
     }
 
@@ -303,29 +288,22 @@ impl GStageMmu {
     }
 
     pub fn gpa_block_query(&mut self, gpa: u64) -> Option<(u64, u64)> {
-        let mut start: u64;
-        let mut end: u64;
         let hva: u64;
         let hpa: u64;
 
         dbgprintln!("gpa_block_query gpa: {:x}", gpa);
 
-        for i in &self.gpa_blocks {
-            start = i.gpa;
-            end = start + i.length;
-            dbgprintln!("gpa_block_query: gpa {:x}, hpa {:x}, length {:x}",
-                i.gpa, i.hpa, i.length);
-            if gpa >= start &&  gpa < end {
-                dbgprintln!("query result: gpa {:x}, hpa {:x}, length {:x}",
-                    i.gpa, i.hpa, i.length);
-                hva = i.hva + gpa - start;
-                hpa = i.hpa + gpa - start;
-                dbgprintln!("gpa_block_query: hva {:x} hpa {:x}", hva, hpa);
-                return Some((hva, hpa));
-            }
-        }
+        let gpa_key = gpa & !PAGE_SIZE_MASK;
 
-        return None;
+        match self.guest_mem.query_region(gpa_key) {
+            Some(res) => {
+                let offset = gpa & PAGE_SIZE_MASK;
+                hva = res.0 + offset;
+                hpa = res.1 + offset;
+                return Some((hva, hpa));
+            },
+            None => { return None; }
+        }
     }
 
     /* For debug */
@@ -615,6 +593,7 @@ impl GStageMmu {
 
     pub fn gpa_block_add(&mut self, gpa: u64, mut length: u64)
         -> Result<(u64, u64), u64> {
+        assert_eq!(gpa & 0xfff, 0);
         /* Gpa block should always be aligned to PAGE_SIZE */
         length = page_size_round_up(length);
 
@@ -647,8 +626,10 @@ impl GStageMmu {
             hva = i.hpm_vptr;
         }
 
-        let gpa_block = gparegion::GpaBlock::new(gpa, hva, hpa, length);
-        self.gpa_blocks.push(gpa_block);
+        for offset in (0..length as usize).step_by(PAGE_SIZE as usize) {
+            self.guest_mem.insert_region(hva + offset as u64, gpa + offset as u64,
+                hpa + offset as u64, PAGE_SIZE as usize);
+        }
 
         return Ok((hva, hpa));
     }
@@ -674,7 +655,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
 
             /* Check the root table has been created */
             let free_offset = gsmmu.page_table.free_offset;
@@ -702,23 +684,11 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
-            let mut gpa: u64 = 0;
-            let mut length: u64 = 0;
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
 
             let result = gsmmu.gpa_block_add(0x1000, 0x4000);
             assert!(result.is_ok());
-
-            let list_length = gsmmu.gpa_blocks.len();
-            assert_eq!(1, list_length);
-
-            for i in gsmmu.gpa_blocks {
-                gpa = i.gpa;
-                length = i.length;
-            }
-
-            assert_eq!(gpa, 0x1000);
-            assert_eq!(length, 0x4000);
         }
 
         #[test]
@@ -732,7 +702,8 @@ mod tests {
                     (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
             }
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
 
             /* Create a page table */
             gsmmu.page_table.page_table_create(1);
@@ -764,7 +735,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
 
             /* Create a page table */
             gsmmu.map_page(0x1000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -796,7 +768,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let mut ptr: *mut u64;
             let mut pte: u64;
@@ -881,7 +854,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
 
             /* Create a page table */
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -924,7 +898,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let mut ptr: *mut u64;
             let mut pte: u64;
@@ -979,7 +954,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
 
             /* Create a page table */
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -1019,7 +995,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
 
             /* Create a page table */
             gsmmu.map_range(0x1000, 0x2000, 0x2000, PTE_READ | PTE_EXECUTE);
@@ -1079,7 +1056,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
             let mut pte: Pte;
             let mut pte_offset: u64 = 0;
             let mut pte_value: u64 = 0;
@@ -1129,7 +1107,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
             let valid_gpa = 0x1000;
             let invalid_hpa = 0x2100;
 
@@ -1154,7 +1133,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
             let valid_hpa = 0x2000;
             let invalid_gpa = 0x1100;
 
@@ -1178,7 +1158,8 @@ mod tests {
             }
 
             let mmio_regions: Vec<gparegion::GpaRegion> = Vec::new();
-            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, mmio_regions);
+            let guest_mem = GuestMemory::new().unwrap();
+            let mut gsmmu = GStageMmu::new(ioctl_fd, mem_size, guest_mem, mmio_regions);
             let root_ptr = gsmmu.page_table.vaddr as *mut u64;
             let ptr: *mut u64;
             let mut pte: u64;
