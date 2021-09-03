@@ -35,7 +35,7 @@ expect {
     }
 }
 
-set timeout 500
+set timeout 1000
 
 send "mount /dev/vda /root && chroot root \n"
 expect "#" 
