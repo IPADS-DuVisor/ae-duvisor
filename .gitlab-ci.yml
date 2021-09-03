@@ -11,10 +11,12 @@ laputa_test:
         - ./scripts/local/build_opensbi.sh
         - ./scripts/local/docker_build_laputa.sh debug
         - ./scripts/local/docker_build_laputa.sh
-        - ./scripts/local/laputa_test.sh
         - ./scripts/expect_wrapper.sh ./scripts/local/laputa_test_standalone.exp
         - sleep 5
         - ./scripts/local/laputa_test_network.sh
+        - sleep 5
+        - ./scripts/local/laputa_test.sh
+
     after_script:
         - sudo rm -r mnt
         - sudo rm -r target
