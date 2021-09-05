@@ -19,7 +19,7 @@ spawn bash -c "screen -r virt"
  
 expect "laputa"
 
-send "PREPARE=/home/gitlab-runner/laputa/prepare ./scripts/local/boot.sh\n"
+send "PREPARE=/home/gitlab-runner/laputa/prepare ./scripts/local/boot.sh | tee ~/log-laputa/network/`date +%Y-%m-%d-%T`\n"
 
 expect "root@(none)"
 
@@ -115,3 +115,5 @@ expect {
 }
 
 puts "Test OK"
+
+send "\x01x"
