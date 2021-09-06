@@ -284,7 +284,7 @@ proc main_test_multi_vm_2_8 { } {
 
 proc main_test_multi_vm_host_2_8 { } {
     # Wait for VMs to start up
-    sleep 20
+    sleep 100
 
     # Test VM-0
     send "ssh root@192.168.254.7 -o StrictHostKeyChecking=no \n"
@@ -701,7 +701,7 @@ proc main_test_multi_vm_host_2_8 { } {
 
 proc main_test_multi_vm_host_2_2 { } {
     # Wait for VMs to start up
-    sleep 20
+    sleep 100
 
     # Test VM-0
     send "ssh root@192.168.254.7 -o StrictHostKeyChecking=no \n"
@@ -836,7 +836,7 @@ proc main_test_multi_vm_host_2_2 { } {
 
 proc main_test_multi_vm_host_2_4 { } {
     # Wait for VMs to start up
-    sleep 20
+    sleep 100
 
     # Test VM-0
     send "ssh root@192.168.254.7 -o StrictHostKeyChecking=no \n"
