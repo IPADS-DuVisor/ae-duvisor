@@ -290,46 +290,39 @@ proc main_test_multi_vm_host_2_8 { } {
     send "ssh root@192.168.254.7 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.7" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.7 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
         }
 
-        timeout {
-            exit -1
-        }
-    }
-
-    send "123\n"
-
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.7" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.7 closed." {
+        "No route to host" {
         }
 
         timeout {
@@ -345,6 +338,39 @@ proc main_test_multi_vm_host_2_8 { } {
     send "ssh root@192.168.254.8 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.8" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.8 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+        }
+
+        "No route to host" {
         }
 
         timeout {
@@ -352,50 +378,47 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    send "123\n"
+    send " \n"
 
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.8" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.8 closed." {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
+    sleep 2
 
     # Test VM-2
     send "ssh root@192.168.254.9 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.9" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.9 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+        }
+
+        "No route to host" {
         }
 
         timeout {
@@ -403,50 +426,47 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    send "123\n"
+    send " \n"
 
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.9" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.9 closed." {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
+    sleep 2
 
     # Test VM-3
     send "ssh root@192.168.254.10 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.10" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.10 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+        }
+
+        "No route to host" {
         }
 
         timeout {
@@ -454,50 +474,47 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    send "123\n"
+    send " \n"
 
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.10" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.10 closed." {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
+    sleep 2
 
     # Test VM-4
     send "ssh root@192.168.254.11 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.11" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.11 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+        }
+
+        "No route to host" {
         }
 
         timeout {
@@ -505,50 +522,47 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    send "123\n"
+    send " \n"
 
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.11" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.11 closed." {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
+    sleep 2
 
     # Test VM-5
     send "ssh root@192.168.254.12 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.12" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.12 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+        }
+
+        "No route to host" {
         }
 
         timeout {
@@ -556,50 +570,47 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    send "123\n"
+    send " \n"
 
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.12" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.12 closed." {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
+    sleep 2
 
     # Test VM-6
     send "ssh root@192.168.254.13 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.13" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.13 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+        }
+
+        "No route to host" {
         }
 
         timeout {
@@ -607,45 +618,9 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    send "123\n"
+    send " \n"
 
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.13" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.13 closed." {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
+    sleep 2
 
     # Test VM-7
     send "ssh root@192.168.254.14 -o StrictHostKeyChecking=no \n"
@@ -707,37 +682,39 @@ proc main_test_multi_vm_host_2_2 { } {
     send "ssh root@192.168.254.7 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.7" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.7 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
         }
 
-        timeout {
-            exit -1
-        }
-    }
-
-    send "123\n"
-
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.7" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.7 closed." {
+        "No route to host" {
         }
 
         timeout {
@@ -842,46 +819,39 @@ proc main_test_multi_vm_host_2_4 { } {
     send "ssh root@192.168.254.7 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.7" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.7 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
         }
 
-        timeout {
-            exit -1
-        }
-    }
-
-    send "123\n"
-
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.7" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.7 closed." {
+        "No route to host" {
         }
 
         timeout {
@@ -897,6 +867,39 @@ proc main_test_multi_vm_host_2_4 { } {
     send "ssh root@192.168.254.8 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.8" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.8 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+        }
+
+        "No route to host" {
         }
 
         timeout {
@@ -904,50 +907,47 @@ proc main_test_multi_vm_host_2_4 { } {
         }
     }
 
-    send "123\n"
+    send " \n"
 
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.8" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.8 closed." {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
+    sleep 2
 
     # Test VM-2
     send "ssh root@192.168.254.9 -o StrictHostKeyChecking=no \n"
     expect {
         "password" {
+            send "123\n"
+
+            expect {
+                "#" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "ip a \n"
+            expect {
+                "192.168.254.9" {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+
+            send "exit \n"
+            expect {
+                "Connection to 192.168.254.9 closed." {
+                }
+
+                timeout {
+                    exit -1
+                }
+            }
+        }
+
+        "No route to host" {
         }
 
         timeout {
@@ -955,45 +955,9 @@ proc main_test_multi_vm_host_2_4 { } {
         }
     }
 
-    send "123\n"
+    send " \n"
 
-    expect {
-        "#" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "ip a \n"
-    expect {
-        "192.168.254.9" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    expect {
-        "root@(none)" {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
-
-    send "exit \n"
-    expect {
-        "Connection to 192.168.254.9 closed." {
-        }
-
-        timeout {
-            exit -1
-        }
-    }
+    sleep 2
 
     # Test VM-3
     send "ssh root@192.168.254.10 -o StrictHostKeyChecking=no \n"
