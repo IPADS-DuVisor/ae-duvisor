@@ -54,22 +54,22 @@ sudo cp -r src ./mnt/laputa/
 sudo cp -r tests ./mnt/laputa/
 sudo cp -r test-files-laputa ./mnt/laputa/
 
-sudo cp test-files-laputa/multi-vm-1.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-1-8.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-1-9.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-1-10.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-1-11.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-1-12.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-1-13.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-1-14.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-1-vcpu-ip7.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-1-vcpu-ip8.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-1-vcpu-ip9.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-1-vcpu-ip10.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-1-vcpu-ip11.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-1-vcpu-ip12.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-1-vcpu-ip13.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-1-vcpu-ip14.sh ./mnt/
 
-sudo cp test-files-laputa/multi-vm-2.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-2-8.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-2-9.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-2-10.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-2-11.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-2-12.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-2-13.sh ./mnt/
-sudo cp test-files-laputa/multi-vm-2-14.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-2-vcpu-ip7.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-2-vcpu-ip8.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-2-vcpu-ip9.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-2-vcpu-ip10.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-2-vcpu-ip11.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-2-vcpu-ip12.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-2-vcpu-ip13.sh ./mnt/
+sudo cp test-files-laputa/multi-vm-2-vcpu-ip14.sh ./mnt/
 
 sudo umount ./mnt

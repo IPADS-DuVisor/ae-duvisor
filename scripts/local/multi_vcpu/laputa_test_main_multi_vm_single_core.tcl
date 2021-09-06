@@ -3,7 +3,7 @@ proc main_test_multi_vm_1_2 { } {
     expect "root@(none)"
 
     send "cd .. \n"
-    send "./multi-vm-1.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip7.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -22,7 +22,7 @@ proc main_test_multi_vm_1_2 { } {
         }
     }
 
-    send "./multi-vm-1-8.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip8.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -47,7 +47,7 @@ proc main_test_multi_vm_1_4 { } {
     expect "root@(none)"
 
     send "cd .. \n"
-    send "./multi-vm-1.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip7.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -66,7 +66,7 @@ proc main_test_multi_vm_1_4 { } {
         }
     }
 
-    send "./multi-vm-1-8.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip8.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -85,7 +85,7 @@ proc main_test_multi_vm_1_4 { } {
         }
     }
 
-    send "./multi-vm-1-9.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip9.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -104,7 +104,7 @@ proc main_test_multi_vm_1_4 { } {
         }
     }
 
-    send "./multi-vm-1-10.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip10.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -129,7 +129,7 @@ proc main_test_multi_vm_1_8 { } {
     expect "root@(none)"
 
     send "cd .. \n"
-    send "./multi-vm-1.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip7.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -148,7 +148,7 @@ proc main_test_multi_vm_1_8 { } {
         }
     }
 
-    send "./multi-vm-1-8.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip8.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -167,7 +167,7 @@ proc main_test_multi_vm_1_8 { } {
         }
     }
 
-    send "./multi-vm-1-9.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip9.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -186,7 +186,7 @@ proc main_test_multi_vm_1_8 { } {
         }
     }
 
-    send "./multi-vm-1-10.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip10.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -205,7 +205,7 @@ proc main_test_multi_vm_1_8 { } {
         }
     }
 
-    send "./multi-vm-1-11.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip11.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -224,7 +224,7 @@ proc main_test_multi_vm_1_8 { } {
         }
     }
 
-    send "./multi-vm-1-12.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip12.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -243,7 +243,7 @@ proc main_test_multi_vm_1_8 { } {
         }
     }
 
-    send "./multi-vm-1-13.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip13.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
@@ -262,7 +262,7 @@ proc main_test_multi_vm_1_8 { } {
         }
     }
 
-    send "./multi-vm-1-14.sh < /dev/null & \n\n"
+    send "./multi-vm-1-vcpu-ip14.sh < /dev/null & \n\n"
     expect {
         "root@(none)" {
         }
