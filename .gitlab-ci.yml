@@ -16,6 +16,12 @@ laputa_test:
         - ./scripts/local/laputa_test_network.sh
         - sleep 5
         - ./scripts/local/laputa_test.sh
+        - ./scripts/local/laputa_test_multi_vm_1_2.sh
+        - ./scripts/local/laputa_test_multi_vm_1_4.sh
+        - ./scripts/local/laputa_test_multi_vm_1_8.sh
+        - ./scripts/local/laputa_test_multi_vm_2_2.sh
+        - ./scripts/local/laputa_test_multi_vm_2_4.sh
+        - ./scripts/local/laputa_test_multi_vm_2_8.sh
 
     after_script:
         - sudo rm -r mnt

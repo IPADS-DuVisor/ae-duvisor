@@ -636,7 +636,7 @@ impl VirtualCpu {
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
                 IRQ_U_VTIMER => {
-                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", 
+                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.",
                         ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
                 }
@@ -771,7 +771,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.ioctl_fd;
             let vm_mutex = vm.vm_state;
-            let console = Arc::new(Mutex::new(Tty::new()));
+            let console = Arc::new(Mutex::new(Tty::new(true)));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vipi = VirtualIpi::new(vcpu_num);
@@ -902,7 +902,7 @@ mod tests {
             let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
-            let console = Arc::new(Mutex::new(Tty::new()));
+            let console = Arc::new(Mutex::new(Tty::new(true)));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vipi = VirtualIpi::new(vcpu_num);
@@ -920,7 +920,7 @@ mod tests {
             let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
-            let console = Arc::new(Mutex::new(Tty::new()));
+            let console = Arc::new(Mutex::new(Tty::new(true)));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vipi = VirtualIpi::new(vcpu_num);
@@ -951,7 +951,7 @@ mod tests {
             let vcpu_num = vm_config.vcpu_count;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let vm_mutex = vm.vm_state;
-            let console = Arc::new(Mutex::new(Tty::new()));
+            let console = Arc::new(Mutex::new(Tty::new(true)));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vipi = VirtualIpi::new(vcpu_num);
@@ -990,7 +990,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.ioctl_fd;
             let vm_mutex = vm.vm_state;
-            let console = Arc::new(Mutex::new(Tty::new()));
+            let console = Arc::new(Mutex::new(Tty::new(true)));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vipi = VirtualIpi::new(vcpu_num);
@@ -1111,7 +1111,7 @@ mod tests {
             let vm = virtualmachine::VirtualMachine::new(vm_config);
             let fd = vm.vm_state.ioctl_fd;
             let vm_mutex = vm.vm_state;
-            let console = Arc::new(Mutex::new(Tty::new()));
+            let console = Arc::new(Mutex::new(Tty::new(true)));
             let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
             let guest_mem = GuestMemory::new().unwrap();
             let vipi = VirtualIpi::new(vcpu_num);

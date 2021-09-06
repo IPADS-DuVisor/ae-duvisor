@@ -28,7 +28,7 @@ pub struct Tap {
 
 impl Tap {
     /// Create a new tap interface.
-    pub fn new(vmtap_id: u32) -> Result<Tap> {
+    pub fn new(vmtap_name: String) -> Result<Tap> {
         // Open calls are safe because we give a constant nul-terminated
         // string and verify the result.
         let fd = unsafe {
@@ -45,8 +45,10 @@ impl Tap {
         let tuntap = unsafe { File::from_raw_fd(fd) };
 
         /* Each VM should choose one vmtap to avoid conflict */
-        let tuntap_dev_format: &'static [u8; 8usize];
-        match vmtap_id {
+        //let tuntap_dev_format: &'static [u8; 8usize] = vmtap_name.as_bytes();
+        let tuntap_dev_format = vmtap_name.as_bytes();
+
+        /* match vmtap_name {
             0 => {
                 tuntap_dev_format = b"vmtap0\0\0";
             },
@@ -56,7 +58,7 @@ impl Tap {
             _ => {
                 tuntap_dev_format = b"vmtap%d\0";
             }
-        }
+        } */
 
         // This is pretty messy because of the unions used by ifreq. Since we
         // don't call as_mut on the same union field more than once, this block

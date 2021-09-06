@@ -320,10 +320,10 @@ pub struct Net {
 impl Net {
     /// Create a new virtio network device with the given IP address and
     /// netmask.
-    pub fn new(ip_addr: Ipv4Addr, netmask: Ipv4Addr, vmtap_id: u32) -> Result<Net, NetError> {
+    pub fn new(ip_addr: Ipv4Addr, netmask: Ipv4Addr, vmtap_name: String) -> Result<Net, NetError> {
         let kill_evt = EventFd::new().map_err(NetError::CreateKillEventFd)?;
 
-        let tap = Tap::new(vmtap_id).map_err(NetError::TapOpen)?;
+        let tap = Tap::new(vmtap_name).map_err(NetError::TapOpen)?;
         tap.set_ip_addr(ip_addr).map_err(NetError::TapSetIp)?;
         tap.set_netmask(netmask).map_err(NetError::TapSetNetmask)?;
 

@@ -178,16 +178,17 @@ impl Ecall {
                 ret = 0;
             },
             SBI_EXT_0_1_SHUTDOWN => {
-                println!("Poweroff the virtual machine!");
+                println!("Poweroff the virtual machine by vcpu {}",
+                    vcpu.vcpu_id);
                 ret = -100;
                 unsafe {
                     SHUTDOWN_FLAG = 1;
                 }
             },
-            SBI_EXT_0_1_REMOTE_FENCE_I | SBI_EXT_0_1_REMOTE_SFENCE_VMA 
+            SBI_EXT_0_1_REMOTE_FENCE_I | SBI_EXT_0_1_REMOTE_SFENCE_VMA
                     | SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID=> {
                 /* 
-                 * All of these three SBIs will be directly emulated as 
+                 * All of these three SBIs will be directly emulated as
                  * SBI_EXT_0_1_REMOTE_FENCE_I for now.
                  */
                 unsafe {

@@ -40,7 +40,7 @@ impl VirtualIpi {
             csrw!(VCPUID, vipi_id);
         }
 
-        println!("vcpu_regist {}", unsafe {csrr!(VCPUID)});
+        println!("Vcpu {} regist vipi id as {}", vcpu_id, unsafe {csrr!(VCPUID)});
     }
 
     /* TODO: Get cpu mask for the target vcpus */

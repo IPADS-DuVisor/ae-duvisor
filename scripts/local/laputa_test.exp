@@ -64,4 +64,12 @@ spawn bash  -c "screen -r host"
 
 main_test_multi_vm_host
 
+send "\x01"; send "d"
+
+spawn bash  -c "screen -r virt"
+
+send "\n poweroff -f \n"
+
+sleep 20
+
 puts "Test OK"

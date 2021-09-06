@@ -142,6 +142,9 @@ pub struct Tty {
     pub recv_buf_tail: usize,
     pub avail_char: usize,
     pub irq_state: u8,
+
+    /* Control the in/output */
+    pub io_thread: bool,
 }
 
 /* 
@@ -157,7 +160,7 @@ fn console_putchar(output: u64) {
 }
 
 impl Tty {
-    pub fn new() -> Self {
+    pub fn new(io_thread: bool) -> Self {
         let recv_buf: [char; FIFO_LEN] = [0 as char; FIFO_LEN];
         let recv_buf_head: usize = FIFO_LEN;
         let recv_buf_tail: usize = 0;
@@ -192,6 +195,7 @@ impl Tty {
             recv_buf_head,
             recv_buf_tail,
             irq_state,
+            io_thread,
         }
     }
 
@@ -339,8 +343,10 @@ impl Tty {
                     /* TODO: loop mode for 8250 */
                     panic!("Loop mode not implemented");
                 } else {
-                    /* If DLAB=0, just output the char. */
-                    console_putchar(data as u64);
+                    if self.io_thread {
+                        /* If DLAB=0, just output the char. */
+                        console_putchar(data as u64);
+                    }
 
                     /* Also output the recv_buf in kvmtool */
                     self.flush_tx();

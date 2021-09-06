@@ -23,8 +23,8 @@ use crate::vcpu::utils::*;
 use crate::irq::vipi::VirtualIpi;
 use std::process::exit;
 use crate::plat::opensbi::emulation::SHUTDOWN_FLAG;
-use crate::init::cmdline::VMTAP_ID;
-use crate::init::cmdline::TTY_INPUT_FLAG;
+/* use crate::init::cmdline::VMTAP_ID;
+use crate::init::cmdline::TTY_INPUT_FLAG; */
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -136,14 +136,14 @@ impl VirtualMachine {
 
     #[allow(unused)]
     fn create_network_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
-        guest_mem: &GuestMemory, irqchip: &Arc<Plic>) {
+        guest_mem: &GuestMemory, irqchip: &Arc<Plic>, vmtap_name: String) {
 
-        let vmtap_id: u32 = unsafe{ VMTAP_ID };
+        /* let vmtap_id: u32 = unsafe{ VMTAP_ID }; */
 
         let net_box = Box::new(devices::virtio::Net::new(
                 Ipv4Addr::new(192, 168, 254, 2), /* IP */
                 Ipv4Addr::new(255, 255, 0, 0), /* NETMASK */
-                vmtap_id).unwrap());
+                vmtap_name).unwrap());
         
         let mmio_net = devices::virtio::MmioDevice::new(
             guest_mem.clone(), net_box, irqchip.clone()).unwrap();
@@ -162,7 +162,7 @@ impl VirtualMachine {
         let vm_image = image::VmImage::new(elf_path);
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
-        let tty = Tty::new();
+        //let vmtap = vm_config.vmtap;
 
         /* Mmio default config for unit tests */
         #[cfg(test)]
@@ -181,11 +181,19 @@ impl VirtualMachine {
             length: 0x80000000,
         });
 
-        #[cfg(test)]
-        let io_thread = false;
+        let io_thread: bool;
 
-        #[cfg(not(test))]
-        let io_thread = true;
+        /* #[cfg(test)]
+        io_thread = false; */
+
+        //#[cfg(not(test))]
+        if vm_config.console == "tty" {
+            io_thread = true;
+        } else {
+            io_thread = false;
+        }
+
+        let tty = Tty::new(io_thread);
 
         /* Get ioctl fd of "/dev/laputa_dev" */
         let ioctl_fd = VirtualMachine::open_ioctl();
@@ -236,7 +244,7 @@ impl VirtualMachine {
          * crush the test cases. 
          */
         #[cfg(not(test))]
-        VirtualMachine::create_network_dev(&mmio_bus, &guest_mem, &irqchip);
+        VirtualMachine::create_network_dev(&mmio_bus, &guest_mem, &irqchip, vm_config.vmtap);
         
         for vcpu in &vcpus {
             vcpu.irqchip.set(irqchip.clone()).ok();
@@ -472,21 +480,15 @@ impl VirtualMachine {
 
         handle = thread::spawn(move || {
             unsafe {
-                if TTY_INPUT_FLAG == 0 {
-                    println!("TTY input started ...");
+                loop {
+                    let input = getchar_emulation();
+                    let input_char: u8 = (input & 0xff) as u8;
 
-                    loop {
-                        let input = getchar_emulation();
-                        let input_char: u8 = (input & 0xff) as u8;
-
-                        let res = console.lock().unwrap().recv_char(input_char as char);
-                        if res == 1 {
-                            println!("Full!");
-                        }
+                    let res = console.lock().unwrap().recv_char(input_char as char);
+                    if res == 1 {
+                        println!("Receive buffer of tty is full!");
                     }
                 }
-
-                println!("TTY input closed.");
             }
         });
 
@@ -514,7 +516,7 @@ impl VirtualMachine {
 
                 unsafe {
                     if SHUTDOWN_FLAG != 0 {
-                        println!("VM end");
+                        println!("Laputa VM ended normally.");
                         exit(1);
                     }
                 }

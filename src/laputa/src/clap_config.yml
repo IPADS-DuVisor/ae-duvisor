@@ -23,13 +23,13 @@ args:
     - vmtap:
         long: vmtap
         value_name: VMTAP
-        help: Sets the number of vmtap
+        help: Sets the name of the target vmtap device
         conflicts_with:
             - vm_config
-    - tty:
-        long: tty
-        value_name: TTY
-        help: Tty input control
+    - console:
+        long: console
+        value_name: console
+        help: Sets the console for virtual mcahine
         conflicts_with:
             - vm_config
     - memory:

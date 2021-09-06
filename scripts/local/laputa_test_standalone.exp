@@ -27,6 +27,10 @@ expect {
         send "/ping-test.sh 10 \n"
         expect {
             "Ping test OK" {}
+
+            timeout {
+                exit -1
+            }
         }
     }
 
