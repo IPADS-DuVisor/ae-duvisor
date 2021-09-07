@@ -179,6 +179,258 @@ impl VirtualIpi {
     }
 }
 
+/* wrvcpuid, write vcpuid by a0 */
+#[allow(unused)]
+fn wrvcpuid(vcpuid: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* wrvcpuid */
+            ".word 0xf8a01077",
+
+            ".option pop",
+            in("a0") vcpuid,
+        );
+    }
+}
+
+/* rdvcpuid, read a0 from vcpuid */
+#[allow(unused)]
+pub fn rdvcpuid() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvcpuid */
+            ".word 0xf8102577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* VIPI0 */
+#[allow(unused)]
+pub fn rdvipi0() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xc8101577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* e.g. a0 = 0b11111101111 */
+pub fn clvipi0(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xc8a02077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* e.g. a0 = 0b0000001000 */
+#[allow(unused)]
+pub fn stvipi0(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xc8a03077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* VIPI1 */
+#[allow(unused)]
+fn rdvipi1() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xd0101577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* e.g. a0 = 0b11111101111 */
+#[allow(unused)]
+fn clvipi1(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xd0a02077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* e.g. a0 = 0b0000001000 */
+#[allow(unused)]
+fn stvipi1(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xd0a03077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* VIPI2 */
+#[allow(unused)]
+fn rdvipi2() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xd8101577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* e.g. a0 = 0b11111101111 */
+#[allow(unused)]
+fn clvipi2(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xd8a02077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* e.g. a0 = 0b0000001000 */
+#[allow(unused)]
+fn stvipi2(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xd8a03077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* VIPI3 */
+#[allow(unused)]
+fn rdvipi3() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xe8101577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* e.g. a0 = 0b11111101111 */
+#[allow(unused)]
+fn clvipi3(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xe8a02077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* e.g. a0 = 0b0000001000 */
+#[allow(unused)]
+fn stvipi3(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xe8a03077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use rusty_fork::rusty_fork_test;
