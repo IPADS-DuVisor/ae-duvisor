@@ -514,6 +514,7 @@ impl VirtualMachine {
             handle = thread::spawn(move || {
                 vcpu.thread_vcpu_run(delta_time);
 
+                /* TODO: All the structure should be freed before ULH ends */
                 unsafe {
                     if SHUTDOWN_FLAG != 0 {
                         println!("Laputa VM ended normally.");
