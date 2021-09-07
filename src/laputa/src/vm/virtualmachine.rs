@@ -187,7 +187,7 @@ impl VirtualMachine {
         io_thread = false; */
 
         //#[cfg(not(test))]
-        if vm_config.console == "tty" {
+        if vm_config.console_type == "tty" {
             io_thread = true;
         } else {
             io_thread = false;
@@ -244,7 +244,7 @@ impl VirtualMachine {
          * crush the test cases. 
          */
         #[cfg(not(test))]
-        VirtualMachine::create_network_dev(&mmio_bus, &guest_mem, &irqchip, vm_config.vmtap);
+        VirtualMachine::create_network_dev(&mmio_bus, &guest_mem, &irqchip, vm_config.vmtap_name);
         
         for vcpu in &vcpus {
             vcpu.irqchip.set(irqchip.clone()).ok();

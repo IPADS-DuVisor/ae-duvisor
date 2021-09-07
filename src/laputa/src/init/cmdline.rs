@@ -20,8 +20,8 @@ pub struct VMConfig {
     pub initrd_path: String,
     pub dtb_path: String,
     pub mmio_regions: Vec<GpaRegion>,
-    pub console: String,
-    pub vmtap: String,
+    pub console_type: String,
+    pub vmtap_name: String,
 }
 
 impl VMConfig {
@@ -34,8 +34,8 @@ impl VMConfig {
             initrd_path: String::from(""),
             dtb_path: String::from(""),
             mmio_regions: Vec::new(),
-            console: String::from("tty"),
-            vmtap: String::from("vmtap0"),
+            console_type: String::from("tty"),
+            vmtap_name: String::from("vmtap0"),
         };
 
         let yaml = load_yaml!("../clap_config.yml");
@@ -66,29 +66,16 @@ impl VMConfig {
                 return Err("please set vcpu count by using --smp or config files.");
             }
 
-            /* /* Get vmtap number */
-            let vmtap_id: u32 = value_t!(matches.value_of("vmtap"), u32).unwrap_or(0);
-            println!("*****Get vmtap id: {}", vmtap_id);
-            unsafe {
-                VMTAP_ID = vmtap_id;
-            }
-
-            let tty_input_flag: u32 = value_t!(matches.value_of("console"), u32).unwrap_or(0);
-            println!("*****TTY INPUT FLAG: {}", tty_input_flag);
-            unsafe {
-                TTY_INPUT_FLAG = tty_input_flag;
-            } */
-
             /* Get vmtap */
             if matches.is_present("vmtap") {
-                vm_config.vmtap = matches.value_of("vmtap").unwrap().to_string();
-                println!("Vmtap device: {}", vm_config.vmtap);
+                vm_config.vmtap_name = matches.value_of("vmtap").unwrap().to_string();
+                println!("Vmtap device: {}", vm_config.vmtap_name);
             }
 
             /* Get console */ 
             if matches.is_present("console") {
-                vm_config.console = matches.value_of("console").unwrap().to_string();
-                println!("Console device: {}", vm_config.console);
+                vm_config.console_type = matches.value_of("console").unwrap().to_string();
+                println!("Console device: {}", vm_config.console_type);
             }
 
             /* Get memory size */
@@ -236,8 +223,8 @@ mod tests {
             initrd_path: String::from(initrd),
             dtb_path: String::from(dtb),
             mmio_regions: Vec::new(),
-            console: String::from("tty"),
-            vmtap: String::from("vmtap0"),
+            console_type: String::from("tty"),
+            vmtap_name: String::from("vmtap0"),
         }
     }
 

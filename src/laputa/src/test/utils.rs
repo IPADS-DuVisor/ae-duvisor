@@ -4,8 +4,8 @@ pub mod configtest {
 
     const ELF_IMG_PATH: &str = "./tests/integration/vcpu_add_all_gprs.img";
     const DTB_PATH: &str = "./test-files-laputa/hifive-unleashed-a00.dtb";
-    const CONSOLE: &str = "none";
-    const VMTAP: &str = "vmtap0";
+    const DEFAULT_CONSOLE_TYPE: &str = "none";
+    const DEFAULT_VMTAP_NAME: &str = "vmtap0";
     const TEST_MMIO_REGION_1: GpaRegion = GpaRegion {
         gpa: 0x0,
         length: 0x1000,
@@ -27,8 +27,8 @@ pub mod configtest {
             kernel_img_path: String::from(ELF_IMG_PATH),
             initrd_path: String::from(""),
             dtb_path: String::from(DTB_PATH),
-            console: String::from(CONSOLE),
-            vmtap: String::from(VMTAP),
+            console_type: String::from(DEFAULT_CONSOLE_TYPE),
+            vmtap_name: String::from(DEFAULT_VMTAP_NAME),
             mmio_regions: Vec::new(),
         };
 
