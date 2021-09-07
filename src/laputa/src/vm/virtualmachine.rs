@@ -23,8 +23,6 @@ use crate::vcpu::utils::*;
 use crate::irq::vipi::VirtualIpi;
 use std::process::exit;
 use crate::plat::opensbi::emulation::SHUTDOWN_FLAG;
-/* use crate::init::cmdline::VMTAP_ID;
-use crate::init::cmdline::TTY_INPUT_FLAG; */
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -138,8 +136,6 @@ impl VirtualMachine {
     fn create_network_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
         guest_mem: &GuestMemory, irqchip: &Arc<Plic>, vmtap_name: String) {
 
-        /* let vmtap_id: u32 = unsafe{ VMTAP_ID }; */
-
         let net_box = Box::new(devices::virtio::Net::new(
                 Ipv4Addr::new(192, 168, 254, 2), /* IP */
                 Ipv4Addr::new(255, 255, 0, 0), /* NETMASK */
@@ -162,7 +158,6 @@ impl VirtualMachine {
         let vm_image = image::VmImage::new(elf_path);
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
-        //let vmtap = vm_config.vmtap;
 
         /* Mmio default config for unit tests */
         #[cfg(test)]
@@ -183,10 +178,6 @@ impl VirtualMachine {
 
         let io_thread: bool;
 
-        /* #[cfg(test)]
-        io_thread = false; */
-
-        //#[cfg(not(test))]
         if vm_config.console_type == "tty" {
             io_thread = true;
         } else {

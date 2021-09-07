@@ -7,11 +7,6 @@ use clap::App;
 
 pub const MAX_VCPU: u32 = 8;
 
-/* pub static mut VMTAP_ID: u32 = 0; */
-
-/* /* 0: Open input, 1: close input */
-pub static mut TTY_INPUT_FLAG: u32 = 0; */
-
 pub struct VMConfig {
     pub vcpu_count: u32,
     pub mem_size: u64,

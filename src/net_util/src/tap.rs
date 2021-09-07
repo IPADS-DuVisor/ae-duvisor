@@ -48,18 +48,6 @@ impl Tap {
         //let tuntap_dev_format: &'static [u8; 8usize] = vmtap_name.as_bytes();
         let tuntap_dev_format = vmtap_name.as_bytes();
 
-        /* match vmtap_name {
-            0 => {
-                tuntap_dev_format = b"vmtap0\0\0";
-            },
-            1 => {
-                tuntap_dev_format = b"vmtap1\0\0";
-            },
-            _ => {
-                tuntap_dev_format = b"vmtap%d\0";
-            }
-        } */
-
         // This is pretty messy because of the unions used by ifreq. Since we
         // don't call as_mut on the same union field more than once, this block
         // is safe.
