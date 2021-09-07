@@ -126,10 +126,17 @@ impl Ecall {
                  */
                 vcpu.virq.unset_pending_irq(IRQ_VS_TIMER);
                 unsafe {
-                    /* Set timer ctl register to enable u vtimer */
-                    csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) 
-                        | (1 << VTIMECTL_ENABLE));
-                    csrw!(VTIMECMP, next_cycle);
+                    #[cfg(feature = "xilinx")]
+                    {
+                        wrvtimectl(1);
+                        wrvtimecmp(next_cycle);
+                    } 
+
+                    #[cfg(feature = "qemu")]
+                    {
+                        csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
+                        csrw!(VTIMECMP, next_cycle);
+                    }
                 }
                 dbgprintln!("set vtimer for ulh");
                 ret = 0;

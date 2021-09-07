@@ -36,6 +36,10 @@ impl VirtualIpi {
     pub fn vcpu_regist(&self, vcpu_id: u32, vipi_id: u64) {
         self.vcpu_id_map[vcpu_id as usize].store(vipi_id, Ordering::SeqCst);
 
+        #[cfg(feature = "xilinx")]
+        wrvcpuid(vipi_id);
+
+        #[cfg(feature = "qemu")]
         unsafe {
             csrw!(VCPUID, vipi_id);
         }
@@ -54,32 +58,64 @@ impl VirtualIpi {
         }
     }
 
-    pub fn set_vipi(vipi_id: u64) {
-        match vipi_id {
-            1..=63 => { /* Set VIPI0 */
-                unsafe {
-                    csrs!(VIPI0, 1 << vipi_id);
-                }
+    fn set_vipi_bit(csr_id: i32, vipi_id) {
+        match csr_id {
+            0 => {
+                #[cfg(feature = "xilinx")]
+                stvipi0(!(1 << vipi_id));
+
+                #[cfg(feature = "qemu")]
+                csrs!(VIPI0, 1 << vipi_id);
             },
-            64..=127 => { /* Set VIPI1 */
-                unsafe {
-                    csrs!(VIPI1, 1 << (vipi_id - 64));
-                }
+            1 => {
+                #[cfg(feature = "xilinx")]
+                stvipi1(!(1 << (vipi_id - 64)));
+
+                #[cfg(feature = "qemu")]
+                csrs!(VIPI1, 1 << (vipi_id - 64));
             },
-            128..=191 => { /* Set VIPI2 */
-                unsafe {
-                    csrs!(VIPI2, 1 << (vipi_id - 128));
-                }
+            2 => {
+                #[cfg(feature = "xilinx")]
+                stvipi2(!(1 << (vipi_id - 128)));
+
+                #[cfg(feature = "qemu")]
+                csrs!(VIPI2, 1 << (vipi_id - 128));
             },
-            192..=255 => { /* Set VIPI3 */
-                unsafe {
-                    csrs!(VIPI3, 1 << (vipi_id - 192));
-                }
+            3 => {
+                #[cfg(feature = "xilinx")]
+                stvipi3(!(1 << (vipi_id - 192)));
+
+                #[cfg(feature = "qemu")]
+                csrs!(VIPI3, 1 << (vipi_id - 192));
             },
             _ => {
-                dbgprintln!("Invalid vipi id ! {}", vipi_id);
+                panic!("Invalid vipi csr id ! {}", csr_id);
             },
         }
+    }
+
+    pub fn set_vipi(vipi_id: u64) {
+        let csr_id: i32;
+
+        match vipi_id {
+            1..=63 => { /* Set VIPI0 */
+                csr_id = 0;
+            },
+            64..=127 => { /* Set VIPI1 */
+                csr_id = 1;
+            },
+            128..=191 => { /* Set VIPI2 */
+                csr_id = 2;
+            },
+            192..=255 => { /* Set VIPI3 */
+                csr_id = 3;
+            },
+            _ => {
+                panic!("Invalid vipi id ! {}", vipi_id);
+            },
+        }
+
+        VirtualIpi::set_vipi_bit(csr_id, vipi_id);
     }
 
     fn clear_vipi_bit(csr_id: i32, vipi_id) {

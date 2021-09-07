@@ -710,10 +710,48 @@ impl VirtualCpu {
         ret
     }
 
-    fn config_hustatus(&self, vcpu_ctx: &mut VcpuCtx) {
+    #[allow(unused)]
+    fn config_hustatus_qemu(&self, vcpu_ctx: &mut VcpuCtx) {
         vcpu_ctx.host_ctx.hyp_regs.hustatus = 
             ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) |
             (1 << HUSTATUS_UPIE_SHIFT) as u64;
+    }
+
+    #[allow(unused)]
+    fn config_hustatus_xilinx(&self, vcpu_ctx: &mut VcpuCtx) {
+        vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) | (1 << HUSTATUS_VTW_SHIFT) |
+            (1 << HUSTATUS_UPIE_SHIFT) as u64;
+    }
+
+    fn config_hustatus(&self, vcpu_ctx: &mut VcpuCtx) {
+        #[cfg(feature = "qemu")]
+        self.config_hustatus_qemu(&mut *vcpu_ctx);
+
+        #[cfg(feature = "xilinx")]
+        self.config_hustatus_xilinx(&mut *vcpu_ctx);
+    }
+
+    #[allow(unused)]
+    fn config_huie_xilinx(&self) {
+        unsafe {
+            csrw!(HUIE, (1 << IRQ_U_TIMER) | (1 << IRQ_U_SOFT));
+        }
+    }
+
+    #[allow(unused)]
+    fn config_huie_qemu(&self) {
+        unsafe {
+            csrw!(HUIE, (1 << IRQ_U_VTIMER) | (1 << IRQ_U_SOFT));
+        }
+    }
+
+    fn config_huie(&self) {
+        #[cfg(feature = "qemu")]
+        self.config_huie_qemu();
+
+        #[cfg(feature = "xilinx")]
+        self.config_huie_xilinx();
     }
 
     pub fn thread_vcpu_run(&self, delta_time: i64) -> i32 {
@@ -740,7 +778,7 @@ impl VirtualCpu {
             csrw!(UTVEC, exit_guest as u64);
 
             /* Enable timer irq */
-            csrw!(HUIE, (1 << IRQ_U_VTIMER) | (1 << IRQ_U_SOFT));
+            self.config_huie();
 
             /* TODO: redesign scounteren register */
             /* Allow VM to directly access time register */
