@@ -663,6 +663,39 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
+    set timeout 1000
+
+    send "hackbench \n" 
+    expect {
+        "Time:" {
+        }
+        
+        timeout {
+            exit -1
+        }
+
+    }
+
+    send "cd .. \n"
+    expect {
+        "#" {
+        }
+        
+        timeout {
+            exit -1
+        }
+    }
+
+    send "./lmbench.sh \n"
+    expect {
+        "Simple syscall" {
+        }
+
+        timeout {
+            exit -1
+        }
+    }
+
     send "exit \n"
     expect {
         "Connection to 192.168.254.14 closed." {
@@ -767,6 +800,8 @@ proc main_test_multi_vm_host_2_2 { } {
         }
     }
 
+    set timeout 1000
+
     send "hackbench \n" 
     expect {
         "Time:" {
@@ -777,8 +812,6 @@ proc main_test_multi_vm_host_2_2 { } {
         }
 
     }
-
-    set timeout 1000
 
     send "cd .. \n"
     expect {
@@ -1000,6 +1033,8 @@ proc main_test_multi_vm_host_2_4 { } {
         }
     }
 
+    set timeout 1000
+
     send "hackbench \n" 
     expect {
         "Time:" {
@@ -1010,8 +1045,6 @@ proc main_test_multi_vm_host_2_4 { } {
         }
 
     }
-
-    set timeout 1000
 
     send "cd .. \n"
     expect {
