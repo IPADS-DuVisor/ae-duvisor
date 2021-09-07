@@ -15,6 +15,7 @@ BEGIN_FUNC_FILE_NAME()
 	ecall
 
 loop:
+    wfi
     j loop
 
 
