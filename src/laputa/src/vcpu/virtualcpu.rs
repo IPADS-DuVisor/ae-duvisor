@@ -208,10 +208,17 @@ impl VirtualCpu {
              * FIXME: There may be unexpected pending bit IRQ_U_VTIMER when
              * traped to kernel disable timer.
              */
-            csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
+             #[cfg(feature = "xilinx")]
+             {
+                 wrvtimectl(0);
+                 csrc!(HUIP, 1 << IRQ_U_TIMER);
+             }
 
-            /* Clear U VTIMER bit. Its counterpart in ARM is GIC EOI.  */
-            csrc!(HUIP, 1 << IRQ_U_VTIMER);
+            #[cfg(feature = "qemu")]
+            {
+                csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
+                csrc!(HUIP, 1 << IRQ_U_VTIMER);
+            }
         }
 
         return 0;
@@ -524,7 +531,12 @@ impl VirtualCpu {
                         let (_hva, hpa) = res.unwrap();
                         let flag: u64 = PTE_VRWEU;
 
+                        #[cfg(feature = "qemu")]
                         gsmmu.map_page(fault_addr, hpa, flag);
+
+                        #[cfg(feature = "xilinx")]
+                        gsmmu.map_page(fault_addr, hpa, flag | PTE_ACCESS
+                            | PTE_DIRTY);
 
                         ret = 0;
                     } else {
@@ -538,7 +550,13 @@ impl VirtualCpu {
                         
                     dbgprintln!("map gpa: {:x} to hpa: {:x}",
                         fault_addr, fault_hpa);
-                        gsmmu.map_page(fault_addr, fault_hpa, flag);
+
+                    #[cfg(feature = "qemu")]
+                    gsmmu.map_page(fault_addr, fault_hpa, flag);
+
+                    #[cfg(feature = "xilinx")]
+                    gsmmu.map_page(fault_addr, fault_hpa, flag | PTE_ACCESS
+                        | PTE_DIRTY);
 
                     ret = 0;
                 }
@@ -635,10 +653,20 @@ impl VirtualCpu {
             self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
+                #[cfg(feature = "qemu")]
                 IRQ_U_VTIMER => {
                     dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", 
                         ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
+                }
+                #[cfg(feature = "xilinx")]
+                IRQ_U_TIMER => {
+                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", 
+                        ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
+
+                    self.handle_u_vtimer_irq();
+
+                    ret = 0;
                 }
                 IRQ_U_SOFT => {
                     dbgprintln!("handler U VIPI, vcpu_id: {}", self.vcpu_id);

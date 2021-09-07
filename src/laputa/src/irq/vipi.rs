@@ -82,32 +82,64 @@ impl VirtualIpi {
         }
     }
 
-    pub fn clear_vipi(vipi_id: u64) {
-        match vipi_id {
-            1..=63 => { /* Clear VIPI0 */
-                unsafe {
-                    csrc!(VIPI0, 1 << vipi_id);
-                }
+    fn clear_vipi_bit(csr_id: i32, vipi_id) {
+        match csr_id {
+            0 => {
+                #[cfg(feature = "xilinx")]
+                clvipi0(!(1 << vipi_id));
+
+                #[cfg(feature = "qemu")]
+                csrc!(VIPI0, 1 << vipi_id);
             },
-            64..=127 => { /* Clear VIPI1 */
-                unsafe {
-                    csrc!(VIPI1, 1 << (vipi_id - 64));
-                }
+            1 => {
+                #[cfg(feature = "xilinx")]
+                clvipi1(!(1 << (vipi_id - 64)));
+
+                #[cfg(feature = "qemu")]
+                csrc!(VIPI1, 1 << (vipi_id - 64));
             },
-            128..=191 => { /* Clear VIPI2 */
-                unsafe {
-                    csrc!(VIPI2, 1 << (vipi_id - 128));
-                }
+            2 => {
+                #[cfg(feature = "xilinx")]
+                clvipi2(!(1 << (vipi_id - 128)));
+
+                #[cfg(feature = "qemu")]
+                csrc!(VIPI2, 1 << (vipi_id - 128));
             },
-            192..=255 => { /* Clear VIPI3 */
-                unsafe {
-                    csrc!(VIPI3, 1 << (vipi_id - 192));
-                }
+            3 => {
+                #[cfg(feature = "xilinx")]
+                clvipi3(!(1 << (vipi_id - 192)));
+
+                #[cfg(feature = "qemu")]
+                csrc!(VIPI3, 1 << (vipi_id - 192));
             },
             _ => {
-                dbgprintln!("Invalid vipi id ! {}", vipi_id);
+                panic!("Invalid vipi csr id ! {}", csr_id);
             },
         }
+    }
+
+    pub fn clear_vipi(vipi_id: u64) {
+        let csr_id: i32;
+
+        match vipi_id {
+            1..=63 => { /* Clear VIPI0 */
+                csr_id = 0;
+            },
+            64..=127 => { /* Clear VIPI1 */
+                csr_id = 1;
+            },
+            128..=191 => { /* Clear VIPI2 */
+                csr_id = 2;
+            },
+            192..=255 => { /* Clear VIPI3 */
+                csr_id = 3;
+            },
+            _ => {
+                panic!("Invalid vipi id ! {}", vipi_id);
+            },
+        }
+
+        VirtualIpi::clear_vipi_bit(csr_id, vipi_id);
     }
 }
 
