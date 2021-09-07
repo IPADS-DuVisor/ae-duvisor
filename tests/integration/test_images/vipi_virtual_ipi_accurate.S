@@ -57,6 +57,7 @@ vcpu_1:
     sd t2, 0x0(t0)
 
 wait_for_ipi_1:
+    wfi
     /* Wait for vipi of vcpu 0 */
     j wait_for_ipi_1
 
@@ -70,6 +71,7 @@ vcpu_2:
     csrw stvec, a6
 
 wait_for_ipi_2:
+    wfi
     /* Wait for vcpu 0 util sync = 2 */
     ld t5, 0x0(t0)
     li t6, 0x2

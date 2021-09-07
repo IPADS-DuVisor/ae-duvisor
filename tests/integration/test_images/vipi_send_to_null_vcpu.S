@@ -50,6 +50,7 @@ vcpu_1:
     sd t2, 0x0(t0)
 
 wait_for_ipi_1:
+    wfi
     /* Wait for vipi of vcpu 0 */
     j wait_for_ipi_1
 

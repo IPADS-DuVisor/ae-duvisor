@@ -49,6 +49,7 @@ wait_for_ipi:
     /* Wait for vcpu 0 util sync = 2 */
     ld t3, 0x0(t0)
     li t4, 0x2
+    wfi
     bne t4, t3, wait_for_ipi
 
     /* Vcpu 1 should exit from irq_handler */

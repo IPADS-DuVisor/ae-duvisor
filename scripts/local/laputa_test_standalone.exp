@@ -3,7 +3,7 @@
 set timeout 300
 spawn bash -c "killall qemu-system-riscv64"
 
-spawn bash -c "PREPARE=/home/gitlab-runner/laputa/prepare ./scripts/local/boot.sh"
+spawn bash -c "PREPARE=/home/gitlab-runner/laputa/prepare ./scripts/local/boot.sh | tee ~/log-laputa/standalone/`date +%Y-%m-%d-%T`"
 
 expect "root@(none)"
 
@@ -79,3 +79,6 @@ expect {
 }
 
 puts "\nTest OK\n"
+
+send "\x01x"
+
