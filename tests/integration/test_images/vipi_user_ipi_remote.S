@@ -12,6 +12,7 @@ BEGIN_FUNC_FILE_NAME()
 wait_for_uipi:
     ld t3, 0x0(t0)
     li t4, 0x2
+    wfi
     /* 
      * If *0x3000 == 2, the sending thread must have finished
      * the setting of VIPI CSR. And vcpu will get user ipi before
