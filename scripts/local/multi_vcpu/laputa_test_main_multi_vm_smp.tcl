@@ -295,19 +295,11 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.7" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -315,18 +307,10 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "Connection to 192.168.254.7 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -343,19 +327,11 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.8" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -363,18 +339,10 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "Connection to 192.168.254.8 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -391,19 +359,11 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.9" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -411,18 +371,10 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "Connection to 192.168.254.9 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -439,19 +391,11 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.10" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -459,18 +403,10 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "Connection to 192.168.254.10 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -487,19 +423,11 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.11" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -507,18 +435,10 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "Connection to 192.168.254.11 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -535,19 +455,11 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.12" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -555,18 +467,10 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "Connection to 192.168.254.12 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -583,19 +487,11 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.13" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -603,18 +499,10 @@ proc main_test_multi_vm_host_2_8 { } {
             expect {
                 "Connection to 192.168.254.13 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -720,19 +608,11 @@ proc main_test_multi_vm_host_2_2 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.7" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -740,18 +620,10 @@ proc main_test_multi_vm_host_2_2 { } {
             expect {
                 "Connection to 192.168.254.7 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -857,19 +729,11 @@ proc main_test_multi_vm_host_2_4 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.7" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -877,18 +741,10 @@ proc main_test_multi_vm_host_2_4 { } {
             expect {
                 "Connection to 192.168.254.7 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -905,19 +761,11 @@ proc main_test_multi_vm_host_2_4 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.8" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -925,18 +773,10 @@ proc main_test_multi_vm_host_2_4 { } {
             expect {
                 "Connection to 192.168.254.8 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
@@ -953,19 +793,11 @@ proc main_test_multi_vm_host_2_4 { } {
             expect {
                 "#" {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
 
             send "ip a \n"
             expect {
                 "192.168.254.9" {
-                }
-
-                timeout {
-                    exit -1
                 }
             }
 
@@ -973,18 +805,10 @@ proc main_test_multi_vm_host_2_4 { } {
             expect {
                 "Connection to 192.168.254.9 closed." {
                 }
-
-                timeout {
-                    exit -1
-                }
             }
         }
 
         "No route to host" {
-        }
-
-        timeout {
-            exit -1
         }
     }
 
