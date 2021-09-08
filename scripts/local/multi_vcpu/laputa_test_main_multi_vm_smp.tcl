@@ -327,7 +327,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    set timeout 1000
+    set timeout 500
 
     send "hackbench \n" 
     expect {
@@ -394,7 +394,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    set timeout 1000
+    set timeout 500
 
     send "cd .. \n"
     expect {
@@ -471,7 +471,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    set timeout 1000
+    set timeout 500
 
     send "hackbench \n" 
     expect {
@@ -538,7 +538,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    set timeout 1000
+    set timeout 500
 
     send "cd .. \n"
     expect {
@@ -615,7 +615,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    set timeout 1000
+    set timeout 500
 
     send "hackbench \n" 
     expect {
@@ -682,7 +682,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    set timeout 1000
+    set timeout 500
 
     send "cd .. \n"
     expect {
@@ -759,7 +759,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    set timeout 1000
+    set timeout 500
 
     send "hackbench \n" 
     expect {
@@ -826,7 +826,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
     }
 
-    set timeout 1000
+    set timeout 500
 
     send "cd .. \n"
     expect {

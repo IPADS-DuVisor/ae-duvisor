@@ -32,6 +32,18 @@ proc main_test_multi_vcpu_8 { } {
         }
     }
 
+    set timeout 500
+
+    send "hackbench \n" 
+    expect {
+        "Time:" {
+        }
+        
+        timeout {
+            exit -1
+        }
+    }
+
     send "sync \n"
     expect {
         "#" {
