@@ -697,12 +697,13 @@ impl VirtualCpu {
 
         let vmid: u64 = self.vm.vm_id;
         let vipi_id: u64 = vmid * (MAX_VCPU as u64) + self.vcpu_id as u64 + 1;
-        self.vipi.vcpu_regist(self.vcpu_id, vipi_id);
 
         unsafe {
             /* Register vcpu thread to the kernel */
             _res = libc::ioctl(fd, IOCTL_LAPUTA_REGISTER_VCPU);
             dbgprintln!("IOCTL_LAPUTA_REGISTER_VCPU : {}", _res);
+            self.vipi.vcpu_regist(self.vcpu_id, vipi_id);
+
 
             /* Set hugatp */
             let _hugatp = self.config_hugatp(&mut *vcpu_ctx);

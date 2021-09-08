@@ -290,7 +290,7 @@ proc main_test_multi_vm_host_2_8 { } {
     set x 0
 
     while {$x < 1} {
-        set timeout 500
+        set timeout 1000
 
         send "ssh -v root@192.168.254.7 -o StrictHostKeyChecking=no \n"
         expect {
@@ -373,7 +373,7 @@ proc main_test_multi_vm_host_2_8 { } {
     set x 0
 
     while {$x < 1} {
-        set timeout 500
+        set timeout 1000
 
         send "ssh -v root@192.168.254.8 -o StrictHostKeyChecking=no \n"
         expect {
@@ -466,7 +466,7 @@ proc main_test_multi_vm_host_2_8 { } {
     set x 0
 
     while {$x < 1} {
-        set timeout 500
+        set timeout 1000
 
         send "ssh -v root@192.168.254.9 -o StrictHostKeyChecking=no \n"
         expect {
@@ -549,7 +549,7 @@ proc main_test_multi_vm_host_2_8 { } {
     set x 0
 
     while {$x < 1} {
-        set timeout 500
+        set timeout 1000
 
         send "ssh -v root@192.168.254.10 -o StrictHostKeyChecking=no \n"
         expect {
@@ -642,7 +642,7 @@ proc main_test_multi_vm_host_2_8 { } {
     set x 0
 
     while {$x < 1} {
-        set timeout 500
+        set timeout 1000
 
         send "ssh -v root@192.168.254.11 -o StrictHostKeyChecking=no \n"
         expect {
@@ -725,7 +725,7 @@ proc main_test_multi_vm_host_2_8 { } {
     set x 0
 
     while {$x < 1} {
-        set timeout 500
+        set timeout 1000
 
         send "ssh -v root@192.168.254.12 -o StrictHostKeyChecking=no \n"
         expect {
@@ -818,7 +818,7 @@ proc main_test_multi_vm_host_2_8 { } {
     set x 0
 
     while {$x < 1} {
-        set timeout 500
+        set timeout 1000
 
         send "ssh -v root@192.168.254.13 -o StrictHostKeyChecking=no \n"
         expect {
@@ -901,7 +901,7 @@ proc main_test_multi_vm_host_2_8 { } {
     set x 0
 
     while {$x < 1} {
-        set timeout 500
+        set timeout 1000
 
         send "ssh -v root@192.168.254.14 -o StrictHostKeyChecking=no \n"
         expect {
