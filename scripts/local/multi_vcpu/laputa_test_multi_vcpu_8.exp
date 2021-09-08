@@ -20,6 +20,7 @@ sleep 10
 spawn bash -c "screen -r virt"
 
 send "./scripts/local/boot.sh \n"
+send "\n"
 
 main_test_multi_vcpu_8
 
