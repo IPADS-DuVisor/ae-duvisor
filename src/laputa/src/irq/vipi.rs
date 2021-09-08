@@ -10,7 +10,6 @@ use crate::init::cmdline::MAX_VCPU;
 use std::sync::atomic::{AtomicU64, Ordering}; 
 #[allow(unused)]
 use crate::vcpu::utils::*;
-use crate::mm::utils::dbgprintln;
 
 #[allow(unused)]
 pub struct VirtualIpi {
@@ -58,35 +57,43 @@ impl VirtualIpi {
         }
     }
 
-    fn set_vipi_bit(csr_id: i32, vipi_id) {
+    fn set_vipi_bit(csr_id: i32, vipi_id: u64) {
         match csr_id {
             0 => {
                 #[cfg(feature = "xilinx")]
                 stvipi0(!(1 << vipi_id));
 
                 #[cfg(feature = "qemu")]
-                csrs!(VIPI0, 1 << vipi_id);
+                unsafe {
+                    csrs!(VIPI0, 1 << vipi_id);
+                }
             },
             1 => {
                 #[cfg(feature = "xilinx")]
                 stvipi1(!(1 << (vipi_id - 64)));
 
                 #[cfg(feature = "qemu")]
-                csrs!(VIPI1, 1 << (vipi_id - 64));
+                unsafe {
+                    csrs!(VIPI1, 1 << (vipi_id - 64));
+                }
             },
             2 => {
                 #[cfg(feature = "xilinx")]
                 stvipi2(!(1 << (vipi_id - 128)));
 
                 #[cfg(feature = "qemu")]
-                csrs!(VIPI2, 1 << (vipi_id - 128));
+                unsafe {
+                    csrs!(VIPI2, 1 << (vipi_id - 128));
+                }
             },
             3 => {
                 #[cfg(feature = "xilinx")]
                 stvipi3(!(1 << (vipi_id - 192)));
 
                 #[cfg(feature = "qemu")]
-                csrs!(VIPI3, 1 << (vipi_id - 192));
+                unsafe {
+                    csrs!(VIPI3, 1 << (vipi_id - 192));
+                }
             },
             _ => {
                 panic!("Invalid vipi csr id ! {}", csr_id);
@@ -118,35 +125,43 @@ impl VirtualIpi {
         VirtualIpi::set_vipi_bit(csr_id, vipi_id);
     }
 
-    fn clear_vipi_bit(csr_id: i32, vipi_id) {
+    fn clear_vipi_bit(csr_id: i32, vipi_id: u64) {
         match csr_id {
             0 => {
                 #[cfg(feature = "xilinx")]
                 clvipi0(!(1 << vipi_id));
 
                 #[cfg(feature = "qemu")]
-                csrc!(VIPI0, 1 << vipi_id);
+                unsafe {
+                    csrc!(VIPI0, 1 << vipi_id);
+                }
             },
             1 => {
                 #[cfg(feature = "xilinx")]
                 clvipi1(!(1 << (vipi_id - 64)));
 
                 #[cfg(feature = "qemu")]
-                csrc!(VIPI1, 1 << (vipi_id - 64));
+                unsafe {
+                    csrc!(VIPI1, 1 << (vipi_id - 64));
+                }
             },
             2 => {
                 #[cfg(feature = "xilinx")]
                 clvipi2(!(1 << (vipi_id - 128)));
 
                 #[cfg(feature = "qemu")]
-                csrc!(VIPI2, 1 << (vipi_id - 128));
+                unsafe {
+                    csrc!(VIPI2, 1 << (vipi_id - 128));
+                }
             },
             3 => {
                 #[cfg(feature = "xilinx")]
                 clvipi3(!(1 << (vipi_id - 192)));
 
                 #[cfg(feature = "qemu")]
-                csrc!(VIPI3, 1 << (vipi_id - 192));
+                unsafe {
+                    csrc!(VIPI3, 1 << (vipi_id - 192));
+                }
             },
             _ => {
                 panic!("Invalid vipi csr id ! {}", csr_id);

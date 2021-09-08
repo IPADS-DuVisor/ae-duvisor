@@ -7,6 +7,7 @@ pub mod csr_constants {
     pub const HUSTATUS_UPIE_SHIFT: u64 = 4;
     pub const HUSTATUS_SPV_SHIFT: u64 = 7;
     pub const HUSTATUS_SPVP_SHIFT: u64 = 8;
+    pub const HUSTATUS_VTW_SHIFT: u64 = 21;
 
     pub const VTIMECTL_ENABLE: u64 = 0;
 

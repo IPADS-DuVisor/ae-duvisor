@@ -29,12 +29,12 @@ echo `hostname`
 echo $build_level
 
 cargo clean
-cargo build --target=riscv64gc-unknown-linux-gnu $build_level
+cargo build --target=riscv64gc-unknown-linux-gnu $build_level --features "qemu"
 laputa_name=`find target/riscv64gc-unknown-linux-gnu/${build_path}/deps/ -type f ! -name '*.*' `
 laputa_name_basename=`basename $laputa_name`
 
 # get laputa all the binary names
-cargo test --no-run --target=riscv64gc-unknown-linux-gnu $build_level
+cargo test --no-run --target=riscv64gc-unknown-linux-gnu $build_level --features "qemu"
 laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/${build_path}/deps/ -type f ! -name '*.*' `
 
 ## Build test images
