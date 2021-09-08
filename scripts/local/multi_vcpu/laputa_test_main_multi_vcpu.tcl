@@ -1,6 +1,13 @@
 proc main_test_multi_vcpu_8 { } {
-    # Test the binary
-    expect ":/laputa#"
+    send "cd laputa \n"
+    expect {
+        "#" {
+        }
+
+        timeout {
+            exit -1
+        }
+    }
 
     send "./laputa --smp 8 --initrd ./test-files-laputa/rootfs-net.img --dtb ./test-files-laputa/smp8-io.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt\n"
     expect {
@@ -13,7 +20,7 @@ proc main_test_multi_vcpu_8 { } {
         
         timeout {
             exit -1
-        }vivado
+        }
     }
 
     send "/guest-net.sh \n ip a \n"
