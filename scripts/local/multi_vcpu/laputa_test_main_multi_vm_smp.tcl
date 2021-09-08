@@ -303,6 +303,10 @@ proc main_test_multi_vm_host_2_8 { } {
                 continue;
             }
 
+            "Connection refused" {
+                continue;
+            }
+
             "No route to host" {
                 exit -1
             }
@@ -383,6 +387,10 @@ proc main_test_multi_vm_host_2_8 { } {
             }
 
             "Connection closed by" {
+                continue;
+            }
+
+            "Connection refused" {
                 continue;
             }
 
@@ -479,6 +487,10 @@ proc main_test_multi_vm_host_2_8 { } {
                 continue;
             }
 
+            "Connection refused" {
+                continue;
+            }
+
             "No route to host" {
                 exit -1
             }
@@ -559,6 +571,10 @@ proc main_test_multi_vm_host_2_8 { } {
             }
 
             "Connection closed by" {
+                continue;
+            }
+
+            "Connection refused" {
                 continue;
             }
 
@@ -655,6 +671,10 @@ proc main_test_multi_vm_host_2_8 { } {
                 continue;
             }
 
+            "Connection refused" {
+                continue;
+            }
+
             "No route to host" {
                 exit -1
             }
@@ -735,6 +755,10 @@ proc main_test_multi_vm_host_2_8 { } {
             }
 
             "Connection closed by" {
+                continue;
+            }
+
+            "Connection refused" {
                 continue;
             }
 
@@ -831,6 +855,10 @@ proc main_test_multi_vm_host_2_8 { } {
                 continue;
             }
 
+            "Connection refused" {
+                continue;
+            }
+
             "No route to host" {
                 exit -1
             }
@@ -911,6 +939,10 @@ proc main_test_multi_vm_host_2_8 { } {
             }
 
             "Connection closed by" {
+                continue;
+            }
+
+            "Connection refused" {
                 continue;
             }
 

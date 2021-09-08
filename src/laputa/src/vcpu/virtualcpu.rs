@@ -616,7 +616,7 @@ impl VirtualCpu {
         unsafe {
             VirtualIpi::clear_vipi(vipi_id);
             csrc!(HUIP, 1 << IRQ_U_SOFT);
-            dbgprintln!("vcpu {}, vipi id {}", vcpu_id, csrr!(VCPUID));
+            //dbgprintln!("vcpu {}, vipi id {}", vcpu_id, csrr!(VCPUID));
         }
 
         #[cfg(test)]
