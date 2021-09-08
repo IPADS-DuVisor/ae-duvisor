@@ -2,7 +2,7 @@ proc main_test_multi_vcpu { } {
     # Test the binary
     expect ":/laputa#"
 
-    send "./laputa --smp 2 --initrd ./test-files-laputa/rootfs-net.img --dtb ./test-files-laputa/smp2-io.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt\n"
+    send "./laputa --smp 8 --initrd ./test-files-laputa/rootfs-net.img --dtb ./test-files-laputa/smp2-io.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt\n"
     expect {
         "Busybox Rootfs" {
             send "\n ls \n"
