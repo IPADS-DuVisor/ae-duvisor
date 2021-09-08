@@ -1,6 +1,5 @@
 #!/usr/bin/expect -f
 source [file join [file dirname $argv0] ./laputa_test_main.tcl]
-source [file join [file dirname $argv0] ./laputa_test_main_multi_vcpu.tcl]
 
 set timeout 180
 set env(TERM) xterm-256color
@@ -52,7 +51,5 @@ expect {
 }
 
 main_test
-
-main_test_multi_vcpu
 
 puts "Test OK"
