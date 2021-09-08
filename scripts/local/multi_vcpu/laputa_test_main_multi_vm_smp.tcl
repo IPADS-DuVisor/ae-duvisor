@@ -287,13 +287,29 @@ proc main_test_multi_vm_host_2_8 { } {
     sleep 100
 
     # Test VM-0
-    send "ssh root@192.168.254.7 -o StrictHostKeyChecking=no \n"
-    expect {
-        "password" {
-        }
+    set x 0
 
-        timeout {
-            exit -1
+    while {$x < 1} {
+        set timeout 500
+
+        send "ssh -v root@192.168.254.7 -o StrictHostKeyChecking=no \n"
+        expect {
+            "password" {
+                incr x;
+                break;
+            }
+
+            "Connection closed by" {
+                continue;
+            }
+
+            "No route to host" {
+                exit -1
+            }
+
+            timeout {
+                exit -1
+            }
         }
     }
 
@@ -354,13 +370,29 @@ proc main_test_multi_vm_host_2_8 { } {
     sleep 2
 
     # Test VM-1
-    send "ssh root@192.168.254.8 -o StrictHostKeyChecking=no \n"
-    expect {
-        "password" {
-        }
+    set x 0
 
-        timeout {
-            exit -1
+    while {$x < 1} {
+        set timeout 500
+
+        send "ssh -v root@192.168.254.8 -o StrictHostKeyChecking=no \n"
+        expect {
+            "password" {
+                incr x;
+                break;
+            }
+
+            "Connection closed by" {
+                continue;
+            }
+
+            "No route to host" {
+                exit -1
+            }
+
+            timeout {
+                exit -1
+            }
         }
     }
 
@@ -431,13 +463,29 @@ proc main_test_multi_vm_host_2_8 { } {
     sleep 2
 
     # Test VM-2
-    send "ssh root@192.168.254.9 -o StrictHostKeyChecking=no \n"
-    expect {
-        "password" {
-        }
+    set x 0
 
-        timeout {
-            exit -1
+    while {$x < 1} {
+        set timeout 500
+
+        send "ssh -v root@192.168.254.9 -o StrictHostKeyChecking=no \n"
+        expect {
+            "password" {
+                incr x;
+                break;
+            }
+
+            "Connection closed by" {
+                continue;
+            }
+
+            "No route to host" {
+                exit -1
+            }
+
+            timeout {
+                exit -1
+            }
         }
     }
 
@@ -498,13 +546,29 @@ proc main_test_multi_vm_host_2_8 { } {
     sleep 2
 
     # Test VM-3
-    send "ssh root@192.168.254.10 -o StrictHostKeyChecking=no \n"
-    expect {
-        "password" {
-        }
+    set x 0
 
-        timeout {
-            exit -1
+    while {$x < 1} {
+        set timeout 500
+
+        send "ssh -v root@192.168.254.10 -o StrictHostKeyChecking=no \n"
+        expect {
+            "password" {
+                incr x;
+                break;
+            }
+
+            "Connection closed by" {
+                continue;
+            }
+
+            "No route to host" {
+                exit -1
+            }
+
+            timeout {
+                exit -1
+            }
         }
     }
 
@@ -575,13 +639,29 @@ proc main_test_multi_vm_host_2_8 { } {
     sleep 2
 
     # Test VM-4
-    send "ssh root@192.168.254.11 -o StrictHostKeyChecking=no \n"
-    expect {
-        "password" {
-        }
+    set x 0
 
-        timeout {
-            exit -1
+    while {$x < 1} {
+        set timeout 500
+
+        send "ssh -v root@192.168.254.11 -o StrictHostKeyChecking=no \n"
+        expect {
+            "password" {
+                incr x;
+                break;
+            }
+
+            "Connection closed by" {
+                continue;
+            }
+
+            "No route to host" {
+                exit -1
+            }
+
+            timeout {
+                exit -1
+            }
         }
     }
 
@@ -642,13 +722,29 @@ proc main_test_multi_vm_host_2_8 { } {
     sleep 2
 
     # Test VM-5
-    send "ssh root@192.168.254.12 -o StrictHostKeyChecking=no \n"
-    expect {
-        "password" {
-        }
+    set x 0
 
-        timeout {
-            exit -1
+    while {$x < 1} {
+        set timeout 500
+
+        send "ssh -v root@192.168.254.12 -o StrictHostKeyChecking=no \n"
+        expect {
+            "password" {
+                incr x;
+                break;
+            }
+
+            "Connection closed by" {
+                continue;
+            }
+
+            "No route to host" {
+                exit -1
+            }
+
+            timeout {
+                exit -1
+            }
         }
     }
 
@@ -719,13 +815,29 @@ proc main_test_multi_vm_host_2_8 { } {
     sleep 2
 
     # Test VM-6
-    send "ssh root@192.168.254.13 -o StrictHostKeyChecking=no \n"
-    expect {
-        "password" {
-        }
+    set x 0
 
-        timeout {
-            exit -1
+    while {$x < 1} {
+        set timeout 500
+
+        send "ssh -v root@192.168.254.13 -o StrictHostKeyChecking=no \n"
+        expect {
+            "password" {
+                incr x;
+                break;
+            }
+
+            "Connection closed by" {
+                continue;
+            }
+
+            "No route to host" {
+                exit -1
+            }
+
+            timeout {
+                exit -1
+            }
         }
     }
 
@@ -786,13 +898,29 @@ proc main_test_multi_vm_host_2_8 { } {
     sleep 2
 
     # Test VM-7
-    send "ssh root@192.168.254.14 -o StrictHostKeyChecking=no \n"
-    expect {
-        "password" {
-        }
+    set x 0
 
-        timeout {
-            exit -1
+    while {$x < 1} {
+        set timeout 500
+
+        send "ssh -v root@192.168.254.14 -o StrictHostKeyChecking=no \n"
+        expect {
+            "password" {
+                incr x;
+                break;
+            }
+
+            "Connection closed by" {
+                continue;
+            }
+
+            "No route to host" {
+                exit -1
+            }
+
+            timeout {
+                exit -1
+            }
         }
     }
 
