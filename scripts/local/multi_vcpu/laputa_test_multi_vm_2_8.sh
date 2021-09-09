@@ -10,7 +10,28 @@ function ctrl_c() {
 screen -S virt -d -m &
 VIRT_PID=$!
 echo "virt screen session pid is ${VIRT_PID}"
-screen -S host -d -m &
+screen -S host-0 -d -m &
+HOST_PID=$!
+echo "host screen session pid is ${HOST_PID}"
+screen -S host-1 -d -m &
+HOST_PID=$!
+echo "host screen session pid is ${HOST_PID}"
+screen -S host-2 -d -m &
+HOST_PID=$!
+echo "host screen session pid is ${HOST_PID}"
+screen -S host-3 -d -m &
+HOST_PID=$!
+echo "host screen session pid is ${HOST_PID}"
+screen -S host-4 -d -m &
+HOST_PID=$!
+echo "host screen session pid is ${HOST_PID}"
+screen -S host-5 -d -m &
+HOST_PID=$!
+echo "host screen session pid is ${HOST_PID}"
+screen -S host-6 -d -m &
+HOST_PID=$!
+echo "host screen session pid is ${HOST_PID}"
+screen -S host-7 -d -m &
 HOST_PID=$!
 echo "host screen session pid is ${HOST_PID}"
 ./scripts/expect_wrapper.sh ./scripts/local/multi_vcpu/laputa_test_multi_vm_2_8.exp
