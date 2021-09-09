@@ -1,6 +1,7 @@
 # two stages to be added qemu, kernel
 stages:
     - laputa_test
+    - laputa_multi_vm_test
 
 laputa_test:
     stage: laputa_test
@@ -17,7 +18,6 @@ laputa_test:
         - sleep 5
         - ./scripts/local/laputa_test.sh
         - ./scripts/local/laputa_test_multi_vcpu.sh
-        - ./scripts/local/laputa_test_multi_vm.sh
 
     after_script:
         - sudo rm -r mnt
@@ -26,3 +26,21 @@ laputa_test:
     only:
         - merge_requests
         - schedules
+
+laputa_multi_vm_test:
+    stage: laputa_multi_vm_test
+    script:
+        - git submodule update --init --recursive
+        - ./scripts/local/build_qemu.sh
+        - ./scripts/local/build_linux.sh
+        - ./scripts/local/build_opensbi.sh
+        - ./scripts/local/docker_build_laputa.sh debug
+        - ./scripts/local/docker_build_laputa.sh
+        - ./scripts/local/laputa_test_multi_vm.sh
+
+    after_script:
+        - sudo rm -r mnt
+        - sudo rm -r target
+        - sudo rm -r tests/integration/test_images/build
+    only:
+        - web
