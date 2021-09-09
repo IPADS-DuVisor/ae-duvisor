@@ -116,11 +116,11 @@ impl VirtualMachine {
     }
     
     fn create_block_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
-        guest_mem: &GuestMemory, irqchip: &Arc<Plic>) {
+        guest_mem: &GuestMemory, irqchip: &Arc<Plic>, block_path: String) {
         let root_image = OpenOptions::new()
             .read(true)
             .write(true)
-            .open("/blk-dev.img")
+            .open(block_path.as_str())
             .unwrap();
 
         let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
@@ -228,7 +228,7 @@ impl VirtualMachine {
         
         let irqchip = Arc::new(Plic::new(&vcpus));
         
-        VirtualMachine::create_block_dev(&mmio_bus, &guest_mem, &irqchip);
+        VirtualMachine::create_block_dev(&mmio_bus, &guest_mem, &irqchip, vm_config.block_path);
 
         /* 
          * The net device supports only one process which will 

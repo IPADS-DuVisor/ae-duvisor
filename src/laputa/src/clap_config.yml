@@ -23,7 +23,13 @@ args:
     - vmtap:
         long: vmtap
         value_name: VMTAP
-        help: Sets the name of the target vmtap device
+        help: Sets the name of the vmtap device
+        conflicts_with:
+            - vm_config
+    - block:
+        long: block
+        value_name: BLOCK
+        help: Sets the path of the block device
         conflicts_with:
             - vm_config
     - console:

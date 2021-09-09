@@ -17,6 +17,7 @@ pub struct VMConfig {
     pub mmio_regions: Vec<GpaRegion>,
     pub console_type: String,
     pub vmtap_name: String,
+    pub block_path: String,
 }
 
 impl VMConfig {
@@ -31,6 +32,7 @@ impl VMConfig {
             mmio_regions: Vec::new(),
             console_type: String::from("tty"),
             vmtap_name: String::from("vmtap0"),
+            block_path: String::from("/blk-dev.img"),
         };
 
         let yaml = load_yaml!("../clap_config.yml");
@@ -71,6 +73,12 @@ impl VMConfig {
             if matches.is_present("console") {
                 vm_config.console_type = matches.value_of("console").unwrap().to_string();
                 println!("Console device: {}", vm_config.console_type);
+            }
+
+            /* Get path of the block device */
+            if matches.is_present("block") {
+                vm_config.block_path = matches.value_of("block").unwrap().to_string();
+                println!("Block device: {}", vm_config.block_path);
             }
 
             /* Get memory size */
@@ -220,6 +228,7 @@ mod tests {
             mmio_regions: Vec::new(),
             console_type: String::from("tty"),
             vmtap_name: String::from("vmtap0"),
+            block_path: String::from("/blk-dev.img"),
         }
     }
 
