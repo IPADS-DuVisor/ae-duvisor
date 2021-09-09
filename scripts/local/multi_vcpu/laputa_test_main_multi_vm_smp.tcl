@@ -1764,17 +1764,7 @@ proc main_test_multi_vm_host_ip_11_start { } {
         }
     }
 
-    send "cd .. \n"
-    expect {
-        "#" {
-        }
-        
-        timeout {
-            exit -1
-        }
-    }
-
-    send "./lmbench.sh \n"
+    send "hackbench \n"
 }
 
 proc main_test_multi_vm_host_ip_12_start { } {
@@ -1843,17 +1833,7 @@ proc main_test_multi_vm_host_ip_12_start { } {
         }
     }
 
-    send "cd .. \n"
-    expect {
-        "#" {
-        }
-        
-        timeout {
-            exit -1
-        }
-    }
-
-    send "./lmbench.sh \n"
+    send "hackbench \n"
 }
 
 proc main_test_multi_vm_host_ip_13_start { } {
@@ -1922,17 +1902,7 @@ proc main_test_multi_vm_host_ip_13_start { } {
         }
     }
 
-    send "cd .. \n"
-    expect {
-        "#" {
-        }
-        
-        timeout {
-            exit -1
-        }
-    }
-
-    send "./lmbench.sh \n"
+    send "hackbench \n"
 }
 
 proc main_test_multi_vm_host_ip_14_start { } {
@@ -2001,17 +1971,7 @@ proc main_test_multi_vm_host_ip_14_start { } {
         }
     }
 
-    send "cd .. \n"
-    expect {
-        "#" {
-        }
-        
-        timeout {
-            exit -1
-        }
-    }
-
-    send "./lmbench.sh \n"
+    send "hackbench \n"
 }
 
 proc main_test_multi_vm_host_ip_7_check { } {
@@ -2126,11 +2086,10 @@ proc main_test_multi_vm_host_ip_11_check { } {
     # Check the result of workload of VM-4
     set timeout 1000
     expect {
-        "Simple syscall" {
+        "Time:" {
         }
-
+        
         timeout {
-            puts "Timeout by lmbench"
             exit -1
         }
     }
@@ -2154,11 +2113,10 @@ proc main_test_multi_vm_host_ip_12_check { } {
     # Check the result of workload of VM-5
     set timeout 1000
     expect {
-        "Simple syscall" {
+        "Time:" {
         }
-
+        
         timeout {
-            puts "Timeout by lmbench"
             exit -1
         }
     }
@@ -2182,11 +2140,10 @@ proc main_test_multi_vm_host_ip_13_check { } {
     # Check the result of workload of VM-6
     set timeout 1000
     expect {
-        "Simple syscall" {
+        "Time:" {
         }
-
+        
         timeout {
-            puts "Timeout by lmbench"
             exit -1
         }
     }
@@ -2210,11 +2167,10 @@ proc main_test_multi_vm_host_ip_14_check { } {
     # Check the result of workload of VM-7
     set timeout 1000
     expect {
-        "Simple syscall" {
+        "Time:" {
         }
-
+        
         timeout {
-            puts "Timeout by lmbench"
             exit -1
         }
     }
