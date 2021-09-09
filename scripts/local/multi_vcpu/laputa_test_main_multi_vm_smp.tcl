@@ -1439,6 +1439,10 @@ proc main_test_multi_vm_host_ip_7_start { } {
                 continue;
             }
 
+            "port 22: Connection timed out" {
+                continue;
+            }
+
             "Connection refused" {
                 continue;
             }
@@ -1501,6 +1505,10 @@ proc main_test_multi_vm_host_ip_8_start { } {
             }
 
             "Connection closed by" {
+                continue;
+            }
+
+            "port 22: Connection timed out" {
                 continue;
             }
 
@@ -1573,6 +1581,10 @@ proc main_test_multi_vm_host_ip_9_start { } {
                 continue;
             }
 
+            "port 22: Connection timed out" {
+                continue;
+            }
+
             "No route to host" {
                 exit -1
             }
@@ -1631,6 +1643,10 @@ proc main_test_multi_vm_host_ip_10_start { } {
             }
 
             "Connection closed by" {
+                continue;
+            }
+
+            "port 22: Connection timed out" {
                 continue;
             }
 
@@ -1697,6 +1713,10 @@ proc main_test_multi_vm_host_ip_11_start { } {
             }
 
             "Connection closed by" {
+                continue;
+            }
+
+            "port 22: Connection timed out" {
                 continue;
             }
 
@@ -1775,6 +1795,10 @@ proc main_test_multi_vm_host_ip_12_start { } {
                 continue;
             }
 
+            "port 22: Connection timed out" {
+                continue;
+            }
+
             "Connection refused" {
                 continue;
             }
@@ -1847,6 +1871,10 @@ proc main_test_multi_vm_host_ip_13_start { } {
             }
 
             "Connection closed by" {
+                continue;
+            }
+
+            "port 22: Connection timed out" {
                 continue;
             }
 
@@ -1926,6 +1954,10 @@ proc main_test_multi_vm_host_ip_14_start { } {
             }
 
             "Connection refused" {
+                continue;
+            }
+
+            "port 22: Connection timed out" {
                 continue;
             }
 
