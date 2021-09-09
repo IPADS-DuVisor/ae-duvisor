@@ -1428,7 +1428,7 @@ proc main_test_multi_vm_host_ip_7_start { } {
     while {$x < 1} {
         set timeout 1000
 
-        send "ssh -v root@192.168.254.7 -o StrictHostKeyChecking=no \n"
+        send "ssh root@192.168.254.7 -o StrictHostKeyChecking=no \n"
         expect {
             "s password:" {
                 incr x;
@@ -1497,7 +1497,7 @@ proc main_test_multi_vm_host_ip_8_start { } {
     while {$x < 1} {
         set timeout 1000
 
-        send "ssh -v root@192.168.254.8 -o StrictHostKeyChecking=no \n"
+        send "ssh root@192.168.254.8 -o StrictHostKeyChecking=no \n"
         expect {
             "s password:" {
                 incr x;
@@ -1566,7 +1566,7 @@ proc main_test_multi_vm_host_ip_9_start { } {
     while {$x < 1} {
         set timeout 1000
 
-        send "ssh -v root@192.168.254.9 -o StrictHostKeyChecking=no \n"
+        send "ssh root@192.168.254.9 -o StrictHostKeyChecking=no \n"
         expect {
             "s password:" {
                 incr x;
@@ -1635,7 +1635,7 @@ proc main_test_multi_vm_host_ip_10_start { } {
     while {$x < 1} {
         set timeout 1000
 
-        send "ssh -v root@192.168.254.10 -o StrictHostKeyChecking=no \n"
+        send "ssh root@192.168.254.10 -o StrictHostKeyChecking=no \n"
         expect {
             "s password:" {
                 incr x;
@@ -1705,7 +1705,7 @@ proc main_test_multi_vm_host_ip_11_start { } {
     while {$x < 1} {
         set timeout 1000
 
-        send "ssh -v root@192.168.254.11 -o StrictHostKeyChecking=no \n"
+        send "ssh root@192.168.254.11 -o StrictHostKeyChecking=no \n"
         expect {
             "s password:" {
                 incr x;
@@ -1784,7 +1784,7 @@ proc main_test_multi_vm_host_ip_12_start { } {
     while {$x < 1} {
         set timeout 1000
 
-        send "ssh -v root@192.168.254.12 -o StrictHostKeyChecking=no \n"
+        send "ssh root@192.168.254.12 -o StrictHostKeyChecking=no \n"
         expect {
             "s password:" {
                 incr x;
@@ -1863,7 +1863,7 @@ proc main_test_multi_vm_host_ip_13_start { } {
     while {$x < 1} {
         set timeout 1000
 
-        send "ssh -v root@192.168.254.13 -o StrictHostKeyChecking=no \n"
+        send "ssh root@192.168.254.13 -o StrictHostKeyChecking=no \n"
         expect {
             "s password:" {
                 incr x;
@@ -1942,7 +1942,7 @@ proc main_test_multi_vm_host_ip_14_start { } {
     while {$x < 1} {
         set timeout 1000
 
-        send "ssh -v root@192.168.254.14 -o StrictHostKeyChecking=no \n"
+        send "ssh root@192.168.254.14 -o StrictHostKeyChecking=no \n"
         expect {
             "s password:" {
                 incr x;
