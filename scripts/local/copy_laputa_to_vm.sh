@@ -56,22 +56,4 @@ sudo cp -r test-files-laputa ./mnt/laputa/
 
 sudo cp -r test-files-laputa/multi-vm-test ./mnt/
 
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-1-vcpu-ip7.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-1-vcpu-ip8.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-1-vcpu-ip9.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-1-vcpu-ip10.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-1-vcpu-ip11.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-1-vcpu-ip12.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-1-vcpu-ip13.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-1-vcpu-ip14.sh ./mnt/
-
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-2-vcpu-ip7.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-2-vcpu-ip8.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-2-vcpu-ip9.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-2-vcpu-ip10.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-2-vcpu-ip11.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-2-vcpu-ip12.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-2-vcpu-ip13.sh ./mnt/
-# sudo cp test-files-laputa/multi-vm-test/multi-vm-2-vcpu-ip14.sh ./mnt/
-
 sudo umount ./mnt
