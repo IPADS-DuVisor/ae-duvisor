@@ -2016,7 +2016,7 @@ proc main_test_multi_vm_host_ip_14_start { } {
 
 proc main_test_multi_vm_host_ip_7_check { } {
     # Check the result of workload of VM-0
-    set timeout 500
+    set timeout 1000
     expect {
         "Time:" {
         }
@@ -2043,7 +2043,7 @@ proc main_test_multi_vm_host_ip_7_check { } {
 
 proc main_test_multi_vm_host_ip_8_check { } {
     # Check the result of workload of VM-1
-    set timeout 500
+    set timeout 1000
     expect {
         "Time:" {
         }
@@ -2070,7 +2070,7 @@ proc main_test_multi_vm_host_ip_8_check { } {
 
 proc main_test_multi_vm_host_ip_9_check { } {
     # Check the result of workload of VM-2
-    set timeout 500
+    set timeout 1000
     expect {
         "Time:" {
         }
@@ -2097,7 +2097,7 @@ proc main_test_multi_vm_host_ip_9_check { } {
 
 proc main_test_multi_vm_host_ip_10_check { } {
     # Check the result of workload of VM-3
-    set timeout 500
+    set timeout 1000
     expect {
         "Time:" {
         }
@@ -2124,7 +2124,7 @@ proc main_test_multi_vm_host_ip_10_check { } {
 
 proc main_test_multi_vm_host_ip_11_check { } {
     # Check the result of workload of VM-4
-    set timeout 500
+    set timeout 1000
     expect {
         "Simple syscall" {
         }
@@ -2152,7 +2152,7 @@ proc main_test_multi_vm_host_ip_11_check { } {
 
 proc main_test_multi_vm_host_ip_12_check { } {
     # Check the result of workload of VM-5
-    set timeout 500
+    set timeout 1000
     expect {
         "Simple syscall" {
         }
@@ -2180,7 +2180,7 @@ proc main_test_multi_vm_host_ip_12_check { } {
 
 proc main_test_multi_vm_host_ip_13_check { } {
     # Check the result of workload of VM-6
-    set timeout 500
+    set timeout 1000
     expect {
         "Simple syscall" {
         }
@@ -2208,7 +2208,7 @@ proc main_test_multi_vm_host_ip_13_check { } {
 
 proc main_test_multi_vm_host_ip_14_check { } {
     # Check the result of workload of VM-7
-    set timeout 500
+    set timeout 1000
     expect {
         "Simple syscall" {
         }
