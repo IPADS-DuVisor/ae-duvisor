@@ -42,6 +42,18 @@ proc main_test_multi_vcpu_8 { } {
         }
         
         timeout {
+            puts "Timeout by hackbench"
+            exit -1
+        }
+    }
+
+    send "./lmbench.sh \n"
+    expect {
+        "Simple syscall" {
+        }
+
+        timeout {
+            puts "Timeout by lmbench"
             exit -1
         }
     }
