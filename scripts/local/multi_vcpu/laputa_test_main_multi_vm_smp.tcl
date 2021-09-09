@@ -452,6 +452,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
 
         timeout {
+            puts "Timeout by lmbench"
             exit -1
         }
     }
@@ -636,6 +637,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
 
         timeout {
+            puts "Timeout by lmbench"
             exit -1
         }
     }
@@ -820,6 +822,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
 
         timeout {
+            puts "Timeout by lmbench"
             exit -1
         }
     }
@@ -1004,6 +1007,7 @@ proc main_test_multi_vm_host_2_8 { } {
         }
 
         timeout {
+            puts "Timeout by lmbench"
             exit -1
         }
     }
