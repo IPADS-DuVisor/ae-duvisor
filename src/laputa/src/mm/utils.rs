@@ -42,7 +42,6 @@ pub fn page_size_round_up(length: u64) -> u64 {
     }
 
     let result: u64 = (length & !PAGE_SIZE_MASK) + PAGE_SIZE;
-    println!("result 0x{:x}", result);
 
     result
 }

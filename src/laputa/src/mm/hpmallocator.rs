@@ -80,7 +80,6 @@ impl HpmAllocator {
         
         let version: u64 = 0;
 
-        println!("pmp_alloc fd {}", fd);
         unsafe {
             let version_ptr = (&version) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
