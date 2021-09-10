@@ -1,6 +1,8 @@
 use crate::mm::utils::*;
+#[allow(unused)]
 use crate::vcpu::utils::*;
 use crate::vcpu::virtualcpu::VirtualCpu;
+#[allow(unused)]
 use crate::plat::uhe::csr::csr_constants::*;
 use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::ioctl::ioctl_constants::*;
@@ -64,6 +66,8 @@ pub mod error_code {
 extern "C"
 {
     fn getchar_emulation() -> i32;
+    fn wrvtimectl(val: u64);
+    fn wrvtimecmp(val: u64);
 }
 
 pub struct Ecall {

@@ -108,6 +108,12 @@ extern "C" {
 }
 
 #[allow(unused)]
+#[link(name = "vtimer")]
+extern "C" {
+    fn wrvtimectl(val: u64);
+}
+
+#[allow(unused)]
 extern "C"
 {
     fn vcpu_ecall_exit();
