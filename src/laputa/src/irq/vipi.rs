@@ -43,6 +43,10 @@ impl VirtualIpi {
             csrw!(VCPUID, vipi_id);
         }
 
+        #[cfg(feature = "xilinx")]
+        println!("vcpu_regist {}", rdvcpuid());
+        
+        #[cfg(feature = "qemu")]
         println!("vcpu_regist {}", unsafe {csrr!(VCPUID)});
     }
 

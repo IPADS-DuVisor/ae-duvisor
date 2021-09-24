@@ -14,8 +14,8 @@ fi
 
 mkdir -p laputa-build
 
-make PLATFORM=generic FW_PAYLOAD_PATH=/home/yuxuanliu/RISC-V/lpt-hw/laputa/linux-laputa/arch/riscv/boot/Image O=laputa-build
+make PLATFORM=generic FW_PAYLOAD_PATH=$(pwd)/../linux-laputa/arch/riscv/boot/Image O=laputa-build
 
-sudo dd if=laputa-build/platform/generic/firmware/fw_payload.bin of=/dev/sda1 bs=4096
+sudo dd if=laputa-build/platform/generic/firmware/fw_payload.bin of=/dev/sdc1 bs=4096
 
 cd ..

@@ -18,6 +18,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use atomic_enum::*;
 use crate::init::cmdline::MAX_VCPU;
+use crate::irq::vipi::rdvcpuid;
 
 #[cfg(test)]
 use crate::irq::vipi::tests::GET_UIPI_CNT;
@@ -597,9 +598,13 @@ impl VirtualCpu {
         if a7 == ECALL_VM_TEST_END {
             ret = 0xdead;
 
-            let vipi_id = unsafe {csrr!(VCPUID)};
+            #[cfg(feature = "xilinx")]
             println!("ECALL_VM_TEST_END vcpu: {}, vipi_id {}", self.vcpu_id,
-                vipi_id);
+                rdvcpuid());
+
+            #[cfg(feature = "qemu")]
+            println!("ECALL_VM_TEST_END vcpu: {}, vipi_id {}", self.vcpu_id,
+                unsafe {csrr!(VCPUID)});
 
             vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret as u64;
         
@@ -640,6 +645,10 @@ impl VirtualCpu {
         unsafe {
             VirtualIpi::clear_vipi(vipi_id);
             csrc!(HUIP, 1 << IRQ_U_SOFT);
+            #[cfg(feature = "xilinx")]
+            dbgprintln!("vcpu {}, vipi id {}", vcpu_id, rdvcpuid());
+            
+            #[cfg(feature = "qemu")]
             dbgprintln!("vcpu {}, vipi id {}", vcpu_id, csrr!(VCPUID));
         }
 
