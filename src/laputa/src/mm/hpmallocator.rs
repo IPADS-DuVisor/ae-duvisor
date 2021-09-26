@@ -76,11 +76,10 @@ impl HpmAllocator {
         #[cfg(test)]
         let test_buf_size: usize = 128 << 20;
         #[cfg(not(test))]
-        let test_buf_size: usize = 512 << 20; /* 512 MB for now */
+        let test_buf_size: usize = 256 << 20; /* 512 MB for now */
         
         let version: u64 = 0;
 
-        println!("pmp_alloc fd {}", fd);
         unsafe {
             let version_ptr = (&version) as *const u64;
             libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
