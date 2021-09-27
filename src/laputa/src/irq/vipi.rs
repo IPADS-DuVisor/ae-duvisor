@@ -65,7 +65,7 @@ impl VirtualIpi {
         match csr_id {
             0 => {
                 #[cfg(feature = "xilinx")]
-                stvipi0(!(1 << vipi_id));
+                stvipi0((1 << vipi_id));
 
                 #[cfg(feature = "qemu")]
                 unsafe {
@@ -74,7 +74,7 @@ impl VirtualIpi {
             },
             1 => {
                 #[cfg(feature = "xilinx")]
-                stvipi1(!(1 << (vipi_id - 64)));
+                stvipi1((1 << (vipi_id - 64)));
 
                 #[cfg(feature = "qemu")]
                 unsafe {
@@ -83,7 +83,7 @@ impl VirtualIpi {
             },
             2 => {
                 #[cfg(feature = "xilinx")]
-                stvipi2(!(1 << (vipi_id - 128)));
+                stvipi2((1 << (vipi_id - 128)));
 
                 #[cfg(feature = "qemu")]
                 unsafe {
@@ -92,7 +92,7 @@ impl VirtualIpi {
             },
             3 => {
                 #[cfg(feature = "xilinx")]
-                stvipi3(!(1 << (vipi_id - 192)));
+                stvipi3((1 << (vipi_id - 192)));
 
                 #[cfg(feature = "qemu")]
                 unsafe {

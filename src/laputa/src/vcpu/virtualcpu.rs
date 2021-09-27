@@ -20,6 +20,9 @@ use atomic_enum::*;
 use crate::init::cmdline::MAX_VCPU;
 use crate::irq::vipi::rdvcpuid;
 
+
+static mut FIRST_EXIT: i32 = 0;
+
 #[cfg(test)]
 use crate::irq::vipi::tests::GET_UIPI_CNT;
 
@@ -830,6 +833,12 @@ impl VirtualCpu {
             self.is_running.store(false, Ordering::SeqCst);
 
             /* FIXME: why KVM need sync_pending_irq() here? */
+            unsafe {
+            if(FIRST_EXIT == 0) {
+                println!("exit reason {}, pc is {:x}", vcpu_ctx.host_ctx.hyp_regs.ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
+                FIRST_EXIT = 1;
+            }
+            }
 
             ret = self.handle_vcpu_exit(&mut *vcpu_ctx);
         }

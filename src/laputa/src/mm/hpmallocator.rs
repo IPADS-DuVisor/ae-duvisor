@@ -76,7 +76,7 @@ impl HpmAllocator {
         #[cfg(test)]
         let test_buf_size: usize = 128 << 20;
         #[cfg(not(test))]
-        let test_buf_size: usize = 256 << 20; /* 512 MB for now */
+        let test_buf_size: usize = 128 << 20; /* 512 MB for now */
         
         let version: u64 = 0;
 
