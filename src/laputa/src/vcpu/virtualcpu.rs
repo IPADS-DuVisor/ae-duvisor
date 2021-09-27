@@ -20,9 +20,6 @@ use atomic_enum::*;
 use crate::init::cmdline::MAX_VCPU;
 use crate::irq::vipi::rdvcpuid;
 
-
-static mut FIRST_EXIT: i32 = 0;
-
 #[cfg(test)]
 use crate::irq::vipi::tests::GET_UIPI_CNT;
 
@@ -668,9 +665,7 @@ impl VirtualCpu {
         let mut ret: i32 = -1;
         let ucause = vcpu_ctx.host_ctx.hyp_regs.ucause;
         
-        //println!("exit reason {}, pc is {:x}", ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
         if (ucause & EXC_IRQ_MASK) != 0 {
-            //println!("exit reason {}, pc is {:x}", ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
             self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
@@ -706,13 +701,11 @@ impl VirtualCpu {
 
         match ucause {
             EXC_VIRTUAL_INST_FAULT => {
-                //println!("exit reason {}, pc is {:x}", ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                 self.handle_virtual_inst_fault(vcpu_ctx);
                 ret = 0;
             }
             EXC_INST_GUEST_PAGE_FAULT | EXC_LOAD_GUEST_PAGE_FAULT |
                 EXC_STORE_GUEST_PAGE_FAULT => {
-                //println!("exit reason {}, pc is {:x}", ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                 ret = self.handle_stage2_page_fault(vcpu_ctx);
             }
             EXC_VIRTUAL_SUPERVISOR_SYSCALL => {
@@ -833,13 +826,6 @@ impl VirtualCpu {
             self.is_running.store(false, Ordering::SeqCst);
 
             /* FIXME: why KVM need sync_pending_irq() here? */
-            unsafe {
-            if(FIRST_EXIT == 0) {
-                println!("exit reason {}, pc is {:x}", vcpu_ctx.host_ctx.hyp_regs.ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
-                FIRST_EXIT = 1;
-            }
-            }
-
             ret = self.handle_vcpu_exit(&mut *vcpu_ctx);
         }
         
