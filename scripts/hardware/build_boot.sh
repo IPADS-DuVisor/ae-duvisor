@@ -6,6 +6,8 @@ export CROSS_COMPILE=riscv64-linux-gnu-
 
 if test ${1}1 = linux1; then
     cd linux-laputa
+    sed -i "s/CONFIG_ULH_QEMU=y/CONFIG_ULH_FPGA=y/g" .config
+    sed -i "s/# CONFIG_ULH_FPGA is not set/# CONFIG_ULH_QEMU is not set/g" .config
     make -j16
     cd ../opensbi-laputa
 else

@@ -539,36 +539,6 @@ impl VirtualMachine {
     }
 
     pub fn hu_delegation(ioctl_fd: i32) {
-        #[cfg(feature = "qemu")]
-        VirtualMachine::hu_delegation_qemu(ioctl_fd);
-
-        #[cfg(feature = "xilinx")]
-        VirtualMachine::hu_delegation_xilinx(ioctl_fd);
-    }
-
-    #[allow(unused)]
-    pub fn hu_delegation_qemu(ioctl_fd: i32) {
-        unsafe {
-            let edeleg = ((1 << EXC_VIRTUAL_SUPERVISOR_SYSCALL) |
-                (1 << EXC_INST_GUEST_PAGE_FAULT) | 
-                (1 << EXC_VIRTUAL_INST_FAULT) |
-                (1 << EXC_LOAD_GUEST_PAGE_FAULT) |
-                (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
-
-            let ideleg = ((1 << IRQ_U_VTIMER) | (1 << IRQ_U_SOFT)) as libc::c_ulong;
-
-            let deleg = [edeleg, ideleg];
-            let deleg_ptr = (&deleg) as *const u64;
-
-            /* Call ioctl */
-            let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG,
-                deleg_ptr);
-            dbgprintln!("ioctl result: {}", res);
-        }
-    }
-
-    #[allow(unused)]
-    pub fn hu_delegation_xilinx(ioctl_fd: i32) {
         unsafe {
             let edeleg = ((1 << EXC_VIRTUAL_SUPERVISOR_SYSCALL) |
                 (1 << EXC_INST_GUEST_PAGE_FAULT) | 

@@ -128,7 +128,7 @@ impl Ecall {
                  * cleared by software.
                  * Qemu and xv6 think that IRQ_M_TIMER should be clear when 
                  * writing timecmp. 
-                 * I think that IRQ_U_VTIMER should be cleared by software.
+                 * I think that IRQ_U_TIMER should be cleared by software.
                  * That's a drawback of riscv, unlike GIC which can provide the
                  * same interface for eoi. 
                  */
@@ -142,7 +142,7 @@ impl Ecall {
 
                     #[cfg(feature = "qemu")]
                     {
-                        csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) | (1 << VTIMECTL_ENABLE));
+                        csrw!(VTIMECTL, (IRQ_U_TIMER << 1) | (1 << VTIMECTL_ENABLE));
                         csrw!(VTIMECMP, next_cycle);
                     }
                 }

@@ -14,6 +14,5 @@ pub mod delegation_constants {
     pub const IRQ_VS_SOFT: u64 = 2;
     pub const IRQ_VS_TIMER: u64 = 6;
     pub const IRQ_VS_EXT: u64 = 10;
-    pub const IRQ_U_VTIMER: u64 = 16;
     pub const IRQ_U_TIMER: u64 = 4;
 }

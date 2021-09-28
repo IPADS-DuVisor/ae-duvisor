@@ -212,7 +212,7 @@ impl VirtualCpu {
         self.virq.set_pending_irq(IRQ_VS_TIMER);
         unsafe {
             /* 
-             * FIXME: There may be unexpected pending bit IRQ_U_VTIMER when
+             * FIXME: There may be unexpected pending bit IRQ_U_TIMER when
              * traped to kernel disable timer.
              */
              #[cfg(feature = "xilinx")]
@@ -224,7 +224,7 @@ impl VirtualCpu {
             #[cfg(feature = "qemu")]
             {
                 csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
-                csrc!(HUIP, 1 << IRQ_U_VTIMER);
+                csrc!(HUIP, 1 << IRQ_U_TIMER);
             }
         }
 
@@ -669,20 +669,10 @@ impl VirtualCpu {
             self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
-                #[cfg(feature = "qemu")]
-                IRQ_U_VTIMER => {
-                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.",
+                IRQ_U_TIMER => {
+                    dbgprintln!("handler U TIMER: {}, current pc is {:x}.",
                         ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
-                }
-                #[cfg(feature = "xilinx")]
-                IRQ_U_TIMER => {
-                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.", 
-                        ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
-
-                    self.handle_u_vtimer_irq();
-
-                    ret = 0;
                 }
                 IRQ_U_SOFT => {
                     dbgprintln!("handler U VIPI, vcpu_id: {}", self.vcpu_id);
@@ -726,48 +716,16 @@ impl VirtualCpu {
         ret
     }
 
-    #[allow(unused)]
-    fn config_hustatus_qemu(&self, vcpu_ctx: &mut VcpuCtx) {
-        vcpu_ctx.host_ctx.hyp_regs.hustatus = 
-            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) |
-            (1 << HUSTATUS_UPIE_SHIFT) as u64;
-    }
-
-    #[allow(unused)]
-    fn config_hustatus_xilinx(&self, vcpu_ctx: &mut VcpuCtx) {
-        vcpu_ctx.host_ctx.hyp_regs.hustatus = 
-            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) | (1 << HUSTATUS_VTW_SHIFT) |
-            (1 << HUSTATUS_UPIE_SHIFT) as u64;
-    }
-
     fn config_hustatus(&self, vcpu_ctx: &mut VcpuCtx) {
-        #[cfg(feature = "qemu")]
-        self.config_hustatus_qemu(&mut *vcpu_ctx);
-
-        #[cfg(feature = "xilinx")]
-        self.config_hustatus_xilinx(&mut *vcpu_ctx);
-    }
-
-    #[allow(unused)]
-    fn config_huie_xilinx(&self) {
-        unsafe {
-            csrw!(HUIE, (1 << IRQ_U_TIMER) | (1 << IRQ_U_SOFT));
-        }
-    }
-
-    #[allow(unused)]
-    fn config_huie_qemu(&self) {
-        unsafe {
-            csrw!(HUIE, (1 << IRQ_U_VTIMER) | (1 << IRQ_U_SOFT));
-        }
+        vcpu_ctx.host_ctx.hyp_regs.hustatus = 
+            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) 
+            | (1 << HUSTATUS_VTW_SHIFT) | (1 << HUSTATUS_UPIE_SHIFT) as u64;
     }
 
     fn config_huie(&self) {
-        #[cfg(feature = "qemu")]
-        self.config_huie_qemu();
-
-        #[cfg(feature = "xilinx")]
-        self.config_huie_xilinx();
+        unsafe {
+            csrw!(HUIE, (1 << IRQ_U_TIMER) | (1 << IRQ_U_SOFT));
+        }
     }
 
     pub fn thread_vcpu_run(&self, delta_time: i64) -> i32 {
