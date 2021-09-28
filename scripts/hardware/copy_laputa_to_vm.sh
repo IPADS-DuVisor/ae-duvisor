@@ -1,5 +1,8 @@
 #!/bin/bash
 
+sudo rm -r target
+sudo rm -r tests/integration/test_images/build
+sudo rm tests/integration/*.img
 first_arg=$1
 
 if [ -z "$first_arg" ]; then
@@ -27,6 +30,7 @@ echo prepare dirctory is ${PREPARE}
 echo `hostname`
 
 echo $build_level
+
 
 cargo clean
 cargo build --target=riscv64gc-unknown-linux-gnu $build_level --features "xilinx"
