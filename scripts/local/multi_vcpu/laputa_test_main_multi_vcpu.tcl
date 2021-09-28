@@ -8,7 +8,7 @@ proc main_test_multi_vcpu_8 { } {
         }
     }
 
-    send "cd laputa && ./laputa --smp 8 --initrd ./test-files-laputa/rootfs-net.img --dtb ./test-files-laputa/smp8-io.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt\n"
+    send "cd laputa && ./laputa --smp 8 --initrd ./test-files-laputa/rootfs-net.img --dtb ./test-files-laputa/smp8-io.dtb  --kernel ./test-files-laputa/Image --memory 128 --machine laputa_virt\n"
     expect {
         "Busybox Rootfs" {
             send "\n ls \n"
