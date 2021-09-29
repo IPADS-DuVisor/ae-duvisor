@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# ./scripts/local/multi_vcpu/laputa_test_multi_vm_1_2.sh
-# ./scripts/local/multi_vcpu/laputa_test_multi_vm_1_4.sh
-# ./scripts/local/multi_vcpu/laputa_test_multi_vm_1_8.sh
-# ./scripts/local/multi_vcpu/laputa_test_multi_vm_2_2.sh
-# ./scripts/local/multi_vcpu/laputa_test_multi_vm_2_4.sh
+# ./scripts/local/multi_vcpu/laputa_test_multi_vm_1vcpu_2vm.sh
+# ./scripts/local/multi_vcpu/laputa_test_multi_vm_1vcpu_4vm.sh
+# ./scripts/local/multi_vcpu/laputa_test_multi_vm_1vcpu_8vm.sh
+# ./scripts/local/multi_vcpu/laputa_test_multi_vm_2vcpu_2vm.sh
+# ./scripts/local/multi_vcpu/laputa_test_multi_vm_2vcpu_4vm.sh
 
 # 2 vcpu, 8 vm
-./scripts/local/multi_vcpu/laputa_test_multi_vm_2_8.sh
+./scripts/local/multi_vcpu/laputa_test_multi_vm_2vcpu_8vm.sh

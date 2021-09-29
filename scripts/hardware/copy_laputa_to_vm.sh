@@ -50,7 +50,7 @@ laputa_test_names=${laputa_names/$laputa_name}
 
 mkdir -p mnt
 
-# mount the sd card
+# mount the sd card, the device name of the sd card may change
 sudo mount /dev/sdc2 ./mnt
 
 #sudo mount $PREPARE/ubuntu-vdisk.img ./mnt

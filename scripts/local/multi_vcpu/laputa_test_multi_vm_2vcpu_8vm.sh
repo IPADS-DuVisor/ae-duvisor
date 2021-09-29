@@ -34,7 +34,7 @@ echo "host screen session pid is ${HOST_PID}"
 screen -S host-7 -d -m &
 HOST_PID=$!
 echo "host screen session pid is ${HOST_PID}"
-./scripts/expect_wrapper.sh ./scripts/local/multi_vcpu/laputa_test_multi_vm_2_8.exp
+./scripts/expect_wrapper.sh ./scripts/local/multi_vcpu/laputa_test_multi_vm_2vcpu_8vm.exp
 ret=$?
 pkill screen
 exit $ret
