@@ -669,13 +669,8 @@ impl VirtualCpu {
             self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
-<<<<<<< HEAD
                 IRQ_U_TIMER => {
                     dbgprintln!("handler U TIMER: {}, current pc is {:x}.",
-=======
-                IRQ_U_VTIMER => {
-                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.",
->>>>>>> master
                         ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
                 }
