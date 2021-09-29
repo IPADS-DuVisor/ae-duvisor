@@ -18,6 +18,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use atomic_enum::*;
 use crate::init::cmdline::MAX_VCPU;
+#[allow(unused)]
 use crate::irq::vipi::rdvcpuid;
 
 #[cfg(test)]

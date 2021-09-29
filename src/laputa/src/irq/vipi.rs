@@ -102,16 +102,16 @@ impl VirtualIpi {
     fn clear_vipi_bit(csr_id: i32, vipi_id: u64) {
         match csr_id {
             0 => {
-                clear_vipi0(!(1 << vipi_id));
+                clear_vipi0(1 << vipi_id);
             },
             1 => {
-                clear_vipi1(!(1 << (vipi_id - 64)));
+                clear_vipi1(1 << (vipi_id - 64));
             },
             2 => {
-                clear_vipi2(!(1 << (vipi_id - 128)));
+                clear_vipi2(1 << (vipi_id - 128));
             },
             3 => {
-                clear_vipi3(!(1 << (vipi_id - 192)));
+                clear_vipi3(1 << (vipi_id - 192));
             },
             _ => {
                 panic!("Invalid vipi csr id ! {}", csr_id);
@@ -186,7 +186,7 @@ fn set_vipi3(new_val: u64) {
 
 fn clear_vipi0(new_val: u64) {
     #[cfg(feature = "xilinx")]
-    clvipi0(new_val);
+    clvipi0(!new_val);
 
     #[cfg(feature = "qemu")]
     unsafe {
@@ -196,7 +196,7 @@ fn clear_vipi0(new_val: u64) {
 
 fn clear_vipi1(new_val: u64) {
     #[cfg(feature = "xilinx")]
-    clvipi1(new_val);
+    clvipi1(!new_val);
 
     #[cfg(feature = "qemu")]
     unsafe {
@@ -206,7 +206,7 @@ fn clear_vipi1(new_val: u64) {
 
 fn clear_vipi2(new_val: u64) {
     #[cfg(feature = "xilinx")]
-    clvipi2(new_val);
+    clvipi2(!new_val);
 
     #[cfg(feature = "qemu")]
     unsafe {
@@ -216,7 +216,7 @@ fn clear_vipi2(new_val: u64) {
 
 fn clear_vipi3(new_val: u64) {
     #[cfg(feature = "xilinx")]
-    clvipi3(new_val);
+    clvipi3(!new_val);
 
     #[cfg(feature = "qemu")]
     unsafe {
