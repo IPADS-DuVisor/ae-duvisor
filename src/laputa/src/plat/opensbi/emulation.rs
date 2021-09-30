@@ -1,6 +1,8 @@
 use crate::mm::utils::*;
+#[allow(unused)]
 use crate::vcpu::utils::*;
 use crate::vcpu::virtualcpu::VirtualCpu;
+#[allow(unused)]
 use crate::plat::uhe::csr::csr_constants::*;
 use crate::irq::delegation::delegation_constants::*;
 use crate::plat::uhe::ioctl::ioctl_constants::*;
@@ -11,6 +13,7 @@ use crate::init::cmdline::MAX_VCPU;
 use std::sync::atomic::Ordering;
 use std::{thread, time};
 use crate::irq::vipi::VirtualIpi;
+use std::io::{self, Write};
 
 #[cfg(test)]
 use crate::irq::vipi::tests::TEST_SUCCESS_CNT;
@@ -67,6 +70,8 @@ pub mod error_code {
 extern "C"
 {
     fn getchar_emulation() -> i32;
+    fn wrvtimectl(val: u64);
+    fn wrvtimecmp(val: u64);
 }
 
 pub struct Ecall {
@@ -123,16 +128,23 @@ impl Ecall {
                  * cleared by software.
                  * Qemu and xv6 think that IRQ_M_TIMER should be clear when 
                  * writing timecmp. 
-                 * I think that IRQ_U_VTIMER should be cleared by software.
+                 * I think that IRQ_U_TIMER should be cleared by software.
                  * That's a drawback of riscv, unlike GIC which can provide the
                  * same interface for eoi. 
                  */
                 vcpu.virq.unset_pending_irq(IRQ_VS_TIMER);
                 unsafe {
-                    /* Set timer ctl register to enable u vtimer */
-                    csrw!(VTIMECTL, (IRQ_U_VTIMER << 1) 
-                        | (1 << VTIMECTL_ENABLE));
-                    csrw!(VTIMECMP, next_cycle);
+                    #[cfg(feature = "xilinx")]
+                    {
+                        wrvtimectl(1);
+                        wrvtimecmp(next_cycle);
+                    } 
+
+                    #[cfg(feature = "qemu")]
+                    {
+                        csrw!(VTIMECTL, (IRQ_U_TIMER << 1) | (1 << VTIMECTL_ENABLE));
+                        csrw!(VTIMECMP, next_cycle);
+                    }
                 }
                 dbgprintln!("set vtimer for ulh");
                 ret = 0;
@@ -294,7 +306,7 @@ impl Ecall {
     fn console_putchar(&mut self) -> i32{
         let ch = self.arg[0] as u8;
         let ch = ch as char;
-        print!("{}", ch);
+        print_flush!("{}", ch);
 
         /* Success and return with a0 = 0 */
         self.ret[0] = 0;

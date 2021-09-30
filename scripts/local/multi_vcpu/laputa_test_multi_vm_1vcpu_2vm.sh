@@ -13,7 +13,7 @@ echo "virt screen session pid is ${VIRT_PID}"
 screen -S host -d -m &
 HOST_PID=$!
 echo "host screen session pid is ${HOST_PID}"
-./scripts/expect_wrapper.sh ./scripts/local/multi_vcpu/laputa_test_multi_vm_2_2.exp
+./scripts/expect_wrapper.sh ./scripts/local/multi_vcpu/laputa_test_multi_vm_1vcpu_2vm.exp
 ret=$?
 pkill screen
 exit $ret

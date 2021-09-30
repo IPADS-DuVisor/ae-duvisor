@@ -1,5 +1,8 @@
 #!/bin/bash
 
+sudo rm -r target
+sudo rm -r tests/integration/test_images/build
+sudo rm tests/integration/*.img
 first_arg=$1
 
 if [ -z "$first_arg" ]; then
@@ -28,13 +31,14 @@ echo `hostname`
 
 echo $build_level
 
+
 cargo clean
-cargo build --target=riscv64gc-unknown-linux-gnu $build_level --features "qemu"
+cargo build --target=riscv64gc-unknown-linux-gnu $build_level --features "xilinx"
 laputa_name=`find target/riscv64gc-unknown-linux-gnu/${build_path}/deps/ -type f ! -name '*.*' `
 laputa_name_basename=`basename $laputa_name`
 
 # get laputa all the binary names
-cargo test --no-run --target=riscv64gc-unknown-linux-gnu $build_level --features "qemu"
+cargo test --no-run --target=riscv64gc-unknown-linux-gnu $build_level --features "xilinx"
 laputa_names=`find ./target/riscv64gc-unknown-linux-gnu/${build_path}/deps/ -type f ! -name '*.*' `
 
 ## Build test images
@@ -43,17 +47,22 @@ sudo rm -r ./tests/integration/test_images/build
 
 # delete laputa main binary name, so that we get laputa tests binary names
 laputa_test_names=${laputa_names/$laputa_name}
+
 mkdir -p mnt
-sudo mount $PREPARE/ubuntu-vdisk.img ./mnt
+
+# mount the sd card, the device name of the sd card may change
+sudo mount /dev/sdc2 ./mnt
+
+#sudo mount $PREPARE/ubuntu-vdisk.img ./mnt
 sudo rm -r ./mnt/laputa
 sudo mkdir -p ./mnt/laputa/tests_bin
-sudo cp scripts/local/run_tests.sh $laputa_name ./mnt/laputa
+# copy scripts used by laputa
+sudo cp -rf scripts/export/*  ./mnt/
+# copy laputa binary
+sudo cp $laputa_name ./mnt/laputa
 sudo cp $laputa_test_names ./mnt/laputa/tests_bin/
 sudo mv ./mnt/laputa/$laputa_name_basename ./mnt/laputa/laputa
 sudo cp -r src ./mnt/laputa/
 sudo cp -r tests ./mnt/laputa/
 sudo cp -r test-files-laputa ./mnt/laputa/
-
-sudo cp -r test-files-laputa/multi-vm-test ./mnt/
-
 sudo umount ./mnt

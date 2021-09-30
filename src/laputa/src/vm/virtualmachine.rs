@@ -148,6 +148,14 @@ impl VirtualMachine {
             0x10000200, 0x200).unwrap();
     }
 
+    fn vm_welcome() {
+        #[cfg(feature = "xilinx")]
+        println!("Welcome to LAPUTA (Xilinx)");
+
+        #[cfg(feature = "qemu")]
+        println!("Welcome to LAPUTA (Qemu)");
+    }
+
     pub fn new(vm_config: VMConfig) -> Self {
         let vcpu_num = vm_config.vcpu_count;
         let mem_size = vm_config.mem_size << GB_SHIFT;
@@ -158,6 +166,8 @@ impl VirtualMachine {
         let vm_image = image::VmImage::new(elf_path);
         let dtb_file = dtb::DeviceTree::new(dtb_path);
         let initrd_path = vm_config.initrd_path;
+
+        VirtualMachine::vm_welcome();
 
         /* Mmio default config for unit tests */
         #[cfg(test)]
@@ -528,7 +538,6 @@ impl VirtualMachine {
         }
     }
 
-    #[allow(unused)]
     pub fn hu_delegation(ioctl_fd: i32) {
         unsafe {
             let edeleg = ((1 << EXC_VIRTUAL_SUPERVISOR_SYSCALL) |
@@ -536,15 +545,14 @@ impl VirtualMachine {
                 (1 << EXC_VIRTUAL_INST_FAULT) |
                 (1 << EXC_LOAD_GUEST_PAGE_FAULT) |
                 (1 << EXC_STORE_GUEST_PAGE_FAULT)) as libc::c_ulong;
-            let ideleg = 
-                ((1 << IRQ_U_VTIMER) | (1 << IRQ_U_SOFT)) as libc::c_ulong;
+
+            let ideleg = ((1 << IRQ_U_TIMER) | (1 << IRQ_U_SOFT)) as libc::c_ulong;
+
             let deleg = [edeleg, ideleg];
             let deleg_ptr = (&deleg) as *const u64;
 
             /* Call ioctl */
-            let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG,
-                deleg_ptr);
-            dbgprintln!("ioctl result: {}", res);
+            libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
         }
     }
 }

@@ -73,9 +73,9 @@ impl HpmAllocator {
         let test_buf: u64; /* VA */
         let test_buf_pfn: u64; /* HPA */
         
-        #[cfg(test)]
-        let test_buf_size: usize = 128 << 20;
-        #[cfg(not(test))]
+        #[cfg(feature = "xilinx")]
+        let test_buf_size: usize = 128 << 20; /* 128 MB for now */
+        #[cfg(feature = "qemu")]
         let test_buf_size: usize = 512 << 20; /* 512 MB for now */
         
         let version: u64 = 0;

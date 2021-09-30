@@ -10,7 +10,6 @@ use crate::init::cmdline::MAX_VCPU;
 use std::sync::atomic::{AtomicU64, Ordering}; 
 #[allow(unused)]
 use crate::vcpu::utils::*;
-use crate::mm::utils::dbgprintln;
 
 #[allow(unused)]
 pub struct VirtualIpi {
@@ -36,11 +35,13 @@ impl VirtualIpi {
     pub fn vcpu_regist(&self, vcpu_id: u32, vipi_id: u64) {
         self.vcpu_id_map[vcpu_id as usize].store(vipi_id, Ordering::SeqCst);
 
+        #[cfg(feature = "xilinx")]
+        wrvcpuid(vipi_id);
+
+        #[cfg(feature = "qemu")]
         unsafe {
             csrw!(VCPUID, vipi_id);
         }
-
-        println!("Vcpu {} regist vipi id as {}", vcpu_id, unsafe {csrr!(VCPUID)});
     }
 
     /* TODO: Get cpu mask for the target vcpus */
@@ -54,60 +55,424 @@ impl VirtualIpi {
         }
     }
 
-    pub fn set_vipi(vipi_id: u64) {
-        match vipi_id {
-            1..=63 => { /* Set VIPI0 */
-                unsafe {
-                    csrs!(VIPI0, 1 << vipi_id);
-                }
+    fn set_vipi_bit(csr_id: i32, vipi_id: u64) {
+        match csr_id {
+            0 => {
+                set_vipi0(1 << vipi_id);
             },
-            64..=127 => { /* Set VIPI1 */
-                unsafe {
-                    csrs!(VIPI1, 1 << (vipi_id - 64));
-                }
+            1 => {
+                set_vipi1(1 << (vipi_id - 64));
             },
-            128..=191 => { /* Set VIPI2 */
-                unsafe {
-                    csrs!(VIPI2, 1 << (vipi_id - 128));
-                }
+            2 => {
+                set_vipi2(1 << (vipi_id - 128));
             },
-            192..=255 => { /* Set VIPI3 */
-                unsafe {
-                    csrs!(VIPI3, 1 << (vipi_id - 192));
-                }
+            3 => {
+                set_vipi3(1 << (vipi_id - 192));
             },
             _ => {
-                dbgprintln!("Invalid vipi id ! {}", vipi_id);
+                panic!("Invalid vipi csr id ! {}", csr_id);
+            },
+        }
+    }
+
+    pub fn set_vipi(vipi_id: u64) {
+        let csr_id: i32;
+
+        match vipi_id {
+            1..=63 => { /* Set VIPI0 */
+                csr_id = 0;
+            },
+            64..=127 => { /* Set VIPI1 */
+                csr_id = 1;
+            },
+            128..=191 => { /* Set VIPI2 */
+                csr_id = 2;
+            },
+            192..=255 => { /* Set VIPI3 */
+                csr_id = 3;
+            },
+            _ => {
+                panic!("Invalid vipi id ! {}", vipi_id);
+            },
+        }
+
+        VirtualIpi::set_vipi_bit(csr_id, vipi_id);
+    }
+
+    fn clear_vipi_bit(csr_id: i32, vipi_id: u64) {
+        match csr_id {
+            0 => {
+                clear_vipi0(1 << vipi_id);
+            },
+            1 => {
+                clear_vipi1(1 << (vipi_id - 64));
+            },
+            2 => {
+                clear_vipi2(1 << (vipi_id - 128));
+            },
+            3 => {
+                clear_vipi3(1 << (vipi_id - 192));
+            },
+            _ => {
+                panic!("Invalid vipi csr id ! {}", csr_id);
             },
         }
     }
 
     pub fn clear_vipi(vipi_id: u64) {
+        let csr_id: i32;
+
         match vipi_id {
             1..=63 => { /* Clear VIPI0 */
-                unsafe {
-                    csrc!(VIPI0, 1 << vipi_id);
-                }
+                csr_id = 0;
             },
             64..=127 => { /* Clear VIPI1 */
-                unsafe {
-                    csrc!(VIPI1, 1 << (vipi_id - 64));
-                }
+                csr_id = 1;
             },
             128..=191 => { /* Clear VIPI2 */
-                unsafe {
-                    csrc!(VIPI2, 1 << (vipi_id - 128));
-                }
+                csr_id = 2;
             },
             192..=255 => { /* Clear VIPI3 */
-                unsafe {
-                    csrc!(VIPI3, 1 << (vipi_id - 192));
-                }
+                csr_id = 3;
             },
             _ => {
-                dbgprintln!("Invalid vipi id ! {}", vipi_id);
+                panic!("Invalid vipi id ! {}", vipi_id);
             },
         }
+
+        VirtualIpi::clear_vipi_bit(csr_id, vipi_id);
+    }
+}
+
+fn set_vipi0(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    stvipi0(new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrs!(VIPI0, new_val);
+    }
+}
+
+fn set_vipi1(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    stvipi1(new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrs!(VIPI1, new_val);
+    }
+}
+
+fn set_vipi2(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    stvipi2(new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrs!(VIPI2, new_val);
+    }
+}
+
+fn set_vipi3(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    stvipi3(new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrs!(VIPI3, new_val);
+    }
+}
+
+fn clear_vipi0(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    clvipi0(!new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrc!(VIPI0, new_val);
+    }
+}
+
+fn clear_vipi1(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    clvipi1(!new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrc!(VIPI1, new_val);
+    }
+}
+
+fn clear_vipi2(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    clvipi2(!new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrc!(VIPI2, new_val);
+    }
+}
+
+fn clear_vipi3(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    clvipi3(!new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrc!(VIPI3, new_val);
+    }
+}
+
+/* Write vcpuid by a0 */
+#[allow(unused)]
+fn wrvcpuid(vcpuid: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* wrvcpuid */
+            ".word 0xf8a01077",
+
+            ".option pop",
+            in("a0") vcpuid,
+        );
+    }
+}
+
+/* Read a0 from vcpuid */
+#[allow(unused)]
+pub fn rdvcpuid() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvcpuid */
+            ".word 0xf8102577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* VIPI0 */
+#[allow(unused)]
+pub fn rdvipi0() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi0 */
+            ".word 0xc8101577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* A0 should be formated as 0b11111101111 */
+pub fn clvipi0(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* clvipi0 */
+            ".word 0xc8a02077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* A0 should be formated as 0b0000001000 */
+#[allow(unused)]
+pub fn stvipi0(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* stvipi0 */
+            ".word 0xc8a03077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* VIPI1 */
+#[allow(unused)]
+fn rdvipi1() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi1 */
+            ".word 0xd0101577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* A0 should be formated as 0b11111101111 */
+#[allow(unused)]
+fn clvipi1(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* clvipi1 */
+            ".word 0xd0a02077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* A0 should be formated as 0b0000001000 */
+#[allow(unused)]
+fn stvipi1(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* stvipi1 */
+            ".word 0xd0a03077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* VIPI2 */
+#[allow(unused)]
+fn rdvipi2() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi2 */
+            ".word 0xd8101577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* A0 should be formated as 0b11111101111 */
+#[allow(unused)]
+fn clvipi2(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* clvipi2 */
+            ".word 0xd8a02077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* A0 should be formated as 0b0000001000 */
+#[allow(unused)]
+fn stvipi2(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* stvipi2 */
+            ".word 0xd8a03077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* VIPI3 */
+#[allow(unused)]
+fn rdvipi3() -> u64 {
+    let a0: u64;
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* rdvipi3 */
+            ".word 0xe8101577",
+
+            ".option pop",
+            out("a0") a0,
+        );
+    }
+
+    return a0;
+}
+
+/* A0 should be formated as 0b11111101111 */
+#[allow(unused)]
+fn clvipi3(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* clvipi3 */
+            ".word 0xe8a02077",
+
+            ".option pop",
+            in("a0") a0,
+        );
+    }
+}
+
+/* A0 should be formated as 0b0000001000 */
+#[allow(unused)]
+fn stvipi3(a0: u64) {
+    unsafe {
+        asm!(
+            ".option push",
+            ".option norvc",
+
+            /* stvipi3 */
+            ".word 0xe8a03077",
+
+            ".option pop",
+            in("a0") a0,
+        );
     }
 }
 

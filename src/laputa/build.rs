@@ -27,6 +27,10 @@ fn main() {
         .file("src/plat/opensbi/uart.c")
         .compile("uart");
 
+    cc::Build::new()
+        .file("src/irq/vtimer.S")
+        .compile("vtimer");
+
     let filenames = ["vcpu_add_all_gprs", "vcpu_ecall_exit", 
                      "vmem_ld_mapping", "vmem_ld_sd_over_loop",
                      "vmem_W_Ro", "vmem_X_nonX", "vmem_ld_sd_sum", 

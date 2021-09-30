@@ -18,6 +18,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use atomic_enum::*;
 use crate::init::cmdline::MAX_VCPU;
+#[allow(unused)]
+use crate::irq::vipi::rdvcpuid;
 
 #[cfg(test)]
 use crate::irq::vipi::tests::GET_UIPI_CNT;
@@ -105,6 +107,12 @@ pub enum ExitReason {
 extern "C" {
     fn enter_guest(vcpuctx: u64) -> i32;
     fn exit_guest();
+}
+
+#[allow(unused)]
+#[link(name = "vtimer")]
+extern "C" {
+    fn wrvtimectl(val: u64);
 }
 
 #[allow(unused)]
@@ -205,13 +213,20 @@ impl VirtualCpu {
         self.virq.set_pending_irq(IRQ_VS_TIMER);
         unsafe {
             /* 
-             * FIXME: There may be unexpected pending bit IRQ_U_VTIMER when
+             * FIXME: There may be unexpected pending bit IRQ_U_TIMER when
              * traped to kernel disable timer.
              */
-            csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
+             #[cfg(feature = "xilinx")]
+             {
+                 wrvtimectl(0);
+                 csrc!(HUIP, 1 << IRQ_U_TIMER);
+             }
 
-            /* Clear U VTIMER bit. Its counterpart in ARM is GIC EOI.  */
-            csrc!(HUIP, 1 << IRQ_U_VTIMER);
+            #[cfg(feature = "qemu")]
+            {
+                csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
+                csrc!(HUIP, 1 << IRQ_U_TIMER);
+            }
         }
 
         return 0;
@@ -524,7 +539,12 @@ impl VirtualCpu {
                         let (_hva, hpa) = res.unwrap();
                         let flag: u64 = PTE_VRWEU;
 
+                        #[cfg(feature = "qemu")]
                         gsmmu.map_page(fault_addr, hpa, flag);
+
+                        #[cfg(feature = "xilinx")]
+                        gsmmu.map_page(fault_addr, hpa, flag | PTE_ACCESS
+                            | PTE_DIRTY);
 
                         ret = 0;
                     } else {
@@ -538,7 +558,13 @@ impl VirtualCpu {
                         
                     dbgprintln!("map gpa: {:x} to hpa: {:x}",
                         fault_addr, fault_hpa);
-                        gsmmu.map_page(fault_addr, fault_hpa, flag);
+
+                    #[cfg(feature = "qemu")]
+                    gsmmu.map_page(fault_addr, fault_hpa, flag);
+
+                    #[cfg(feature = "xilinx")]
+                    gsmmu.map_page(fault_addr, fault_hpa, flag | PTE_ACCESS
+                        | PTE_DIRTY);
 
                     ret = 0;
                 }
@@ -573,9 +599,13 @@ impl VirtualCpu {
         if a7 == ECALL_VM_TEST_END {
             ret = 0xdead;
 
-            let vipi_id = unsafe {csrr!(VCPUID)};
+            #[cfg(feature = "xilinx")]
             println!("ECALL_VM_TEST_END vcpu: {}, vipi_id {}", self.vcpu_id,
-                vipi_id);
+                rdvcpuid());
+
+            #[cfg(feature = "qemu")]
+            println!("ECALL_VM_TEST_END vcpu: {}, vipi_id {}", self.vcpu_id,
+                unsafe {csrr!(VCPUID)});
 
             vcpu_ctx.host_ctx.gp_regs.x_reg[0] = ret as u64;
         
@@ -616,7 +646,12 @@ impl VirtualCpu {
         unsafe {
             VirtualIpi::clear_vipi(vipi_id);
             csrc!(HUIP, 1 << IRQ_U_SOFT);
-            //dbgprintln!("vcpu {}, vipi id {}", vcpu_id, csrr!(VCPUID));
+
+            #[cfg(feature = "xilinx")]
+            dbgprintln!("vcpu {}, vipi id {}", vcpu_id, rdvcpuid());
+            
+            #[cfg(feature = "qemu")]
+            dbgprintln!("vcpu {}, vipi id {}", vcpu_id, csrr!(VCPUID));
         }
 
         #[cfg(test)]
@@ -635,8 +670,8 @@ impl VirtualCpu {
             self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
-                IRQ_U_VTIMER => {
-                    dbgprintln!("handler U VTIMER: {}, current pc is {:x}.",
+                IRQ_U_TIMER => {
+                    dbgprintln!("handler U TIMER: {}, current pc is {:x}.",
                         ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                     ret = self.handle_u_vtimer_irq();
                 }
@@ -684,8 +719,14 @@ impl VirtualCpu {
 
     fn config_hustatus(&self, vcpu_ctx: &mut VcpuCtx) {
         vcpu_ctx.host_ctx.hyp_regs.hustatus = 
-            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) |
-            (1 << HUSTATUS_UPIE_SHIFT) as u64;
+            ((1 << HUSTATUS_SPV_SHIFT) | (1 << HUSTATUS_SPVP_SHIFT)) 
+            | (1 << HUSTATUS_VTW_SHIFT) | (1 << HUSTATUS_UPIE_SHIFT) as u64;
+    }
+
+    fn config_huie(&self) {
+        unsafe {
+            csrw!(HUIE, (1 << IRQ_U_TIMER) | (1 << IRQ_U_SOFT));
+        }
     }
 
     pub fn thread_vcpu_run(&self, delta_time: i64) -> i32 {
@@ -713,7 +754,7 @@ impl VirtualCpu {
             csrw!(UTVEC, exit_guest as u64);
 
             /* Enable timer irq */
-            csrw!(HUIE, (1 << IRQ_U_VTIMER) | (1 << IRQ_U_SOFT));
+            self.config_huie();
 
             /* TODO: redesign scounteren register */
             /* Allow VM to directly access time register */
@@ -744,7 +785,6 @@ impl VirtualCpu {
             self.is_running.store(false, Ordering::SeqCst);
 
             /* FIXME: why KVM need sync_pending_irq() here? */
-
             ret = self.handle_vcpu_exit(&mut *vcpu_ctx);
         }
         
