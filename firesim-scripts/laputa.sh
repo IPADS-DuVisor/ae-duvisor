@@ -17,11 +17,12 @@ IP_STRING=`aws ec2 describe-instances --instance-ids i-007f6bc74bb672c70 --no-cl
 IP=`echo $IP_STRING | cut -d " " -f 1`
 echo IP is $IP
 
-scp -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem -r firesim-scripts centos@${IP}:~/firesim
-tar -czf mnt-firesim.tar.gz mnt-firesim
-scp -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem mnt-firesim.tar.gz centos@${IP}:~/firesim
-scp -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem br-base-bin centos@${IP}:~/firesim
-
+if [ $1 == "sync" ]; then
+    scp -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem -r firesim-scripts centos@${IP}:~/firesim
+    tar -czf mnt-firesim.tar.gz mnt-firesim
+    scp -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem mnt-firesim.tar.gz centos@${IP}:~/firesim
+    scp -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem br-base-bin centos@${IP}:~/firesim
+fi
 # running laputa
 echo running laputa benchmark
 ssh -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem centos@${IP} "cd firesim/firesim-scripts && ./scripts-laputa/start.sh laputa"

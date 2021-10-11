@@ -86,7 +86,7 @@ expect {
    		 	send "mount blk-dev.img root && chroot root \n"
    		 	expect "root@buildroot:"
 
-                        send "./iperf3 -c $HOST  && echo k  j\n"
+                        send "./iperf3 -c $HOST -u -b 100G && echo k  j\n"
                         expect "k j"
 
                         exit 0

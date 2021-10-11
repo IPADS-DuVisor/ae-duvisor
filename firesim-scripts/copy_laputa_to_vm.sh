@@ -29,6 +29,9 @@ echo prepare dirctory is ${PREPARE}
 
 echo `hostname`
 
+build_level="--release"
+build_path=release
+
 echo $build_level
 
 cargo clean
