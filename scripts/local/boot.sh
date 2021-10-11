@@ -20,7 +20,7 @@ if ! [ -e /sys/class/net/tap0 ]; then
     sudo ip link set dev tap0 up
 fi
 
-MACADDR=66:22:33:44:55:11
+MACADDR=66:22:33:44:55:12
 ROMFILE=./qemu-laputa/pc-bios/efi-virtio.rom
 #ROMFILE=./qemu-laputa/pc-bios/efi-e1000e.rom
 

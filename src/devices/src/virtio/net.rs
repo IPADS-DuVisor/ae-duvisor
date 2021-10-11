@@ -241,8 +241,8 @@ impl Worker {
 
         self.signal_used_queue();
     }
-
-    fn run(
+    
+    fn run_rx(
         &mut self,
         rx_queue_evt: EventFd,
         tx_queue_evt: EventFd,
@@ -253,8 +253,6 @@ impl Worker {
         const RX_TAP: u32 = 1;
         // The guest has made a buffer available to receive a frame into.
         const RX_QUEUE: u32 = 2;
-        // The transmit queue has a frame that is ready to send from the guest.
-        const TX_QUEUE: u32 = 3;
         // crosvm has requested the device to shut down.
         const KILL: u32 = 4;
 
@@ -262,7 +260,6 @@ impl Worker {
             let tokens = match poller.poll(&[
                 (RX_TAP, &self.tap as &dyn Pollable),
                 (RX_QUEUE, &rx_queue_evt as &dyn Pollable),
-                (TX_QUEUE, &tx_queue_evt as &dyn Pollable),
                 (KILL, &kill_evt as &dyn Pollable),
             ]) {
                 Ok(v) => v,
@@ -293,6 +290,37 @@ impl Worker {
                             self.deferred_rx = false;
                         }
                     }
+                    KILL => break 'poll,
+                    _ => unreachable!(),
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn run_tx(
+        &mut self,
+        rx_queue_evt: EventFd,
+        tx_queue_evt: EventFd,
+        kill_evt: EventFd,
+    ) -> Result<(), NetError> {
+        let mut poller = Poller::new(4);
+        // The transmit queue has a frame that is ready to send from the guest.
+        const TX_QUEUE: u32 = 3;
+        // crosvm has requested the device to shut down.
+        const KILL: u32 = 4;
+
+        'poll: loop {
+            let tokens = match poller.poll(&[
+                (TX_QUEUE, &tx_queue_evt as &dyn Pollable),
+                (KILL, &kill_evt as &dyn Pollable),
+            ]) {
+                Ok(v) => v,
+                Err(e) => return Err(NetError::PollError(e)),
+            };
+
+            for &token in tokens {
+                match token {
                     TX_QUEUE => {
                         if let Err(e) = tx_queue_evt.read() {
                             error!("net: error reading tx queue EventFd: {:?}", e);
@@ -427,11 +455,51 @@ impl VirtioDevice for Net {
         if let Some(tap) = self.tap.take() {
             if let Some(kill_evt) = self.workers_kill_evt.take() {
                 let acked_features = self.acked_features;
-                let worker_result = thread::Builder::new().name("virtio_net".to_string()).spawn(
+                let mem_clone = mem.clone();
+                let tap_clone = tap.clone();
+                let status_clone = status.clone();
+                let interrupt_evt_clone = interrupt_evt.try_clone().unwrap();
+                let irqchip_clone = irqchip.clone();
+                // First queue is rx, second is tx.
+                let rx_queue = queues.remove(0);
+                let tx_queue = Queue::new(0);
+                let rx_queue_evt = queue_evts.remove(0);
+                let tx_queue_evt = EventFd::new().unwrap();
+                let rx_kill_evt = kill_evt.try_clone().unwrap();
+                let rx_worker_result = thread::Builder::new().name("virtio_net_rx".to_string()).spawn(
                     move || {
-                        // First queue is rx, second is tx.
-                        let rx_queue = queues.remove(0);
-                        let tx_queue = queues.remove(0);
+                        let mut worker = Worker {
+                            mem: mem_clone,
+                            rx_queue: rx_queue,
+                            tx_queue: tx_queue,
+                            tap: tap_clone,
+                            interrupt_status: status_clone,
+                            interrupt_evt: interrupt_evt_clone,
+                            rx_buf: [0u8; MAX_BUFFER_SIZE],
+                            rx_count: 0,
+                            deferred_rx: false,
+                            acked_features: acked_features,
+                            irqchip: irqchip_clone,
+                        };
+                        let result = worker.run_rx(rx_queue_evt, tx_queue_evt, rx_kill_evt);
+                        if let Err(e) = result {
+                            error!("net worker thread exited with error: {:?}", e);
+                        }
+                    },
+                );
+
+                if let Err(e) = rx_worker_result {
+                    error!("failed to spawn virtio_net worker: {}", e);
+                    return;
+                }
+                
+                // First queue is rx, second is tx.
+                let rx_queue = Queue::new(0);
+                let tx_queue = queues.remove(0);
+                let rx_queue_evt = EventFd::new().unwrap();
+                let tx_queue_evt = queue_evts.remove(0);
+                let tx_worker_result = thread::Builder::new().name("virtio_net_tx".to_string()).spawn(
+                    move || {
                         let mut worker = Worker {
                             mem: mem,
                             rx_queue: rx_queue,
@@ -445,16 +513,14 @@ impl VirtioDevice for Net {
                             acked_features: acked_features,
                             irqchip: irqchip,
                         };
-                        let rx_queue_evt = queue_evts.remove(0);
-                        let tx_queue_evt = queue_evts.remove(0);
-                        let result = worker.run(rx_queue_evt, tx_queue_evt, kill_evt);
+                        let result = worker.run_tx(rx_queue_evt, tx_queue_evt, kill_evt);
                         if let Err(e) = result {
                             error!("net worker thread exited with error: {:?}", e);
                         }
                     },
                 );
 
-                if let Err(e) = worker_result {
+                if let Err(e) = tx_worker_result {
                     error!("failed to spawn virtio_net worker: {}", e);
                     return;
                 }

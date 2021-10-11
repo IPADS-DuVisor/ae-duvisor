@@ -81,6 +81,13 @@ impl Tap {
         })
     }
 
+    pub fn clone(&self) -> Tap {
+        Tap {
+            tap_file: self.tap_file.try_clone().unwrap(),
+            if_name: self.if_name.clone(),
+        }
+    }
+
     /// Set the host-side IP address for the tap interface.
     pub fn set_ip_addr(&self, ip_addr: net::Ipv4Addr) -> Result<()> {
         let sock = create_socket()?;
