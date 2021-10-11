@@ -1,0 +1,7 @@
+#!/usr/bin/expect -f
+
+spawn bash -c "screen -e^bb -r workload"
+
+expect "The full log of this run is" 
+
+puts "Test Finished"
