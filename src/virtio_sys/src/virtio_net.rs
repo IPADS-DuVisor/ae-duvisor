@@ -10,6 +10,7 @@ pub const VIRTIO_NET_F_GUEST_TSO4: ::std::os::raw::c_uint = 7;
 pub const VIRTIO_NET_F_GUEST_UFO: ::std::os::raw::c_uint = 10;
 pub const VIRTIO_NET_F_HOST_TSO4: ::std::os::raw::c_uint = 11;
 pub const VIRTIO_NET_F_HOST_UFO: ::std::os::raw::c_uint = 14;
+pub const VIRTIO_NET_F_MRG_RXBUF: ::std::os::raw::c_uint = 15;
 
 pub type U8 = ::std::os::raw::c_uchar;
 pub type U16 = ::std::os::raw::c_ushort;

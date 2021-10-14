@@ -46,16 +46,21 @@ impl<'a> DescriptorChain<'a> {
         index: u16,
     ) -> Option<DescriptorChain> {
         if index >= queue_size {
+            warn!("queue.rs {} index: {} queue_size {}", line!(), index, queue_size);
             return None;
         }
 
         let desc_head = match mem.checked_offset(desc_table, (index as usize) * 16) {
             Some(a) => a,
-            None => return None,
+            None => {
+                warn!("queue.rs {} index: {} queue_size {}", line!(), index, queue_size);
+                return None;
+            }
         };
         // These reads can't fail unless Guest memory is hopelessly broken.
         let addr = GuestAddress(mem.read_obj_from_addr::<u64>(desc_head).unwrap() as usize);
         if mem.checked_offset(desc_head, 16).is_none() {
+            warn!("queue.rs {} index: {} queue_size {}", line!(), index, queue_size);
             return None;
         }
         let len: u32 = mem.read_obj_from_addr(desc_head.unchecked_add(8)).unwrap();
@@ -118,6 +123,8 @@ impl<'a> DescriptorChain<'a> {
                     c
                 })
         } else {
+            warn!("queue.rs {} flags & NEXT {}, ttl {}",
+                line!(), self.flags & VIRTQ_DESC_F_NEXT, self.ttl);
             None
         }
     }
@@ -305,6 +312,36 @@ impl Queue {
             queue_size: queue_size,
             next_avail: &mut self.next_avail,
         }
+    }
+
+    // For F_MRG_RXBUF
+    pub fn set_used_elem(&mut self, mem: &GuestMemory, desc_index: u16, len: u32, num_buffers: u16) {
+        if desc_index >= self.actual_size() {
+            error!(
+                "attempted to add out of bounds descriptor to used ring: {}",
+                desc_index
+            );
+            return;
+        }
+
+        let used_ring = self.used_ring;
+        let next_used = ((self.next_used.0 + num_buffers) % self.actual_size()) as usize;
+        let used_elem = used_ring.unchecked_add(4 + next_used * 8);
+
+        // These writes can't fail as we are guaranteed to be within the descriptor ring.
+        mem.write_obj_at_addr(desc_index as u32, used_elem).unwrap();
+        mem.write_obj_at_addr(len as u32, used_elem.unchecked_add(4))
+            .unwrap();
+    }
+
+    pub fn update_used_idx(&mut self, mem: &GuestMemory, num_buffers: u16) {
+        self.next_used += Wrapping(num_buffers);
+
+        // This fence ensures all descriptor writes are visible before the index update is.
+        fence(Ordering::Release);
+
+        mem.write_obj_at_addr(self.next_used.0 as u16, self.used_ring.unchecked_add(2))
+            .unwrap();
     }
 
     /// Puts an available descriptor head into the used ring for use by the guest.

@@ -13,7 +13,7 @@ use std::net::Ipv4Addr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
-use sys_util::{Error as SysError, EventFd, GuestMemory, Pollable, Poller};
+use sys_util::{Error as SysError, EventFd, GuestMemory, Pollable, Poller, GuestAddress};
 use virtio_sys::virtio_net;
 
 use irq_util::IrqChip;
@@ -71,6 +71,13 @@ impl Worker {
         //self.interrupt_evt.write(1).unwrap();
         self.irqchip.trigger_edge_irq(3);
     }
+    
+    fn net_fix_rx_hdr(&self, mem: &GuestMemory, index: u16, num_buffers: u16) {
+        let desc_head = mem.checked_offset(
+            self.rx_queue.desc_table, (index as usize) * 16).unwrap();
+        let addr = mem.read_obj_from_addr::<u64>(desc_head).unwrap();
+        mem.write_obj_at_addr(num_buffers, GuestAddress(addr as usize + 10)).unwrap();
+    }
 
     // Copies a single frame from `self.rx_buf` into the guest. Returns true
     // if a buffer was used, and false if the frame must be deferred until a buffer
@@ -85,6 +92,7 @@ impl Worker {
         // We just checked that the head descriptor exists.
         let head_index = next_desc.as_ref().unwrap().index;
         let mut write_count = 0;
+        let mut num_buffers: u16 = 0;
 
         // Copy from frame into buffer, which may span multiple descriptors.
         loop {
@@ -104,7 +112,12 @@ impl Worker {
 
                     match write_result {
                         Ok(sz) => {
+                            self.rx_queue
+                                .set_used_elem(&self.mem,
+                                    desc.index, sz as u32,
+                                    num_buffers);
                             write_count += sz;
+                            num_buffers += 1;
                         }
                         Err(e) => {
                             warn!("net: rx: failed to write slice: {:?}", e);
@@ -127,8 +140,13 @@ impl Worker {
             }
         }
 
+        // TODO: fix hdr->num_buffers
+        self.net_fix_rx_hdr(&self.mem, head_index, num_buffers);
+
+        //self.rx_queue
+        //    .add_used(&self.mem, head_index, write_count as u32);
         self.rx_queue
-            .add_used(&self.mem, head_index, write_count as u32);
+            .update_used_idx(&self.mem, num_buffers);
 
         // Interrupt the guest immediately for received frames to
         // reduce latency.
@@ -372,6 +390,7 @@ impl Net {
             | 1 << virtio_net::VIRTIO_NET_F_GUEST_UFO
             | 1 << virtio_net::VIRTIO_NET_F_HOST_TSO4
             | 1 << virtio_net::VIRTIO_NET_F_HOST_UFO
+            | 1 << virtio_net::VIRTIO_NET_F_MRG_RXBUF
             | 1 << virtio_net::VIRTIO_F_VERSION_1;
 
         Ok(Net {
