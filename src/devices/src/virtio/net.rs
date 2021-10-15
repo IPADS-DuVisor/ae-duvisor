@@ -76,7 +76,16 @@ impl Worker {
         let desc_head = mem.checked_offset(
             self.rx_queue.desc_table, (index as usize) * 16).unwrap();
         let addr = mem.read_obj_from_addr::<u64>(desc_head).unwrap();
-        mem.write_obj_at_addr(num_buffers, GuestAddress(addr as usize + 10)).unwrap();
+        //if num_buffers > 1 {
+        //    warn!("hdr_len {}, gso_size {}, csum_start {}, csum_offset {}",
+        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 2)).unwrap(),
+        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 4)).unwrap(),
+        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 6)).unwrap(),
+        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 8)).unwrap()
+        //    );
+        //}
+        mem.write_obj_at_addr::<u16>(190, GuestAddress(addr as usize + 2)).unwrap();
+        mem.write_obj_at_addr::<u16>(num_buffers, GuestAddress(addr as usize + 10)).unwrap();
     }
 
     // Copies a single frame from `self.rx_buf` into the guest. Returns true
@@ -90,8 +99,10 @@ impl Worker {
         }
 
         // We just checked that the head descriptor exists.
-        let mut head_index = next_desc.as_ref().unwrap().index;
+        let head_index = next_desc.as_ref().unwrap().index;
+        let mut first_index = head_index;
         let mut write_count = 0;
+        let mut io_size = 0;
         let mut num_buffers: u16 = 0;
 
         // Copy from frame into buffer, which may span multiple descriptors.
@@ -105,22 +116,21 @@ impl Worker {
                         let limit = cmp::min(write_count + desc.len as usize, self.rx_count);
                         let source_slice = &self.rx_buf[write_count..limit];
                         let write_result = self.mem.write_slice_at_addr(source_slice, desc.addr);
-                        if limit - write_count > 4096 {
-                            println!("--- {}:{} limit - write_count: {}, res: {:?}",
-                                limit, write_count, limit - write_count, 
-                                write_result);
-                        }
+                        //if limit - write_count > 4096 {
+                        //    println!("--- {}:{} limit - write_count: {}, res: {:?}",
+                        //        limit, write_count, limit - write_count, 
+                        //        write_result);
+                        //}
 
                         match write_result {
                             Ok(sz) => {
                                 let old_wr_cnt = write_count;
                                 write_count += sz;
+                                io_size += sz;
                                 desc.addr = desc.addr.unchecked_add(sz);
                                 desc.len -= sz as u32;
                                 if (write_count < self.rx_count) &&
                                     (desc.len > 0) {
-                                        //warn!("net:{} gpa {:x} sz {} desc.len {} slice_len {} rx_count {} old_wr_cnt {}",
-                                        //    line!(), desc.addr.offset(), sz, desc.len, limit - write_count, self.rx_count, old_wr_cnt);
                                         continue;
                                 }
                                 break;
@@ -131,18 +141,28 @@ impl Worker {
                             }
                         };
                     }
-                    self.rx_queue
-                        .set_used_elem(&self.mem,
-                            desc.index, write_count as u32,
-                            num_buffers);
-                    num_buffers += 1;
 
                     if write_count >= self.rx_count {
+                        self.rx_queue
+                            .set_used_elem(&self.mem,
+                                first_index, io_size as u32,
+                                num_buffers);
+                        num_buffers += 1;
                         break;
                     }
-                    // kvmtool: spin until avail?
+                    
                     if !desc.has_next() {
+                        self.rx_queue
+                            .set_used_elem(&self.mem,
+                                desc.index, io_size as u32,
+                                num_buffers);
+                        num_buffers += 1;
+                        io_size = 0;
                         next_desc = self.rx_queue.iter(&self.mem).next();
+                        if next_desc.is_none() {
+                            break;
+                        }
+                        first_index = next_desc.as_ref().unwrap().index;
                     } else {
                         next_desc = desc.next_descriptor();
                     }
@@ -472,6 +492,7 @@ impl VirtioDevice for Net {
             v &= !unrequested_features;
         }
         self.acked_features |= v;
+        warn!("--- acked_features 0x{:x}", self.acked_features);
     }
 
     fn activate(
