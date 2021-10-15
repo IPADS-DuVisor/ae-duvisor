@@ -90,57 +90,73 @@ impl Worker {
         }
 
         // We just checked that the head descriptor exists.
-        let head_index = next_desc.as_ref().unwrap().index;
+        let mut head_index = next_desc.as_ref().unwrap().index;
         let mut write_count = 0;
         let mut num_buffers: u16 = 0;
 
         // Copy from frame into buffer, which may span multiple descriptors.
         loop {
             match next_desc {
-                Some(desc) => {
+                Some(ref mut desc) => {
                     if !desc.is_write_only() {
                         break;
                     }
-                    let limit = cmp::min(write_count + desc.len as usize, self.rx_count);
-                    let source_slice = &self.rx_buf[write_count..limit];
-                    let write_result = self.mem.write_slice_at_addr(source_slice, desc.addr);
-                    if limit - write_count > 4096 {
-                        println!("--- {}:{} limit - write_count: {}, res: {:?}",
-                            limit, write_count, limit - write_count, 
-                            write_result);
-                    }
+                    loop {
+                        let limit = cmp::min(write_count + desc.len as usize, self.rx_count);
+                        let source_slice = &self.rx_buf[write_count..limit];
+                        let write_result = self.mem.write_slice_at_addr(source_slice, desc.addr);
+                        if limit - write_count > 4096 {
+                            println!("--- {}:{} limit - write_count: {}, res: {:?}",
+                                limit, write_count, limit - write_count, 
+                                write_result);
+                        }
 
-                    match write_result {
-                        Ok(sz) => {
-                            self.rx_queue
-                                .set_used_elem(&self.mem,
-                                    desc.index, sz as u32,
-                                    num_buffers);
-                            write_count += sz;
-                            num_buffers += 1;
-                        }
-                        Err(e) => {
-                            warn!("net: rx: failed to write slice: {:?}", e);
-                            break;
-                        }
-                    };
+                        match write_result {
+                            Ok(sz) => {
+                                let old_wr_cnt = write_count;
+                                write_count += sz;
+                                desc.addr = desc.addr.unchecked_add(sz);
+                                desc.len -= sz as u32;
+                                if (write_count < self.rx_count) &&
+                                    (desc.len > 0) {
+                                        //warn!("net:{} gpa {:x} sz {} desc.len {} slice_len {} rx_count {} old_wr_cnt {}",
+                                        //    line!(), desc.addr.offset(), sz, desc.len, limit - write_count, self.rx_count, old_wr_cnt);
+                                        continue;
+                                }
+                                break;
+                            }
+                            Err(e) => {
+                                warn!("net: rx: failed to write slice: {:?}", e);
+                                break;
+                            }
+                        };
+                    }
+                    self.rx_queue
+                        .set_used_elem(&self.mem,
+                            desc.index, write_count as u32,
+                            num_buffers);
+                    num_buffers += 1;
 
                     if write_count >= self.rx_count {
                         break;
                     }
-                    next_desc = desc.next_descriptor();
+                    // kvmtool: spin until avail?
+                    if !desc.has_next() {
+                        next_desc = self.rx_queue.iter(&self.mem).next();
+                    } else {
+                        next_desc = desc.next_descriptor();
+                    }
                 }
                 None => {
                     warn!(
-                        "net: rx: buffer is too small to hold frame of size {}",
-                        self.rx_count
+                        "net: rx: buffer is too small to hold frame of size {}, write_count {}, num_buffers {}",
+                        self.rx_count, write_count, num_buffers
                     );
                     break;
                 }
             }
         }
 
-        // TODO: fix hdr->num_buffers
         self.net_fix_rx_hdr(&self.mem, head_index, num_buffers);
 
         //self.rx_queue
@@ -304,6 +320,7 @@ impl Worker {
                             break 'poll;
                         }
                         // There should be a buffer available now to receive the frame into.
+                        //warn!("net.rs:{} deferred_rx {}", line!(), self.deferred_rx);
                         if self.deferred_rx && self.rx_single_frame() {
                             self.deferred_rx = false;
                         }

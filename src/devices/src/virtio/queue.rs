@@ -123,8 +123,8 @@ impl<'a> DescriptorChain<'a> {
                     c
                 })
         } else {
-            warn!("queue.rs {} flags & NEXT {}, ttl {}",
-                line!(), self.flags & VIRTQ_DESC_F_NEXT, self.ttl);
+            //warn!("queue.rs {} flags & NEXT {}, ttl {}",
+            //    line!(), self.flags & VIRTQ_DESC_F_NEXT, self.ttl);
             None
         }
     }
