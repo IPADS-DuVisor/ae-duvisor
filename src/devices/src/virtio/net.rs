@@ -159,6 +159,7 @@ impl Worker {
                         num_buffers += 1;
                         io_size = 0;
                         next_desc = self.rx_queue.iter(&self.mem).next();
+                        // TODO: it seems that kvmtool always have avail_elems
                         if next_desc.is_none() {
                             break;
                         }
