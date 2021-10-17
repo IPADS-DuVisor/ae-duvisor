@@ -315,27 +315,24 @@ impl Queue {
     }
 
     // For F_MRG_RXBUF
-    pub fn set_used_elem(&mut self, mem: &GuestMemory, desc_index: u16, len: u32, num_buffers: u16) {
-        if desc_index >= self.actual_size() {
-            error!(
-                "attempted to add out of bounds descriptor to used ring: {}",
-                desc_index
-            );
-            return;
-        }
-
+    pub fn set_used_elem(&mut self, mem: &GuestMemory, head_idx: u16, len: u32, num_buffers: u16) {
         let used_ring = self.used_ring;
-        let next_used = ((self.next_used.0 + num_buffers) % self.actual_size()) as usize;
+        //let next_used = ((self.next_used.0 + num_buffers) % self.actual_size()) as usize;
+        let idx = mem.read_obj_from_addr::<u16>(self.used_ring.unchecked_add(2)).unwrap() + num_buffers;
+        let next_used = (idx % self.actual_size()) as usize;
         let used_elem = used_ring.unchecked_add(4 + next_used * 8);
 
         // These writes can't fail as we are guaranteed to be within the descriptor ring.
-        mem.write_obj_at_addr(desc_index as u32, used_elem).unwrap();
+        mem.write_obj_at_addr(head_idx as u32, used_elem).unwrap();
         mem.write_obj_at_addr(len as u32, used_elem.unchecked_add(4))
             .unwrap();
     }
 
     pub fn update_used_idx(&mut self, mem: &GuestMemory, num_buffers: u16) {
-        self.next_used += Wrapping(num_buffers);
+        //self.next_used += Wrapping(num_buffers);
+        self.next_used = Wrapping(
+            mem.read_obj_from_addr::<u16>(self.used_ring.unchecked_add(2)).unwrap()
+            + num_buffers);
 
         // This fence ensures all descriptor writes are visible before the index update is.
         fence(Ordering::Release);

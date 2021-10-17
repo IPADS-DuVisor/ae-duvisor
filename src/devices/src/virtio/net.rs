@@ -116,11 +116,6 @@ impl Worker {
                         let limit = cmp::min(write_count + desc.len as usize, self.rx_count);
                         let source_slice = &self.rx_buf[write_count..limit];
                         let write_result = self.mem.write_slice_at_addr(source_slice, desc.addr);
-                        //if limit - write_count > 4096 {
-                        //    println!("--- {}:{} limit - write_count: {}, res: {:?}",
-                        //        limit, write_count, limit - write_count, 
-                        //        write_result);
-                        //}
 
                         match write_result {
                             Ok(sz) => {
@@ -159,7 +154,6 @@ impl Worker {
                         num_buffers += 1;
                         io_size = 0;
                         next_desc = self.rx_queue.iter(&self.mem).next();
-                        // TODO: it seems that kvmtool always have avail_elems
                         if next_desc.is_none() {
                             break;
                         }
@@ -180,8 +174,6 @@ impl Worker {
 
         self.net_fix_rx_hdr(&self.mem, head_index, num_buffers);
 
-        //self.rx_queue
-        //    .add_used(&self.mem, head_index, write_count as u32);
         self.rx_queue
             .update_used_idx(&self.mem, num_buffers);
 
@@ -189,7 +181,11 @@ impl Worker {
         // reduce latency.
         self.signal_used_queue();
 
-        true
+        if next_desc.is_none() {
+            return false;
+        } else {
+            return true;
+        }
     }
 
     fn process_rx(&mut self) {
