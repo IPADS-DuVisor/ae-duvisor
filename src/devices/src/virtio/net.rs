@@ -13,7 +13,7 @@ use std::net::Ipv4Addr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
-use sys_util::{Error as SysError, EventFd, GuestMemory, Pollable, Poller};
+use sys_util::{Error as SysError, EventFd, GuestMemory, Pollable, Poller, GuestAddress};
 use virtio_sys::virtio_net;
 
 use irq_util::IrqChip;
@@ -71,6 +71,22 @@ impl Worker {
         //self.interrupt_evt.write(1).unwrap();
         self.irqchip.trigger_edge_irq(3);
     }
+    
+    fn net_fix_rx_hdr(&self, mem: &GuestMemory, index: u16, num_buffers: u16) {
+        let desc_head = mem.checked_offset(
+            self.rx_queue.desc_table, (index as usize) * 16).unwrap();
+        let addr = mem.read_obj_from_addr::<u64>(desc_head).unwrap();
+        //if num_buffers > 1 {
+        //    warn!("hdr_len {}, gso_size {}, csum_start {}, csum_offset {}",
+        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 2)).unwrap(),
+        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 4)).unwrap(),
+        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 6)).unwrap(),
+        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 8)).unwrap()
+        //    );
+        //}
+        mem.write_obj_at_addr::<u16>(190, GuestAddress(addr as usize + 2)).unwrap();
+        mem.write_obj_at_addr::<u16>(num_buffers, GuestAddress(addr as usize + 10)).unwrap();
+    }
 
     // Copies a single frame from `self.rx_buf` into the guest. Returns true
     // if a buffer was used, and false if the frame must be deferred until a buffer
@@ -84,51 +100,90 @@ impl Worker {
 
         // We just checked that the head descriptor exists.
         let head_index = next_desc.as_ref().unwrap().index;
+        let mut first_index = head_index;
         let mut write_count = 0;
+        let mut io_size = 0;
+        let mut num_buffers: u16 = 0;
 
         // Copy from frame into buffer, which may span multiple descriptors.
         loop {
             match next_desc {
-                Some(desc) => {
+                Some(ref mut desc) => {
                     if !desc.is_write_only() {
                         break;
                     }
-                    let limit = cmp::min(write_count + desc.len as usize, self.rx_count);
-                    let source_slice = &self.rx_buf[write_count..limit];
-                    let write_result = self.mem.write_slice_at_addr(source_slice, desc.addr);
-                    if limit - write_count > 4096 {
-                        println!("--- {}:{} limit - write_count: {}, res: {:?}",
-                            limit, write_count, limit - write_count, 
-                            write_result);
-                    }
+                    loop {
+                        let limit = cmp::min(write_count + desc.len as usize, self.rx_count);
+                        let source_slice = &self.rx_buf[write_count..limit];
+                        let write_result = self.mem.write_slice_at_addr(source_slice, desc.addr);
+                        //if limit - write_count > 4096 {
+                        //    println!("--- {}:{} limit - write_count: {}, res: {:?}",
+                        //        limit, write_count, limit - write_count, 
+                        //        write_result);
+                        //}
 
-                    match write_result {
-                        Ok(sz) => {
-                            write_count += sz;
-                        }
-                        Err(e) => {
-                            warn!("net: rx: failed to write slice: {:?}", e);
-                            break;
-                        }
-                    };
+                        match write_result {
+                            Ok(sz) => {
+                                let old_wr_cnt = write_count;
+                                write_count += sz;
+                                io_size += sz;
+                                desc.addr = desc.addr.unchecked_add(sz);
+                                desc.len -= sz as u32;
+                                if (write_count < self.rx_count) &&
+                                    (desc.len > 0) {
+                                        continue;
+                                }
+                                break;
+                            }
+                            Err(e) => {
+                                warn!("net: rx: failed to write slice: {:?}", e);
+                                break;
+                            }
+                        };
+                    }
 
                     if write_count >= self.rx_count {
+                        self.rx_queue
+                            .set_used_elem(&self.mem,
+                                first_index, io_size as u32,
+                                num_buffers);
+                        num_buffers += 1;
                         break;
                     }
-                    next_desc = desc.next_descriptor();
+                    
+                    if !desc.has_next() {
+                        self.rx_queue
+                            .set_used_elem(&self.mem,
+                                desc.index, io_size as u32,
+                                num_buffers);
+                        num_buffers += 1;
+                        io_size = 0;
+                        next_desc = self.rx_queue.iter(&self.mem).next();
+                        // TODO: it seems that kvmtool always have avail_elems
+                        if next_desc.is_none() {
+                            break;
+                        }
+                        first_index = next_desc.as_ref().unwrap().index;
+                    } else {
+                        next_desc = desc.next_descriptor();
+                    }
                 }
                 None => {
                     warn!(
-                        "net: rx: buffer is too small to hold frame of size {}",
-                        self.rx_count
+                        "net: rx: buffer is too small to hold frame of size {}, write_count {}, num_buffers {}",
+                        self.rx_count, write_count, num_buffers
                     );
                     break;
                 }
             }
         }
 
+        self.net_fix_rx_hdr(&self.mem, head_index, num_buffers);
+
+        //self.rx_queue
+        //    .add_used(&self.mem, head_index, write_count as u32);
         self.rx_queue
-            .add_used(&self.mem, head_index, write_count as u32);
+            .update_used_idx(&self.mem, num_buffers);
 
         // Interrupt the guest immediately for received frames to
         // reduce latency.
@@ -286,6 +341,7 @@ impl Worker {
                             break 'poll;
                         }
                         // There should be a buffer available now to receive the frame into.
+                        //warn!("net.rs:{} deferred_rx {}", line!(), self.deferred_rx);
                         if self.deferred_rx && self.rx_single_frame() {
                             self.deferred_rx = false;
                         }
@@ -372,6 +428,7 @@ impl Net {
             | 1 << virtio_net::VIRTIO_NET_F_GUEST_UFO
             | 1 << virtio_net::VIRTIO_NET_F_HOST_TSO4
             | 1 << virtio_net::VIRTIO_NET_F_HOST_UFO
+            | 1 << virtio_net::VIRTIO_NET_F_MRG_RXBUF
             | 1 << virtio_net::VIRTIO_F_VERSION_1;
 
         Ok(Net {
@@ -436,6 +493,7 @@ impl VirtioDevice for Net {
             v &= !unrequested_features;
         }
         self.acked_features |= v;
+        warn!("--- acked_features 0x{:x}", self.acked_features);
     }
 
     fn activate(

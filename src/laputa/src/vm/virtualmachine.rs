@@ -552,9 +552,7 @@ impl VirtualMachine {
             let deleg_ptr = (&deleg) as *const u64;
 
             /* Call ioctl */
-            let res = libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG,
-                deleg_ptr);
-            dbgprintln!("ioctl result: {}", res);
+            libc::ioctl(ioctl_fd, IOCTL_LAPUTA_REQUEST_DELEG, deleg_ptr);
         }
     }
 }

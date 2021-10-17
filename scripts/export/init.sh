@@ -30,38 +30,5 @@ for i in {0..7}; do
     ip link set dev vmtap${i} up
 done
 
-## Add vmtap0-7
-#tunctl -t vmtap0
-#brctl addif br0 vmtap0
-#ip link set dev vmtap0 up
-#
-#tunctl -t vmtap1
-#brctl addif br0 vmtap1
-#ip link set dev vmtap1 up
-#
-#tunctl -t vmtap2
-#brctl addif br0 vmtap2
-#ip link set dev vmtap2 up
-#
-#tunctl -t vmtap3
-#brctl addif br0 vmtap3
-#ip link set dev vmtap3 up
-#
-#tunctl -t vmtap4
-#brctl addif br0 vmtap4
-#ip link set dev vmtap4 up
-#
-#tunctl -t vmtap5
-#brctl addif br0 vmtap5
-#ip link set dev vmtap5 up
-#
-#tunctl -t vmtap6
-#brctl addif br0 vmtap6
-#ip link set dev vmtap6 up
-#
-#tunctl -t vmtap7
-#brctl addif br0 vmtap7
-#ip link set dev vmtap7 up
-
 bash
 

@@ -42,12 +42,6 @@ impl VirtualIpi {
         unsafe {
             csrw!(VCPUID, vipi_id);
         }
-
-        #[cfg(feature = "xilinx")]
-        println!("vcpu_regist {}", rdvcpuid());
-        
-        #[cfg(feature = "qemu")]
-        println!("vcpu_regist {}", unsafe {csrr!(VCPUID)});
     }
 
     /* TODO: Get cpu mask for the target vcpus */
@@ -64,40 +58,16 @@ impl VirtualIpi {
     fn set_vipi_bit(csr_id: i32, vipi_id: u64) {
         match csr_id {
             0 => {
-                #[cfg(feature = "xilinx")]
-                stvipi0((1 << vipi_id));
-
-                #[cfg(feature = "qemu")]
-                unsafe {
-                    csrs!(VIPI0, 1 << vipi_id);
-                }
+                set_vipi0(1 << vipi_id);
             },
             1 => {
-                #[cfg(feature = "xilinx")]
-                stvipi1((1 << (vipi_id - 64)));
-
-                #[cfg(feature = "qemu")]
-                unsafe {
-                    csrs!(VIPI1, 1 << (vipi_id - 64));
-                }
+                set_vipi1(1 << (vipi_id - 64));
             },
             2 => {
-                #[cfg(feature = "xilinx")]
-                stvipi2((1 << (vipi_id - 128)));
-
-                #[cfg(feature = "qemu")]
-                unsafe {
-                    csrs!(VIPI2, 1 << (vipi_id - 128));
-                }
+                set_vipi2(1 << (vipi_id - 128));
             },
             3 => {
-                #[cfg(feature = "xilinx")]
-                stvipi3((1 << (vipi_id - 192)));
-
-                #[cfg(feature = "qemu")]
-                unsafe {
-                    csrs!(VIPI3, 1 << (vipi_id - 192));
-                }
+                set_vipi3(1 << (vipi_id - 192));
             },
             _ => {
                 panic!("Invalid vipi csr id ! {}", csr_id);
@@ -132,40 +102,16 @@ impl VirtualIpi {
     fn clear_vipi_bit(csr_id: i32, vipi_id: u64) {
         match csr_id {
             0 => {
-                #[cfg(feature = "xilinx")]
-                clvipi0(!(1 << vipi_id));
-
-                #[cfg(feature = "qemu")]
-                unsafe {
-                    csrc!(VIPI0, 1 << vipi_id);
-                }
+                clear_vipi0(1 << vipi_id);
             },
             1 => {
-                #[cfg(feature = "xilinx")]
-                clvipi1(!(1 << (vipi_id - 64)));
-
-                #[cfg(feature = "qemu")]
-                unsafe {
-                    csrc!(VIPI1, 1 << (vipi_id - 64));
-                }
+                clear_vipi1(1 << (vipi_id - 64));
             },
             2 => {
-                #[cfg(feature = "xilinx")]
-                clvipi2(!(1 << (vipi_id - 128)));
-
-                #[cfg(feature = "qemu")]
-                unsafe {
-                    csrc!(VIPI2, 1 << (vipi_id - 128));
-                }
+                clear_vipi2(1 << (vipi_id - 128));
             },
             3 => {
-                #[cfg(feature = "xilinx")]
-                clvipi3(!(1 << (vipi_id - 192)));
-
-                #[cfg(feature = "qemu")]
-                unsafe {
-                    csrc!(VIPI3, 1 << (vipi_id - 192));
-                }
+                clear_vipi3(1 << (vipi_id - 192));
             },
             _ => {
                 panic!("Invalid vipi csr id ! {}", csr_id);
@@ -198,7 +144,87 @@ impl VirtualIpi {
     }
 }
 
-/* wrvcpuid, write vcpuid by a0 */
+fn set_vipi0(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    stvipi0(new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrs!(VIPI0, new_val);
+    }
+}
+
+fn set_vipi1(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    stvipi1(new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrs!(VIPI1, new_val);
+    }
+}
+
+fn set_vipi2(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    stvipi2(new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrs!(VIPI2, new_val);
+    }
+}
+
+fn set_vipi3(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    stvipi3(new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrs!(VIPI3, new_val);
+    }
+}
+
+fn clear_vipi0(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    clvipi0(!new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrc!(VIPI0, new_val);
+    }
+}
+
+fn clear_vipi1(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    clvipi1(!new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrc!(VIPI1, new_val);
+    }
+}
+
+fn clear_vipi2(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    clvipi2(!new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrc!(VIPI2, new_val);
+    }
+}
+
+fn clear_vipi3(new_val: u64) {
+    #[cfg(feature = "xilinx")]
+    clvipi3(!new_val);
+
+    #[cfg(feature = "qemu")]
+    unsafe {
+        csrc!(VIPI3, new_val);
+    }
+}
+
+/* Write vcpuid by a0 */
 #[allow(unused)]
 fn wrvcpuid(vcpuid: u64) {
     unsafe {
@@ -215,7 +241,7 @@ fn wrvcpuid(vcpuid: u64) {
     }
 }
 
-/* rdvcpuid, read a0 from vcpuid */
+/* Read a0 from vcpuid */
 #[allow(unused)]
 pub fn rdvcpuid() -> u64 {
     let a0: u64;
@@ -255,14 +281,14 @@ pub fn rdvipi0() -> u64 {
     return a0;
 }
 
-/* e.g. a0 = 0b11111101111 */
+/* A0 should be formated as 0b11111101111 */
 pub fn clvipi0(a0: u64) {
     unsafe {
         asm!(
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* clvipi0 */
             ".word 0xc8a02077",
 
             ".option pop",
@@ -271,7 +297,7 @@ pub fn clvipi0(a0: u64) {
     }
 }
 
-/* e.g. a0 = 0b0000001000 */
+/* A0 should be formated as 0b0000001000 */
 #[allow(unused)]
 pub fn stvipi0(a0: u64) {
     unsafe {
@@ -279,7 +305,7 @@ pub fn stvipi0(a0: u64) {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* stvipi0 */
             ".word 0xc8a03077",
 
             ".option pop",
@@ -297,7 +323,7 @@ fn rdvipi1() -> u64 {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* rdvipi1 */
             ".word 0xd0101577",
 
             ".option pop",
@@ -308,7 +334,7 @@ fn rdvipi1() -> u64 {
     return a0;
 }
 
-/* e.g. a0 = 0b11111101111 */
+/* A0 should be formated as 0b11111101111 */
 #[allow(unused)]
 fn clvipi1(a0: u64) {
     unsafe {
@@ -316,7 +342,7 @@ fn clvipi1(a0: u64) {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* clvipi1 */
             ".word 0xd0a02077",
 
             ".option pop",
@@ -325,7 +351,7 @@ fn clvipi1(a0: u64) {
     }
 }
 
-/* e.g. a0 = 0b0000001000 */
+/* A0 should be formated as 0b0000001000 */
 #[allow(unused)]
 fn stvipi1(a0: u64) {
     unsafe {
@@ -333,7 +359,7 @@ fn stvipi1(a0: u64) {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* stvipi1 */
             ".word 0xd0a03077",
 
             ".option pop",
@@ -351,7 +377,7 @@ fn rdvipi2() -> u64 {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* rdvipi2 */
             ".word 0xd8101577",
 
             ".option pop",
@@ -362,7 +388,7 @@ fn rdvipi2() -> u64 {
     return a0;
 }
 
-/* e.g. a0 = 0b11111101111 */
+/* A0 should be formated as 0b11111101111 */
 #[allow(unused)]
 fn clvipi2(a0: u64) {
     unsafe {
@@ -370,7 +396,7 @@ fn clvipi2(a0: u64) {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* clvipi2 */
             ".word 0xd8a02077",
 
             ".option pop",
@@ -379,7 +405,7 @@ fn clvipi2(a0: u64) {
     }
 }
 
-/* e.g. a0 = 0b0000001000 */
+/* A0 should be formated as 0b0000001000 */
 #[allow(unused)]
 fn stvipi2(a0: u64) {
     unsafe {
@@ -387,7 +413,7 @@ fn stvipi2(a0: u64) {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* stvipi2 */
             ".word 0xd8a03077",
 
             ".option pop",
@@ -405,7 +431,7 @@ fn rdvipi3() -> u64 {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* rdvipi3 */
             ".word 0xe8101577",
 
             ".option pop",
@@ -416,7 +442,7 @@ fn rdvipi3() -> u64 {
     return a0;
 }
 
-/* e.g. a0 = 0b11111101111 */
+/* A0 should be formated as 0b11111101111 */
 #[allow(unused)]
 fn clvipi3(a0: u64) {
     unsafe {
@@ -424,7 +450,7 @@ fn clvipi3(a0: u64) {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* clvipi3 */
             ".word 0xe8a02077",
 
             ".option pop",
@@ -433,7 +459,7 @@ fn clvipi3(a0: u64) {
     }
 }
 
-/* e.g. a0 = 0b0000001000 */
+/* A0 should be formated as 0b0000001000 */
 #[allow(unused)]
 fn stvipi3(a0: u64) {
     unsafe {
@@ -441,7 +467,7 @@ fn stvipi3(a0: u64) {
             ".option push",
             ".option norvc",
 
-            /* rdvipi0 */
+            /* stvipi3 */
             ".word 0xe8a03077",
 
             ".option pop",
