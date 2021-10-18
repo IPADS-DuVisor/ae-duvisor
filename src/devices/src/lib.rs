@@ -4,6 +4,8 @@
 
 //! Emulates virtual and hardware devices.
 
+#![feature(llvm_asm)]
+
 extern crate byteorder;
 extern crate libc;
 

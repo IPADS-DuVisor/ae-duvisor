@@ -64,6 +64,13 @@ struct Worker {
     irqchip: Arc<dyn IrqChip>,
 }
 
+static mut RX_TIME_START: usize = 0;
+static mut RX_TIME_TOTAL: usize = 0;
+static mut RX_LEN_PREV_LV: usize = 0;
+static mut RX_LEN_TOTAL: usize = 0;
+static mut MEMCPY_TIME_TOTAL: usize = 0;
+static mut MID_TIME_TOTAL: [usize; 4] = [0; 4];
+
 impl Worker {
     fn signal_used_queue(&self) {
         self.interrupt_status
@@ -98,12 +105,17 @@ impl Worker {
             return false;
         }
 
+        unsafe {
+            llvm_asm!("csrr $0, 0xC01" : "=r" (RX_TIME_START));
+        }
         // We just checked that the head descriptor exists.
         let head_index = next_desc.as_ref().unwrap().index;
         let mut first_index = head_index;
         let mut write_count = 0;
         let mut io_size = 0;
         let mut num_buffers: u16 = 0;
+        
+        let mut memcpy_start: usize = 0;
 
         // Copy from frame into buffer, which may span multiple descriptors.
         loop {
@@ -136,13 +148,56 @@ impl Worker {
                             }
                         };
                     }
+                    //unsafe {
+                    //    let cur_memcpy_time: usize;
+                    //    llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                    //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
+                    //}
 
-                    if write_count >= self.rx_count {
+                    let break_out = write_count >= self.rx_count;
+                    unsafe {
+                        llvm_asm!("csrr $0, 0xC01" : "=r" (memcpy_start));
+                    }
+                    //if write_count >= self.rx_count {
+                    if break_out {
+                    unsafe {
+                        let cur_memcpy_time: usize;
+                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        MID_TIME_TOTAL[0] += (cur_memcpy_time - memcpy_start);
+                        memcpy_start = cur_memcpy_time;
+                    }
+                    }
+                    unsafe {
+                        let cur_memcpy_time: usize;
+                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        MID_TIME_TOTAL[1] += (cur_memcpy_time - memcpy_start);
+                        memcpy_start = cur_memcpy_time;
+                    }
+                    if break_out {
+                    unsafe {
+                        let cur_memcpy_time: usize;
+                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        MID_TIME_TOTAL[2] += (cur_memcpy_time - memcpy_start);
+                        memcpy_start = cur_memcpy_time;
+                    }
+                    }
+                    if break_out {
+                    unsafe {
+                        let cur_memcpy_time: usize;
+                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        MID_TIME_TOTAL[3] += (cur_memcpy_time - memcpy_start);
+                        memcpy_start = cur_memcpy_time;
+                    }
                         self.rx_queue
                             .set_used_elem(&self.mem,
                                 first_index, io_size as u32,
                                 num_buffers);
                         num_buffers += 1;
+                    unsafe {
+                        let cur_memcpy_time: usize;
+                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
+                    }
                         break;
                     }
                     
@@ -155,11 +210,27 @@ impl Worker {
                         io_size = 0;
                         next_desc = self.rx_queue.iter(&self.mem).next();
                         if next_desc.is_none() {
+                    //unsafe {
+                    //    let cur_memcpy_time: usize;
+                    //    llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                    //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
+                    //}
                             break;
+                        } else {
+                    //unsafe {
+                    //    let cur_memcpy_time: usize;
+                    //    llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                    //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
+                    //}
                         }
                         first_index = next_desc.as_ref().unwrap().index;
                     } else {
                         next_desc = desc.next_descriptor();
+                    //unsafe {
+                    //    let cur_memcpy_time: usize;
+                    //    llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                    //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
+                    //}
                     }
                 }
                 None => {
@@ -169,6 +240,22 @@ impl Worker {
                     );
                     break;
                 }
+            }
+        }
+        unsafe {
+            let time: usize;
+            llvm_asm!("csrr $0, 0xC01" : "=r" (time));
+            RX_TIME_TOTAL += (time - RX_TIME_START);
+            RX_LEN_TOTAL += write_count;
+            let cur_lv = RX_LEN_TOTAL / (200 << 20);
+            if cur_lv > RX_LEN_PREV_LV {
+                warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}, \
+                    mid_time {}, {}, {}, {} \
+                    copy_time {}, avg {}",
+                    RX_LEN_TOTAL, RX_TIME_TOTAL, RX_LEN_TOTAL / RX_TIME_TOTAL,
+                    MID_TIME_TOTAL[0], MID_TIME_TOTAL[1], MID_TIME_TOTAL[2], MID_TIME_TOTAL[3],
+                    MEMCPY_TIME_TOTAL, (RX_LEN_TOTAL - MEMCPY_TIME_TOTAL) / RX_TIME_TOTAL);
+                RX_LEN_PREV_LV = cur_lv;
             }
         }
 
