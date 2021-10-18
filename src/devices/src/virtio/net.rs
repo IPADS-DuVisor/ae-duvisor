@@ -70,6 +70,7 @@ static mut RX_LEN_PREV_LV: usize = 0;
 static mut RX_LEN_TOTAL: usize = 0;
 static mut MEMCPY_TIME_TOTAL: usize = 0;
 static mut MID_TIME_TOTAL: [usize; 4] = [0; 4];
+static mut MID_CNT_TOTAL: [usize; 4] = [0; 4];
 
 impl Worker {
     fn signal_used_queue(&self) {
@@ -106,7 +107,7 @@ impl Worker {
         }
 
         unsafe {
-            llvm_asm!("csrr $0, 0xC01" : "=r" (RX_TIME_START));
+            asm!("csrr {}, 0xC01", out(reg) RX_TIME_START);
         }
         // We just checked that the head descriptor exists.
         let head_index = next_desc.as_ref().unwrap().index;
@@ -123,6 +124,9 @@ impl Worker {
                 Some(ref mut desc) => {
                     if !desc.is_write_only() {
                         break;
+                    }
+                    unsafe {
+                        asm!("csrr {}, 0xC01", out(reg) memcpy_start);
                     }
                     loop {
                         let limit = cmp::min(write_count + desc.len as usize, self.rx_count);
@@ -150,42 +154,63 @@ impl Worker {
                     }
                     //unsafe {
                     //    let cur_memcpy_time: usize;
-                    //    llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                    //    asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
                     //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
                     //}
 
+                    unsafe {
+                        asm!("csrr {}, 0xC01", out(reg) memcpy_start);
+                        asm!("nop");
+                        asm!("nop");
+                    }
                     let break_out = write_count >= self.rx_count;
                     unsafe {
-                        llvm_asm!("csrr $0, 0xC01" : "=r" (memcpy_start));
-                    }
-                    //if write_count >= self.rx_count {
-                    if break_out {
-                    unsafe {
                         let cur_memcpy_time: usize;
-                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
                         MID_TIME_TOTAL[0] += (cur_memcpy_time - memcpy_start);
+                        MID_CNT_TOTAL[0] += 1;
                         memcpy_start = cur_memcpy_time;
                     }
-                    }
+                    if break_out {
                     unsafe {
                         let cur_memcpy_time: usize;
-                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
                         MID_TIME_TOTAL[1] += (cur_memcpy_time - memcpy_start);
+                        MID_CNT_TOTAL[1] += 1;
                         memcpy_start = cur_memcpy_time;
                     }
-                    if break_out {
+                    }
                     unsafe {
                         let cur_memcpy_time: usize;
-                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
                         MID_TIME_TOTAL[2] += (cur_memcpy_time - memcpy_start);
+                        MID_CNT_TOTAL[2] += 1;
                         memcpy_start = cur_memcpy_time;
-                    }
                     }
                     if break_out {
                     unsafe {
                         let cur_memcpy_time: usize;
-                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
                         MID_TIME_TOTAL[3] += (cur_memcpy_time - memcpy_start);
+                        MID_CNT_TOTAL[3] += 1;
                         memcpy_start = cur_memcpy_time;
                     }
                         self.rx_queue
@@ -195,7 +220,11 @@ impl Worker {
                         num_buffers += 1;
                     unsafe {
                         let cur_memcpy_time: usize;
-                        llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                        asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
+                        asm!("nop");
                         MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
                     }
                         break;
@@ -212,14 +241,14 @@ impl Worker {
                         if next_desc.is_none() {
                     //unsafe {
                     //    let cur_memcpy_time: usize;
-                    //    llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                    //    asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
                     //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
                     //}
                             break;
                         } else {
                     //unsafe {
                     //    let cur_memcpy_time: usize;
-                    //    llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                    //    asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
                     //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
                     //}
                         }
@@ -228,7 +257,7 @@ impl Worker {
                         next_desc = desc.next_descriptor();
                     //unsafe {
                     //    let cur_memcpy_time: usize;
-                    //    llvm_asm!("csrr $0, 0xC01" : "=r" (cur_memcpy_time));
+                    //    asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
                     //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
                     //}
                     }
@@ -244,16 +273,18 @@ impl Worker {
         }
         unsafe {
             let time: usize;
-            llvm_asm!("csrr $0, 0xC01" : "=r" (time));
+            asm!("csrr {}, 0xC01", out(reg) time);
             RX_TIME_TOTAL += (time - RX_TIME_START);
             RX_LEN_TOTAL += write_count;
             let cur_lv = RX_LEN_TOTAL / (200 << 20);
             if cur_lv > RX_LEN_PREV_LV {
-                warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}, \
-                    mid_time {}, {}, {}, {} \
+                warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}\n \
+                    mid_time {}, {}, {}, {}\n \
+                    mid_cnt {}, {}, {}, {}\n \
                     copy_time {}, avg {}",
                     RX_LEN_TOTAL, RX_TIME_TOTAL, RX_LEN_TOTAL / RX_TIME_TOTAL,
                     MID_TIME_TOTAL[0], MID_TIME_TOTAL[1], MID_TIME_TOTAL[2], MID_TIME_TOTAL[3],
+                    MID_CNT_TOTAL[0], MID_CNT_TOTAL[1], MID_CNT_TOTAL[2], MID_CNT_TOTAL[3],
                     MEMCPY_TIME_TOTAL, (RX_LEN_TOTAL - MEMCPY_TIME_TOTAL) / RX_TIME_TOTAL);
                 RX_LEN_PREV_LV = cur_lv;
             }
