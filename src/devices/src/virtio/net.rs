@@ -68,9 +68,8 @@ static mut RX_TIME_START: usize = 0;
 static mut RX_TIME_TOTAL: usize = 0;
 static mut RX_LEN_PREV_LV: usize = 0;
 static mut RX_LEN_TOTAL: usize = 0;
-static mut MEMCPY_TIME_TOTAL: usize = 0;
-static mut MID_TIME_TOTAL: [usize; 4] = [0; 4];
-static mut MID_CNT_TOTAL: [usize; 4] = [0; 4];
+static mut MID_TIME_TOTAL: [usize; 16] = [0; 16];
+static mut MID_CNT_TOTAL: [usize; 16] = [0; 16];
 
 impl Worker {
     fn signal_used_queue(&self) {
@@ -152,114 +151,113 @@ impl Worker {
                             }
                         };
                     }
-                    //unsafe {
-                    //    let cur_memcpy_time: usize;
-                    //    asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                    //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
-                    //}
-
-                    unsafe {
-                        asm!("csrr {}, 0xC01", out(reg) memcpy_start);
-                        asm!("nop");
-                        asm!("nop");
-                    }
-                    let break_out = write_count >= self.rx_count;
                     unsafe {
                         let cur_memcpy_time: usize;
                         asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
                         MID_TIME_TOTAL[0] += (cur_memcpy_time - memcpy_start);
                         MID_CNT_TOTAL[0] += 1;
                         memcpy_start = cur_memcpy_time;
                     }
-                    if break_out {
-                    unsafe {
-                        let cur_memcpy_time: usize;
-                        asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        MID_TIME_TOTAL[1] += (cur_memcpy_time - memcpy_start);
-                        MID_CNT_TOTAL[1] += 1;
-                        memcpy_start = cur_memcpy_time;
-                    }
-                    }
-                    unsafe {
-                        let cur_memcpy_time: usize;
-                        asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        MID_TIME_TOTAL[2] += (cur_memcpy_time - memcpy_start);
-                        MID_CNT_TOTAL[2] += 1;
-                        memcpy_start = cur_memcpy_time;
-                    }
-                    if break_out {
-                    unsafe {
-                        let cur_memcpy_time: usize;
-                        asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        MID_TIME_TOTAL[3] += (cur_memcpy_time - memcpy_start);
-                        MID_CNT_TOTAL[3] += 1;
-                        memcpy_start = cur_memcpy_time;
-                    }
+
+                    if write_count >= self.rx_count {
                         self.rx_queue
                             .set_used_elem(&self.mem,
                                 first_index, io_size as u32,
                                 num_buffers);
                         num_buffers += 1;
+                        unsafe {
+                            let cur_memcpy_time: usize;
+                            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                            MID_TIME_TOTAL[1] += (cur_memcpy_time - memcpy_start);
+                            MID_CNT_TOTAL[1] += 1;
+                            memcpy_start = cur_memcpy_time;
+                        }
+                        break;
+                    }
                     unsafe {
                         let cur_memcpy_time: usize;
                         asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        asm!("nop");
-                        MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
-                    }
-                        break;
+                        MID_TIME_TOTAL[2] += (cur_memcpy_time - memcpy_start);
+                        MID_CNT_TOTAL[2] += 1;
+                        memcpy_start = cur_memcpy_time;
                     }
                     
                     if !desc.has_next() {
+                        unsafe {
+                            let cur_memcpy_time: usize;
+                            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                            MID_TIME_TOTAL[3] += (cur_memcpy_time - memcpy_start);
+                            MID_CNT_TOTAL[3] += 1;
+                            memcpy_start = cur_memcpy_time;
+                        }
                         self.rx_queue
                             .set_used_elem(&self.mem,
                                 desc.index, io_size as u32,
                                 num_buffers);
                         num_buffers += 1;
                         io_size = 0;
-                        next_desc = self.rx_queue.iter(&self.mem).next();
+                        unsafe {
+                            let cur_memcpy_time: usize;
+                            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                            MID_TIME_TOTAL[4] += (cur_memcpy_time - memcpy_start);
+                            MID_CNT_TOTAL[4] += 1;
+                            memcpy_start = cur_memcpy_time;
+                        }
+                        //next_desc = self.rx_queue.iter(&self.mem).next();
+                        unsafe {
+                            asm!("nop");
+                            asm!("nop");
+                        }
+                        let mut iter = self.rx_queue.iter(&self.mem);
+                        unsafe {
+                            asm!("nop");
+                            asm!("nop");
+                        }
+                        unsafe {
+                            let cur_memcpy_time: usize;
+                            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                            MID_TIME_TOTAL[5] += (cur_memcpy_time - memcpy_start);
+                            MID_CNT_TOTAL[5] += 1;
+                            memcpy_start = cur_memcpy_time;
+                        }
+                        unsafe {
+                            asm!("nop");
+                            asm!("nop");
+                            asm!("nop");
+                        }
+                        next_desc = iter.next();
+                        unsafe {
+                            asm!("nop");
+                            asm!("nop");
+                            asm!("nop");
+                        }
                         if next_desc.is_none() {
-                    //unsafe {
-                    //    let cur_memcpy_time: usize;
-                    //    asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                    //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
-                    //}
+                            unsafe {
+                                let cur_memcpy_time: usize;
+                                asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                                MID_TIME_TOTAL[6] += (cur_memcpy_time - memcpy_start);
+                                MID_CNT_TOTAL[6] += 1;
+                                memcpy_start = cur_memcpy_time;
+                            }
                             break;
-                        } else {
-                    //unsafe {
-                    //    let cur_memcpy_time: usize;
-                    //    asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                    //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
-                    //}
+                        }
+                        unsafe {
+                            let cur_memcpy_time: usize;
+                            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                            MID_TIME_TOTAL[7] += (cur_memcpy_time - memcpy_start);
+                            MID_CNT_TOTAL[7] += 1;
+                            memcpy_start = cur_memcpy_time;
                         }
                         first_index = next_desc.as_ref().unwrap().index;
                     } else {
                         next_desc = desc.next_descriptor();
-                    //unsafe {
-                    //    let cur_memcpy_time: usize;
-                    //    asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                    //    MEMCPY_TIME_TOTAL += (cur_memcpy_time - memcpy_start);
-                    //}
+                        unsafe {
+                            let cur_memcpy_time: usize;
+                            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                            MID_TIME_TOTAL[8] += (cur_memcpy_time - memcpy_start);
+                            MID_CNT_TOTAL[8] += 1;
+                            memcpy_start = cur_memcpy_time;
+                        }
                     }
                 }
                 None => {
@@ -272,6 +270,44 @@ impl Worker {
             }
         }
         unsafe {
+            let cur_memcpy_time: usize;
+            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+            MID_TIME_TOTAL[9] += (cur_memcpy_time - memcpy_start);
+            MID_CNT_TOTAL[9] += 1;
+            memcpy_start = cur_memcpy_time;
+        }
+
+        self.net_fix_rx_hdr(&self.mem, head_index, num_buffers);
+        unsafe {
+            let cur_memcpy_time: usize;
+            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+            MID_TIME_TOTAL[10] += (cur_memcpy_time - memcpy_start);
+            MID_CNT_TOTAL[10] += 1;
+            memcpy_start = cur_memcpy_time;
+        }
+
+        self.rx_queue
+            .update_used_idx(&self.mem, num_buffers);
+        unsafe {
+            let cur_memcpy_time: usize;
+            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+            MID_TIME_TOTAL[11] += (cur_memcpy_time - memcpy_start);
+            MID_CNT_TOTAL[11] += 1;
+            memcpy_start = cur_memcpy_time;
+        }
+
+        // Interrupt the guest immediately for received frames to
+        // reduce latency.
+        self.signal_used_queue();
+        unsafe {
+            let cur_memcpy_time: usize;
+            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+            MID_TIME_TOTAL[12] += (cur_memcpy_time - memcpy_start);
+            MID_CNT_TOTAL[12] += 1;
+            memcpy_start = cur_memcpy_time;
+        }
+
+        unsafe {
             let time: usize;
             asm!("csrr {}, 0xC01", out(reg) time);
             RX_TIME_TOTAL += (time - RX_TIME_START);
@@ -280,25 +316,26 @@ impl Worker {
             if cur_lv > RX_LEN_PREV_LV {
                 warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}\n \
                     mid_time {}, {}, {}, {}\n \
+                    \t\t {}, {}, {}, {}\n \
+                    \t\t {}, {}, {}, {}\n \
+                    \t\t {}\n \
                     mid_cnt {}, {}, {}, {}\n \
-                    copy_time {}, avg {}",
+                    \t\t {}, {}, {}, {}\n \
+                    \t\t {}, {}, {}, {}\n \
+                    \t\t {}",
                     RX_LEN_TOTAL, RX_TIME_TOTAL, RX_LEN_TOTAL / RX_TIME_TOTAL,
                     MID_TIME_TOTAL[0], MID_TIME_TOTAL[1], MID_TIME_TOTAL[2], MID_TIME_TOTAL[3],
+                    MID_TIME_TOTAL[4], MID_TIME_TOTAL[5], MID_TIME_TOTAL[6], MID_TIME_TOTAL[7],
+                    MID_TIME_TOTAL[8], MID_TIME_TOTAL[9], MID_TIME_TOTAL[10], MID_TIME_TOTAL[11],
+                    MID_TIME_TOTAL[12],
+
                     MID_CNT_TOTAL[0], MID_CNT_TOTAL[1], MID_CNT_TOTAL[2], MID_CNT_TOTAL[3],
-                    MEMCPY_TIME_TOTAL, (RX_LEN_TOTAL - MEMCPY_TIME_TOTAL) / RX_TIME_TOTAL);
+                    MID_CNT_TOTAL[4], MID_CNT_TOTAL[5], MID_CNT_TOTAL[6], MID_CNT_TOTAL[7],
+                    MID_CNT_TOTAL[8], MID_CNT_TOTAL[9], MID_CNT_TOTAL[10], MID_CNT_TOTAL[11],
+                    MID_CNT_TOTAL[12]);
                 RX_LEN_PREV_LV = cur_lv;
             }
         }
-
-        self.net_fix_rx_hdr(&self.mem, head_index, num_buffers);
-
-        self.rx_queue
-            .update_used_idx(&self.mem, num_buffers);
-
-        // Interrupt the guest immediately for received frames to
-        // reduce latency.
-        self.signal_used_queue();
-
         if next_desc.is_none() {
             return false;
         } else {
