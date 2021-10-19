@@ -58,14 +58,26 @@ impl<'a> DescriptorChain<'a> {
             }
         };
         // These reads can't fail unless Guest memory is hopelessly broken.
-        let addr = GuestAddress(mem.read_obj_from_addr::<u64>(desc_head).unwrap() as usize);
-        if mem.checked_offset(desc_head, 16).is_none() {
-            warn!("queue.rs {} index: {} queue_size {}", line!(), index, queue_size);
-            return None;
+        let addr: GuestAddress;
+        let len: u32;
+        let flags: u16;
+        let next: u16;
+        unsafe {
+            // FIXME: desc may cross page? *const u8
+            let hva = mem.get_host_address(desc_head).unwrap();
+            addr = GuestAddress(*(hva as *const u64) as usize);
+            len = *(hva.add(8) as *const u32);
+            flags = *(hva.add(12) as *const u16);
+            next = *(hva.add(14) as *const u16);
         }
-        let len: u32 = mem.read_obj_from_addr(desc_head.unchecked_add(8)).unwrap();
-        let flags: u16 = mem.read_obj_from_addr(desc_head.unchecked_add(12)).unwrap();
-        let next: u16 = mem.read_obj_from_addr(desc_head.unchecked_add(14)).unwrap();
+        //let addr = GuestAddress(mem.read_obj_from_addr::<u64>(desc_head).unwrap() as usize);
+        //if mem.checked_offset(desc_head, 16).is_none() {
+        //    warn!("queue.rs {} index: {} queue_size {}", line!(), index, queue_size);
+        //    return None;
+        //}
+        //let len: u32 = mem.read_obj_from_addr(desc_head.unchecked_add(8)).unwrap();
+        //let flags: u16 = mem.read_obj_from_addr(desc_head.unchecked_add(12)).unwrap();
+        //let next: u16 = mem.read_obj_from_addr(desc_head.unchecked_add(14)).unwrap();
         let chain = DescriptorChain {
             mem: mem,
             desc_table: desc_table,
