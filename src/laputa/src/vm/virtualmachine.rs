@@ -158,7 +158,7 @@ impl VirtualMachine {
 
     pub fn new(vm_config: VMConfig) -> Self {
         let vcpu_num = vm_config.vcpu_count;
-        let mem_size = vm_config.mem_size << GB_SHIFT;
+        let mem_size = vm_config.mem_size << MB_SHIFT;
         let elf_path = &vm_config.kernel_img_path[..];
         let dtb_path = &vm_config.dtb_path[..];
         let mut mmio_regions = vm_config.mmio_regions;

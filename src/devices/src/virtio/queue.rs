@@ -58,14 +58,26 @@ impl<'a> DescriptorChain<'a> {
             }
         };
         // These reads can't fail unless Guest memory is hopelessly broken.
-        let addr = GuestAddress(mem.read_obj_from_addr::<u64>(desc_head).unwrap() as usize);
-        if mem.checked_offset(desc_head, 16).is_none() {
-            warn!("queue.rs {} index: {} queue_size {}", line!(), index, queue_size);
-            return None;
+        let addr: GuestAddress;
+        let len: u32;
+        let flags: u16;
+        let next: u16;
+        unsafe {
+            // FIXME: desc may cross page? *const u8
+            let hva = mem.get_host_address(desc_head).unwrap();
+            addr = GuestAddress(*(hva as *const u64) as usize);
+            len = *(hva.add(8) as *const u32);
+            flags = *(hva.add(12) as *const u16);
+            next = *(hva.add(14) as *const u16);
         }
-        let len: u32 = mem.read_obj_from_addr(desc_head.unchecked_add(8)).unwrap();
-        let flags: u16 = mem.read_obj_from_addr(desc_head.unchecked_add(12)).unwrap();
-        let next: u16 = mem.read_obj_from_addr(desc_head.unchecked_add(14)).unwrap();
+        //let addr = GuestAddress(mem.read_obj_from_addr::<u64>(desc_head).unwrap() as usize);
+        //if mem.checked_offset(desc_head, 16).is_none() {
+        //    warn!("queue.rs {} index: {} queue_size {}", line!(), index, queue_size);
+        //    return None;
+        //}
+        //let len: u32 = mem.read_obj_from_addr(desc_head.unchecked_add(8)).unwrap();
+        //let flags: u16 = mem.read_obj_from_addr(desc_head.unchecked_add(12)).unwrap();
+        //let next: u16 = mem.read_obj_from_addr(desc_head.unchecked_add(14)).unwrap();
         let chain = DescriptorChain {
             mem: mem,
             desc_table: desc_table,
@@ -226,23 +238,16 @@ impl Queue {
         let used_ring_size = 6 + 8 * queue_size;
         if !self.ready {
             error!("attempt to use virtio queue that is not marked ready");
-            println!("attempt to use virtio queue that is not marked ready");
             false
         } else if self.size > self.max_size || self.size == 0 || (self.size & (self.size - 1)) != 0
         {
             error!("virtio queue with invalid size: {}", self.size);
-            println!("virtio queue with invalid size: {}", self.size);
             false
         } else if desc_table
             .checked_add(desc_table_size)
             .map_or(true, |v| !mem.address_in_range(v))
         {
             error!(
-                "virtio queue descriptor table goes out of bounds: start:0x{:08x} size:0x{:08x}",
-                desc_table.offset(),
-                desc_table_size
-            );
-            println!(
                 "virtio queue descriptor table goes out of bounds: start:0x{:08x} size:0x{:08x}",
                 desc_table.offset(),
                 desc_table_size
@@ -257,22 +262,12 @@ impl Queue {
                 avail_ring.offset(),
                 avail_ring_size
             );
-            println!(
-                "virtio queue available ring goes out of bounds: start:0x{:08x} size:0x{:08x}",
-                avail_ring.offset(),
-                avail_ring_size
-            );
             false
         } else if used_ring
             .checked_add(used_ring_size)
             .map_or(true, |v| !mem.address_in_range(v))
         {
             error!(
-                "virtio queue used ring goes out of bounds: start:0x{:08x} size:0x{:08x}",
-                used_ring.offset(),
-                used_ring_size
-            );
-            println!(
                 "virtio queue used ring goes out of bounds: start:0x{:08x} size:0x{:08x}",
                 used_ring.offset(),
                 used_ring_size

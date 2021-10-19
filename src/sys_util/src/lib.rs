@@ -9,6 +9,7 @@
 extern crate data_model;
 extern crate libc;
 extern crate syscall_defines;
+extern crate lazy_init;
 
 #[macro_use]
 pub mod handle_eintr;
