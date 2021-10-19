@@ -301,12 +301,7 @@ impl GStageMmu {
         let gpa_key = gpa & !PAGE_SIZE_MASK;
 
         match self.guest_mem.query_region(gpa_key) {
-            Some(res) => {
-                let offset = gpa & PAGE_SIZE_MASK;
-                hva = res.0 + offset;
-                hpa = res.1 + offset;
-                return Some((hva, hpa));
-            },
+            Some(res) => { return Some((res.0, res.1)); },
             None => { return None; }
         }
     }
@@ -626,10 +621,9 @@ impl GStageMmu {
             hpa = i.base_address;
             hva = i.hpm_vptr;
         }
-
-        for offset in (0..length as usize).step_by(PAGE_SIZE as usize) {
-            self.guest_mem.insert_region(hva + offset as u64, gpa + offset as u64,
-                hpa + offset as u64, PAGE_SIZE as usize);
+        if self.guest_mem.end_addr().offset() == 0 {
+            let offset = gpa - gpa_start;
+            self.guest_mem.lazy_init(hva - offset, gpa_start, hpa - offset, 1 << 30);
         }
 
         return Ok((hva, hpa));

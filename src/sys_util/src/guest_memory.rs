@@ -14,6 +14,7 @@ use data_model::DataInit;
 //use data_model::volatile_memory::*;
 use guest_address::GuestAddress;
 use mmap::{self, MemoryMapping};
+use lazy_init::Lazy;
 
 #[derive(Debug)]
 pub enum Error {
@@ -41,10 +42,16 @@ fn kv_end(kv: &(&GuestAddress, &MemoryMapping)) -> GuestAddress {
     kv.0.unchecked_add(kv.1.size())
 }
 
+struct GuestMemoryMap {
+    gpa: GuestAddress,
+    mm: MemoryMapping,
+}
+
 /// Tracks a memory region and where it is mapped in the guest.
 #[derive(Clone)]
 pub struct GuestMemory {
-    regions: Arc<RwLock<BTreeMap<GuestAddress, MemoryMapping>>>,
+    //regions: Arc<RwLock<BTreeMap<GuestAddress, MemoryMapping>>>,
+    guest_mm: Arc<Lazy<GuestMemoryMap>>,
 }
 
 impl GuestMemory {
@@ -84,25 +91,33 @@ impl GuestMemory {
     */
     
     pub fn new() -> Result<GuestMemory> {
-        let regions = BTreeMap::<GuestAddress, MemoryMapping>::new();
-  
-        Ok(GuestMemory { regions: Arc::new(RwLock::new(regions)) })
+        Ok(GuestMemory { guest_mm: Arc::new(Lazy::new()) })
     }
 
-    pub fn insert_region(&self, hva: u64, gpa: u64, hpa: u64, len: usize) {
-        let host_mapping = MemoryMapping::new(hva, hpa, len).unwrap();
-        let guest_base = GuestAddress(gpa as usize);
-        
-        self.regions.write().unwrap().insert(guest_base, host_mapping);
+    pub fn lazy_init(&self, hva: u64, gpa: u64, hpa: u64, len: usize) {
+        self.guest_mm.get_or_create(|| {
+            GuestMemoryMap {
+                gpa: GuestAddress(gpa as usize),
+                mm: MemoryMapping::new(hva, hpa, len).unwrap(),
+            }
+        });
     }
 
     pub fn query_region(&self, gpa: u64) -> Option<(u64, u64)> {
         let guest_base = GuestAddress(gpa as usize);
-        
-        match self.regions.read().unwrap().get(&guest_base) {
-            Some(mmap) => {
-                return Some((mmap.hva(), mmap.hpa()));
-            },
+ 
+        let guest_mm_lazy = self.guest_mm.get();
+        match guest_mm_lazy {
+            Some(guest_mm) => {
+                if guest_mm.gpa < guest_base &&
+                    guest_base.unchecked_add(0x1000) <
+                        guest_mm.gpa.unchecked_add(guest_mm.mm.size()) {
+                            let offset = guest_base.offset_from(guest_mm.gpa) as u64;
+                            let mmap = &guest_mm.mm;
+                            return Some((mmap.hva() + offset, mmap.hpa() + offset));
+                }
+                return None;
+            }
             None => { return None; }
         }
     }
@@ -126,9 +141,12 @@ impl GuestMemory {
         //    .max_by_key(|region| region.guest_base)
         //    .map_or(GuestAddress(0), |region| region_end(region))
         //region.guest_base.unchecked_add(region.mapping.size());
-        self.regions.read().unwrap()
-            .last_key_value()
-            .map_or(GuestAddress(0), |kv| kv_end(&kv))
+        return self.guest_mm.get().map_or(
+            GuestAddress(0),
+            |guest_mm| {
+                guest_mm.gpa.unchecked_add(guest_mm.mm.size())
+            },
+        );
     }
 
     /// Returns true if the given address is within the memory range available to the guest.
@@ -149,7 +167,8 @@ impl GuestMemory {
 
     /// Returns the size of the memory region in bytes.
     pub fn num_regions(&self) -> usize {
-        self.regions.read().unwrap().len()
+        let guest_mm = self.guest_mm.get().unwrap();
+        guest_mm.mm.size()
     }
 
     /*
@@ -408,19 +427,8 @@ impl GuestMemory {
     where
         F: FnOnce(&MemoryMapping, usize) -> Result<T>,
     {
-        let page_addr = guest_addr.mask(!0xfff);
-        self.regions.read().unwrap()
-            .get(&page_addr)
-            .map_or(
-                Err(Error::InvalidGuestAddress(guest_addr)),
-                |val| cb(&val, guest_addr.offset_from(page_addr))
-            )
-        //for region in self.regions.read().unwrap().iter() {
-        //    if guest_addr >= region.guest_base && guest_addr < region_end(region) {
-        //        return cb(&region.mapping, guest_addr.offset_from(region.guest_base));
-        //    }
-        //}
-        //Err(Error::InvalidGuestAddress(guest_addr))
+        let guest_mm = &self.guest_mm.get().unwrap();
+        cb(&guest_mm.mm, guest_addr.offset_from(guest_mm.gpa))
     }
 }
 

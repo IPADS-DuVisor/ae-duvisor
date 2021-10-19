@@ -238,23 +238,16 @@ impl Queue {
         let used_ring_size = 6 + 8 * queue_size;
         if !self.ready {
             error!("attempt to use virtio queue that is not marked ready");
-            println!("attempt to use virtio queue that is not marked ready");
             false
         } else if self.size > self.max_size || self.size == 0 || (self.size & (self.size - 1)) != 0
         {
             error!("virtio queue with invalid size: {}", self.size);
-            println!("virtio queue with invalid size: {}", self.size);
             false
         } else if desc_table
             .checked_add(desc_table_size)
             .map_or(true, |v| !mem.address_in_range(v))
         {
             error!(
-                "virtio queue descriptor table goes out of bounds: start:0x{:08x} size:0x{:08x}",
-                desc_table.offset(),
-                desc_table_size
-            );
-            println!(
                 "virtio queue descriptor table goes out of bounds: start:0x{:08x} size:0x{:08x}",
                 desc_table.offset(),
                 desc_table_size
@@ -269,22 +262,12 @@ impl Queue {
                 avail_ring.offset(),
                 avail_ring_size
             );
-            println!(
-                "virtio queue available ring goes out of bounds: start:0x{:08x} size:0x{:08x}",
-                avail_ring.offset(),
-                avail_ring_size
-            );
             false
         } else if used_ring
             .checked_add(used_ring_size)
             .map_or(true, |v| !mem.address_in_range(v))
         {
             error!(
-                "virtio queue used ring goes out of bounds: start:0x{:08x} size:0x{:08x}",
-                used_ring.offset(),
-                used_ring_size
-            );
-            println!(
                 "virtio queue used ring goes out of bounds: start:0x{:08x} size:0x{:08x}",
                 used_ring.offset(),
                 used_ring_size
