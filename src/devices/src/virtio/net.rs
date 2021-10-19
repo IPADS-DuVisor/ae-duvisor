@@ -72,11 +72,11 @@ static mut MID_TIME_TOTAL: [usize; 16] = [0; 16];
 static mut MID_CNT_TOTAL: [usize; 16] = [0; 16];
 
 impl Worker {
-    fn signal_used_queue(&self) {
+    fn signal_used_queue(&self, nr_irq: u32) {
         self.interrupt_status
             .fetch_or(INTERRUPT_STATUS_USED_RING as usize, Ordering::SeqCst);
         //self.interrupt_evt.write(1).unwrap();
-        self.irqchip.trigger_edge_irq(3);
+        self.irqchip.trigger_edge_irq(nr_irq);
     }
     
     fn net_fix_rx_hdr(&self, mem: &GuestMemory, index: u16, num_buffers: u16) {
@@ -141,6 +141,8 @@ impl Worker {
                                 desc.len -= sz as u32;
                                 if (write_count < self.rx_count) &&
                                     (desc.len > 0) {
+                                        warn!("net.rs:{} cur addr {:x}, rest len {}, sz {}",
+                                            line!(), desc.addr.offset(), desc.len, sz);
                                         continue;
                                 }
                                 break;
@@ -298,7 +300,7 @@ impl Worker {
 
         // Interrupt the guest immediately for received frames to
         // reduce latency.
-        self.signal_used_queue();
+        self.signal_used_queue(3);
         unsafe {
             let cur_memcpy_time: usize;
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
@@ -312,7 +314,8 @@ impl Worker {
             asm!("csrr {}, 0xC01", out(reg) time);
             RX_TIME_TOTAL += (time - RX_TIME_START);
             RX_LEN_TOTAL += write_count;
-            let cur_lv = RX_LEN_TOTAL / (200 << 20);
+            //let cur_lv = RX_LEN_TOTAL / (200 << 20);
+            let cur_lv = 0;
             if cur_lv > RX_LEN_PREV_LV {
                 warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}\n \
                     mid_time {}, {}, {}, {}\n \
@@ -445,7 +448,7 @@ impl Worker {
             self.tx_queue.add_used(&self.mem, desc_index, 0);
         }
 
-        self.signal_used_queue();
+        self.signal_used_queue(4);
     }
     
     fn run_rx(

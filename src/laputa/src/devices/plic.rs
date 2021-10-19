@@ -99,6 +99,12 @@ impl PlicContext {
     }
 }
 
+static mut PLIC_TIME_START: usize = 0;
+static mut PLIC_TIME: usize = 0;
+static mut PLIC_CNT: usize = 0;
+static mut PLIC_TIME_TOTAL: [usize; 8] = [0; 8];
+static mut PLIC_CNT_TOTAL: [usize; 8] = [0; 8];
+
 impl Plic {
     pub fn new(vcpus: &Vec<Arc<VirtualCpu>>) -> Self {
         let plic_state = RwLock::new(PlicState::new());
@@ -299,9 +305,25 @@ impl Plic {
     }
     
     fn plic_trigger_irq(&self, irq: u32, level: bool, edge: bool) {
+        let mut time_start: usize = 0;
+        unsafe {
+            if irq == 3 {
+                asm!("csrr {}, 0xC01", out(reg) time_start);
+                PLIC_TIME_START = time_start;
+            }
+        }
         let mut state = self.plic_state.write().unwrap();
         dbgprintln!("trigger_irq: irq {} num_irq {} level {}",
             irq, state.num_irq, level);
+        unsafe {
+            if irq == 3 {
+                let cur_time: usize;
+                asm!("csrr {}, 0xC01", out(reg) cur_time);
+                PLIC_TIME_TOTAL[0] += cur_time - time_start;
+                PLIC_CNT_TOTAL[0] += 1;
+                time_start = cur_time;
+            }
+        }
         if state.num_irq <= irq { return; }
 
         let irq_prio: u8 = state.irq_priority[irq as usize];
@@ -316,10 +338,37 @@ impl Plic {
         dbgprintln!("\t\ttrigger_irq: irq_prio {:x} irq_word {:x} irq_mask {:x}",
             irq_prio, irq_word, irq_mask);
 
+        unsafe {
+            if irq == 3 {
+                let cur_time: usize;
+                asm!("csrr {}, 0xC01", out(reg) cur_time);
+                PLIC_TIME_TOTAL[1] += cur_time - time_start;
+                PLIC_CNT_TOTAL[1] += 1;
+                time_start = cur_time;
+            } 
+        }
         for i in 0..self.plic_contexts.len() {
+            unsafe {
+                if irq == 3 {
+                    let cur_time: usize;
+                    asm!("csrr {}, 0xC01", out(reg) cur_time);
+                    PLIC_TIME_TOTAL[2] += cur_time - time_start;
+                    PLIC_CNT_TOTAL[2] += 1;
+                    time_start = cur_time;
+                }
+            }
             let mut irq_marked: bool = false;
             let mut ctx = self.plic_contexts[i].lock().unwrap();
-            
+            unsafe {
+                if irq == 3 {
+                    let cur_time: usize;
+                    asm!("csrr {}, 0xC01", out(reg) cur_time);
+                    PLIC_TIME_TOTAL[3] += cur_time - time_start;
+                    PLIC_CNT_TOTAL[3] += 1;
+                    time_start = cur_time;
+                }
+            }
+
             if (ctx.irq_enable[irq_word as usize] & irq_mask) != 0 {
                 if level {
                     ctx.irq_pending[irq_word as usize] |= irq_mask;
@@ -335,13 +384,54 @@ impl Plic {
                     ctx.irq_claimed[irq_word as usize] &= !irq_mask;
                     ctx.irq_autoclear[irq_word as usize] &= !irq_mask;
                 }
+                unsafe {
+                    if irq == 3 {
+                        let cur_time: usize;
+                        asm!("csrr {}, 0xC01", out(reg) cur_time);
+                        PLIC_TIME_TOTAL[4] += cur_time - time_start;
+                        PLIC_CNT_TOTAL[4] += 1;
+                        time_start = cur_time;
+                    }
+                }
                 self.update_local_irq(&mut *ctx, &*state);
+                unsafe {
+                    if irq == 3 {
+                        let cur_time: usize;
+                        asm!("csrr {}, 0xC01", out(reg) cur_time);
+                        PLIC_TIME_TOTAL[5] += cur_time - time_start;
+                        PLIC_CNT_TOTAL[5] += 1;
+                        time_start = cur_time;
+                    }
+                }
                 irq_marked = true;
             }
             dbgprintln!("\t\ttrigger_irq: i {} irq_enable {:x} irq_marked {}",
                 i, ctx.irq_enable[irq_word as usize], irq_marked);
 
             if irq_marked { break; }
+        }
+        unsafe {
+            if irq == 3 {
+                let cur_time: usize;
+                asm!("csrr {}, 0xC01", out(reg) cur_time);
+                PLIC_TIME_TOTAL[6] += cur_time - time_start;
+                PLIC_CNT_TOTAL[6] += 1;
+                time_start = cur_time;
+                PLIC_TIME += cur_time - PLIC_TIME_START;
+                PLIC_CNT += 1;
+                if PLIC_CNT % 10000 == 0 {
+                    println!("--- PLIC_CNT_TOTAL {}, PLIC_TIME_TOTAL {}, avg {}\n \
+                plic_time {} {} {} {}\n \
+                \t\t {} {} {} {}\n \
+                plic_cnt {} {} {} {}\n \
+                \t\t {} {} {} {}",
+                PLIC_CNT, PLIC_TIME, PLIC_CNT / PLIC_TIME,
+                PLIC_TIME_TOTAL[0], PLIC_TIME_TOTAL[1], PLIC_TIME_TOTAL[2], PLIC_TIME_TOTAL[3],
+                PLIC_TIME_TOTAL[4], PLIC_TIME_TOTAL[5], PLIC_TIME_TOTAL[6], PLIC_TIME_TOTAL[7],
+                PLIC_CNT_TOTAL[0], PLIC_CNT_TOTAL[1], PLIC_CNT_TOTAL[2], PLIC_CNT_TOTAL[3],
+                PLIC_CNT_TOTAL[4], PLIC_CNT_TOTAL[5], PLIC_CNT_TOTAL[6], PLIC_CNT_TOTAL[7]);
+                }
+            }
         }
     }
 }
