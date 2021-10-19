@@ -1,5 +1,6 @@
 use crate::plat::uhe::ioctl::ioctl_constants;
 use ioctl_constants::*;
+use crate::mm::utils::*;
 
 #[derive(Clone)]
 pub struct HpmRegion {
@@ -56,6 +57,8 @@ impl HpmRegion {
 
 pub struct HpmAllocator {
     hpm_region_list: Vec<HpmRegion>,
+    vm_mem_region: HpmRegion,
+    s2pt_mem_region: HpmRegion,
     pub ioctl_fd: i32,
 }
 
@@ -63,8 +66,76 @@ impl HpmAllocator {
     pub fn new(ioctl_fd: i32) -> Self {
         Self {
             hpm_region_list: Vec::new(),
+            vm_mem_region: HpmRegion::new(0, 0, 0),
+            s2pt_mem_region: HpmRegion::new(0, 0, 0),
             ioctl_fd,
         }
+    }
+
+    pub fn pmp_alloc_vm_mem(&mut self, mem_size: usize) -> Option<HpmRegion> {
+        let fd = self.ioctl_fd;
+        let test_buf: u64; /* VA */
+        let test_buf_pfn: u64; /* HPA */
+        
+        let version: u64 = 0;
+
+        unsafe {
+            let version_ptr = (&version) as *const u64;
+            libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
+
+            /* Get va */
+            let addr = 0 as *mut libc::c_void;
+            let mmap_ptr = libc::mmap(addr, mem_size, 
+                libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, fd, 0);
+            assert_ne!(mmap_ptr, libc::MAP_FAILED);
+
+            /* Get hpa */
+            test_buf = mmap_ptr as u64;
+            test_buf_pfn = test_buf;
+            let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
+            libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
+        }
+
+        let hpm_vptr = test_buf as u64;
+        let base_address = test_buf_pfn << 12;
+        let length = mem_size as u64;
+
+        self.ioctl_fd = fd;
+
+        Some(HpmRegion::new(hpm_vptr, base_address, length))
+    }
+
+    pub fn pmp_alloc_s2pt(&mut self, length: usize) -> Option<HpmRegion> {
+        let fd = self.ioctl_fd;
+        let test_buf: u64; /* VA */
+        let test_buf_pfn: u64; /* HPA */
+        
+        let version: u64 = 0;
+
+        unsafe {
+            let version_ptr = (&version) as *const u64;
+            libc::ioctl(fd, IOCTL_LAPUTA_GET_API_VERSION, version_ptr);
+
+            /* Get va */
+            let addr = 0 as *mut libc::c_void;
+            let mmap_ptr = libc::mmap(addr, length, 
+                libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, fd, 0);
+            assert_ne!(mmap_ptr, libc::MAP_FAILED);
+
+            /* Get hpa */
+            test_buf = mmap_ptr as u64;
+            test_buf_pfn = test_buf;
+            let test_buf_pfn_ptr = (&test_buf_pfn) as *const u64;
+            libc::ioctl(fd, IOCTL_LAPUTA_QUERY_PFN, test_buf_pfn_ptr);
+        }
+
+        let hpm_vptr = test_buf as u64;
+        let base_address = test_buf_pfn << 12;
+        let length = length as u64;
+
+        self.ioctl_fd = fd;
+
+        Some(HpmRegion::new(hpm_vptr, base_address, length))
     }
 
     /* Call PMP for hpa region */
@@ -74,9 +145,9 @@ impl HpmAllocator {
         let test_buf_pfn: u64; /* HPA */
         
         #[cfg(feature = "xilinx")]
-        let test_buf_size: usize = 128 << 20; /* 128 MB for now */
+        let test_buf_size: usize = 1 << 30; /* 1 GB for now */
         #[cfg(feature = "qemu")]
-        let test_buf_size: usize = 1024 << 20; /* 512 MB for now */
+        let test_buf_size: usize = 1 << 30; /* 1 GB for now */
         
         let version: u64 = 0;
 
@@ -121,6 +192,54 @@ impl HpmAllocator {
         None
     }
 
+    pub fn hpm_alloc_vm_mem(&mut self, offset: u64, length: u64)
+        -> Option<Vec<HpmRegion>> {
+        let target_hpm_region: &HpmRegion;
+        let mut result: Vec<HpmRegion> = Vec::new();
+        let result_va: u64;
+        let result_pa: u64;
+        let result_length: u64;
+
+        // TODO: check if (offset + gpa_start, length) is in (gpa_start, 1 GB)
+        if self.vm_mem_region.length == 0 {
+            self.vm_mem_region = self.pmp_alloc_vm_mem(1 << 30).unwrap();
+        }
+
+        target_hpm_region = &self.vm_mem_region;
+
+        result_va = target_hpm_region.hpm_vptr + offset;
+        result_pa = target_hpm_region.base_address + offset;
+        result_length = length;
+
+        result.push(HpmRegion::new(result_va, result_pa, result_length));
+
+        return Some(result);
+    }
+
+    pub fn hpm_alloc_s2pt(&mut self, offset: u64, length: u64)
+        -> Option<Vec<HpmRegion>> {
+        let target_hpm_region: &HpmRegion;
+        let mut result: Vec<HpmRegion> = Vec::new();
+        let result_va: u64;
+        let result_pa: u64;
+        let result_length: u64;
+
+        if self.s2pt_mem_region.length == 0 {
+            self.s2pt_mem_region =
+                self.pmp_alloc_s2pt(PAGE_TABLE_REGION_SIZE as usize).unwrap();
+        }
+
+        target_hpm_region = &self.s2pt_mem_region;
+
+        result_va = target_hpm_region.hpm_vptr + offset;
+        result_pa = target_hpm_region.base_address + offset;
+        result_length = length;
+
+        result.push(HpmRegion::new(result_va, result_pa, result_length));
+
+        return Some(result);
+    }
+
     pub fn hpm_alloc(&mut self, length: u64) -> Option<Vec<HpmRegion>> {
         let target_hpm_region: &mut HpmRegion;
         let mut result: Vec<HpmRegion> = Vec::new();
@@ -128,7 +247,7 @@ impl HpmAllocator {
         let result_pa: u64;
         let result_length: u64;
 
-        /* Get 512 MB for now */
+        /* Get 1 GB for now */
         if self.hpm_region_list.len() == 0 {
             let hpm_region = self.pmp_alloc().unwrap();
             self.hpm_region_list.push(hpm_region);

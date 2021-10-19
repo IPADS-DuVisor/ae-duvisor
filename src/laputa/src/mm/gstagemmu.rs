@@ -79,7 +79,7 @@ pub struct PageTableRegion {
 
 impl PageTableRegion {
     pub fn new(allocator: &mut hpmallocator::HpmAllocator) -> Self {
-        let region_wrap = allocator.hpm_alloc(PAGE_TABLE_REGION_SIZE);
+        let region_wrap = allocator.hpm_alloc_s2pt(0, PAGE_TABLE_REGION_SIZE);
         
         if region_wrap.is_none() {
             panic!("PageTableRegion::new : hpm_alloc failed");
@@ -245,12 +245,17 @@ impl GStageMmu {
             gpa_region_gpa = i.gpa + i.length;
         }
 
-        if gpa_region_gpa < mem_size {
-            gpa_region_length = mem_size - gpa_region_gpa;
-            gpa_region = gparegion::GpaRegion::new(gpa_region_gpa,
-                gpa_region_length);
-            gpa_regions.push(gpa_region);
-        }
+        // TODO: memory does NOT start from 0!
+        //if gpa_region_gpa < mem_size {
+        //    gpa_region_length = mem_size - gpa_region_gpa;
+        //    gpa_region = gparegion::GpaRegion::new(gpa_region_gpa,
+        //        gpa_region_length);
+        //    gpa_regions.push(gpa_region);
+        //}
+        gpa_region_length = mem_size;
+        gpa_region = gparegion::GpaRegion::new(gpa_region_gpa,
+            gpa_region_length);
+        gpa_regions.push(gpa_region);
 
         gpa_regions
     }
@@ -591,19 +596,15 @@ impl GStageMmu {
         Some(0)
     }
 
+    /* FIXME: gpa_start is hard-coded to 0x80000000 */
     pub fn gpa_block_add(&mut self, gpa: u64, mut length: u64)
         -> Result<(u64, u64), u64> {
         assert_eq!(gpa & 0xfff, 0);
         /* Gpa block should always be aligned to PAGE_SIZE */
         length = page_size_round_up(length);
 
-        if self.gpa_block_overlap(gpa, length) {
-            println!("GPA block overlapped on gpa: 0x{:x}, length: 0x{:x}",
-                gpa, length);
-            return Err(0);
-        }
-
-        let region_wrap = self.allocator.hpm_alloc(length);
+        let gpa_start = 0x80000000;
+        let region_wrap = self.allocator.hpm_alloc_vm_mem(gpa - gpa_start, length);
 
         if region_wrap.is_none() {
             println!("gpa_block_add : hpm_alloc failed");
