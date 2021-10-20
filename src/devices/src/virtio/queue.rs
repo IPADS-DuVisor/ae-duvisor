@@ -308,6 +308,11 @@ impl Queue {
             next_avail: &mut self.next_avail,
         }
     }
+    
+    pub fn should_signal(&mut self, mem: &GuestMemory) -> bool {
+        let flags = mem.read_obj_from_addr::<u16>(self.avail_ring).unwrap();
+        return (flags & 1) == 0;
+    }
 
     // For F_MRG_RXBUF
     pub fn set_used_elem(&mut self, mem: &GuestMemory, head_idx: u16, len: u32, num_buffers: u16) {

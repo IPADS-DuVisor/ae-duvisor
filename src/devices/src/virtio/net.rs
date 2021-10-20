@@ -300,7 +300,9 @@ impl Worker {
 
         // Interrupt the guest immediately for received frames to
         // reduce latency.
-        self.signal_used_queue(3);
+        if self.rx_queue.should_signal(&self.mem) {
+            self.signal_used_queue(3);
+        }
         unsafe {
             let cur_memcpy_time: usize;
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
@@ -448,7 +450,7 @@ impl Worker {
             self.tx_queue.add_used(&self.mem, desc_index, 0);
         }
 
-        self.signal_used_queue(4);
+        self.signal_used_queue(3);
     }
     
     fn run_rx(

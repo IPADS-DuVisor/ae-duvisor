@@ -419,7 +419,7 @@ impl Plic {
                 time_start = cur_time;
                 PLIC_TIME += cur_time - PLIC_TIME_START;
                 PLIC_CNT += 1;
-                if PLIC_CNT % 10000 == 0 {
+                if PLIC_CNT % 100000 == 0 {
                     println!("--- PLIC_CNT_TOTAL {}, PLIC_TIME_TOTAL {}, avg {}\n \
                 plic_time {} {} {} {}\n \
                 \t\t {} {} {} {}\n \
