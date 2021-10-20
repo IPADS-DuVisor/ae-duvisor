@@ -8,6 +8,8 @@ use crate::irq::delegation::delegation_constants::*;
 
 extern crate irq_util;
 use irq_util::IrqChip;
+extern crate spin;
+use spin::mutex::TicketMutex;
 
 const MAX_DEVICES: usize = 32;
 
@@ -53,8 +55,8 @@ struct PlicContext {
 }
 
 pub struct Plic {
-    plic_state: RwLock<PlicState>,
-    plic_contexts: Vec<Mutex<PlicContext>>,
+    plic_state: TicketMutex<PlicState>,
+    plic_contexts: Vec<TicketMutex<PlicContext>>,
 }
 
 impl PlicState {
@@ -107,14 +109,14 @@ static mut PLIC_CNT_TOTAL: [usize; 8] = [0; 8];
 
 impl Plic {
     pub fn new(vcpus: &Vec<Arc<VirtualCpu>>) -> Self {
-        let plic_state = RwLock::new(PlicState::new());
+        let plic_state = TicketMutex::<_>::new(PlicState::new());
         let nr_ctx = vcpus.len() * 2;
-        let mut plic_contexts: Vec<Mutex<PlicContext>> = 
+        let mut plic_contexts: Vec<TicketMutex<PlicContext>> = 
             Vec::with_capacity(nr_ctx as usize);
         for i in 0..nr_ctx {
             let vcpu = Arc::downgrade(&vcpus[i / 2]);
             let ctx = PlicContext::new(vcpu);
-            plic_contexts.push(Mutex::new(ctx));
+            plic_contexts.push(TicketMutex::new(ctx));
         }
 
         Plic {
@@ -175,7 +177,7 @@ impl Plic {
 
     fn write_global_priority(&self, offset: u64, data: u32) {
         let irq: u32 = (offset >> 2) as u32;
-        let mut state = self.plic_state.write().unwrap();
+        let mut state = self.plic_state.lock();
         if irq == 0 || irq >= state.num_irq { return; }
 
         let val = data & ((1 << PRIORITY_PER_ID) - 1);
@@ -184,7 +186,7 @@ impl Plic {
 
     fn read_global_priority(&self, offset: u64, data: &mut u32) {
         let irq: u32 = (offset >> 2) as u32;
-        let state = self.plic_state.read().unwrap();
+        let state = self.plic_state.lock();
         if irq == 0 || irq >= state.num_irq { return; }
 
         *data = state.irq_priority[irq as usize] as u32;
@@ -195,10 +197,10 @@ impl Plic {
         let (mut irq, mut irq_mask): (u32, u32);
         let irq_word: u32 = (offset >> 2) as u32;
         
-        let state = self.plic_state.read().unwrap();
+        let state = self.plic_state.lock();
         if state.num_irq_word < irq_word { return; }
 
-        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
+        let mut ctx = self.plic_contexts[ctx_id].lock();
         let (old_val, mut new_val, xor_val): (u32, u32, u32);
         old_val = ctx.irq_enable[irq_word as usize];
         new_val = data;
@@ -238,17 +240,17 @@ impl Plic {
     fn read_local_enable(&self, ctx_id: usize, offset: u64, data: &mut u32) {
         let irq_word: u32 = (offset >> 2) as u32;
         
-        let state = self.plic_state.read().unwrap();
+        let state = self.plic_state.lock();
         if state.num_irq_word < irq_word { return; }
         
-        let ctx = self.plic_contexts[ctx_id].lock().unwrap();
+        let ctx = self.plic_contexts[ctx_id].lock();
         *data = ctx.irq_enable[irq_word as usize]
     }
     
     fn write_local_context(&self, ctx_id: usize, offset: u64, data: u32) {
         let mut irq_update = false;
-        let state = self.plic_state.read().unwrap();
-        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
+        let state = self.plic_state.lock();
+        let mut ctx = self.plic_contexts[ctx_id].lock();
 
         match offset {
             CONTEXT_THRESHOLD => {
@@ -269,8 +271,8 @@ impl Plic {
     }
     
     fn read_local_context(&self, ctx_id: usize, offset: u64, data: &mut u32) {
-        let state = self.plic_state.read().unwrap();
-        let mut ctx = self.plic_contexts[ctx_id].lock().unwrap();
+        let state = self.plic_state.lock();
+        let mut ctx = self.plic_contexts[ctx_id].lock();
         
         match offset {
             CONTEXT_THRESHOLD => {
@@ -312,7 +314,7 @@ impl Plic {
                 PLIC_TIME_START = time_start;
             }
         }
-        let mut state = self.plic_state.write().unwrap();
+        let mut state = self.plic_state.lock();
         dbgprintln!("trigger_irq: irq {} num_irq {} level {}",
             irq, state.num_irq, level);
         unsafe {
@@ -358,7 +360,7 @@ impl Plic {
                 }
             }
             let mut irq_marked: bool = false;
-            let mut ctx = self.plic_contexts[i].lock().unwrap();
+            let mut ctx = self.plic_contexts[i].lock();
             unsafe {
                 if irq == 3 {
                     let cur_time: usize;
@@ -509,7 +511,7 @@ impl IrqChip for Plic {
 
     fn trigger_virtual_irq(&self, vcpu_id: u32) -> bool {
         let ctx_id = (vcpu_id * 2) as usize;
-        let vcpu = self.plic_contexts[ctx_id].lock().unwrap()
+        let vcpu = self.plic_contexts[ctx_id].lock()
             .vcpu.upgrade().unwrap();
         vcpu.virq.set_pending_irq(IRQ_VS_SOFT);
 
@@ -661,7 +663,7 @@ mod tests {
         }
         
         #[test]
-        fn test_plic_multithread() {
+        fn test_plic_multithlock() {
             let mut vm_config = test_vm_config_create();
             vm_config.vcpu_count = 2;
             let vm = virtualmachine::VirtualMachine::new(vm_config);
