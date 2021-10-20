@@ -20,6 +20,7 @@ byteorder = "1.2.1"
 devices = { path = "../devices" }
 sys_util = { path = "../sys_util" }
 irq_util = { path = "../irq_util" }
+spin = { version = "0.9.2", features = ["ticket_mutex"] }
 
 [build-dependencies]
 gcc = "0.3"

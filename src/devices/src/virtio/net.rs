@@ -156,7 +156,7 @@ impl Worker {
                     unsafe {
                         let cur_memcpy_time: usize;
                         asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                        MID_TIME_TOTAL[0] += (cur_memcpy_time - memcpy_start);
+                        MID_TIME_TOTAL[0] += cur_memcpy_time - memcpy_start;
                         MID_CNT_TOTAL[0] += 1;
                         memcpy_start = cur_memcpy_time;
                     }
@@ -170,7 +170,7 @@ impl Worker {
                         unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                            MID_TIME_TOTAL[1] += (cur_memcpy_time - memcpy_start);
+                            MID_TIME_TOTAL[1] += cur_memcpy_time - memcpy_start;
                             MID_CNT_TOTAL[1] += 1;
                             memcpy_start = cur_memcpy_time;
                         }
@@ -179,7 +179,7 @@ impl Worker {
                     unsafe {
                         let cur_memcpy_time: usize;
                         asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                        MID_TIME_TOTAL[2] += (cur_memcpy_time - memcpy_start);
+                        MID_TIME_TOTAL[2] += cur_memcpy_time - memcpy_start;
                         MID_CNT_TOTAL[2] += 1;
                         memcpy_start = cur_memcpy_time;
                     }
@@ -188,7 +188,7 @@ impl Worker {
                         unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                            MID_TIME_TOTAL[3] += (cur_memcpy_time - memcpy_start);
+                            MID_TIME_TOTAL[3] += cur_memcpy_time - memcpy_start;
                             MID_CNT_TOTAL[3] += 1;
                             memcpy_start = cur_memcpy_time;
                         }
@@ -201,7 +201,7 @@ impl Worker {
                         unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                            MID_TIME_TOTAL[4] += (cur_memcpy_time - memcpy_start);
+                            MID_TIME_TOTAL[4] += cur_memcpy_time - memcpy_start;
                             MID_CNT_TOTAL[4] += 1;
                             memcpy_start = cur_memcpy_time;
                         }
@@ -218,7 +218,7 @@ impl Worker {
                         unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                            MID_TIME_TOTAL[5] += (cur_memcpy_time - memcpy_start);
+                            MID_TIME_TOTAL[5] += cur_memcpy_time - memcpy_start;
                             MID_CNT_TOTAL[5] += 1;
                             memcpy_start = cur_memcpy_time;
                         }
@@ -237,7 +237,7 @@ impl Worker {
                             unsafe {
                                 let cur_memcpy_time: usize;
                                 asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                                MID_TIME_TOTAL[6] += (cur_memcpy_time - memcpy_start);
+                                MID_TIME_TOTAL[6] += cur_memcpy_time - memcpy_start;
                                 MID_CNT_TOTAL[6] += 1;
                                 memcpy_start = cur_memcpy_time;
                             }
@@ -246,7 +246,7 @@ impl Worker {
                         unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                            MID_TIME_TOTAL[7] += (cur_memcpy_time - memcpy_start);
+                            MID_TIME_TOTAL[7] += cur_memcpy_time - memcpy_start;
                             MID_CNT_TOTAL[7] += 1;
                             memcpy_start = cur_memcpy_time;
                         }
@@ -256,7 +256,7 @@ impl Worker {
                         unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-                            MID_TIME_TOTAL[8] += (cur_memcpy_time - memcpy_start);
+                            MID_TIME_TOTAL[8] += cur_memcpy_time - memcpy_start;
                             MID_CNT_TOTAL[8] += 1;
                             memcpy_start = cur_memcpy_time;
                         }
@@ -274,7 +274,7 @@ impl Worker {
         unsafe {
             let cur_memcpy_time: usize;
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-            MID_TIME_TOTAL[9] += (cur_memcpy_time - memcpy_start);
+            MID_TIME_TOTAL[9] += cur_memcpy_time - memcpy_start;
             MID_CNT_TOTAL[9] += 1;
             memcpy_start = cur_memcpy_time;
         }
@@ -283,7 +283,7 @@ impl Worker {
         unsafe {
             let cur_memcpy_time: usize;
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-            MID_TIME_TOTAL[10] += (cur_memcpy_time - memcpy_start);
+            MID_TIME_TOTAL[10] += cur_memcpy_time - memcpy_start;
             MID_CNT_TOTAL[10] += 1;
             memcpy_start = cur_memcpy_time;
         }
@@ -293,7 +293,7 @@ impl Worker {
         unsafe {
             let cur_memcpy_time: usize;
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-            MID_TIME_TOTAL[11] += (cur_memcpy_time - memcpy_start);
+            MID_TIME_TOTAL[11] += cur_memcpy_time - memcpy_start;
             MID_CNT_TOTAL[11] += 1;
             memcpy_start = cur_memcpy_time;
         }
@@ -306,7 +306,7 @@ impl Worker {
         unsafe {
             let cur_memcpy_time: usize;
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-            MID_TIME_TOTAL[12] += (cur_memcpy_time - memcpy_start);
+            MID_TIME_TOTAL[12] += cur_memcpy_time - memcpy_start;
             MID_CNT_TOTAL[12] += 1;
             memcpy_start = cur_memcpy_time;
         }
