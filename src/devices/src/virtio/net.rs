@@ -70,6 +70,7 @@ static mut RX_LEN_PREV_LV: usize = 0;
 static mut RX_LEN_TOTAL: usize = 0;
 static mut MID_TIME_TOTAL: [usize; 16] = [0; 16];
 static mut MID_CNT_TOTAL: [usize; 16] = [0; 16];
+static mut TX_NOTIFY_CNT: usize = 0;
 
 impl Worker {
     fn signal_used_queue(&self, nr_irq: u32) {
@@ -302,13 +303,13 @@ impl Worker {
         // reduce latency.
         if self.rx_queue.should_signal(&self.mem) {
             self.signal_used_queue(3);
-        }
-        unsafe {
-            let cur_memcpy_time: usize;
-            asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
-            MID_TIME_TOTAL[12] += cur_memcpy_time - memcpy_start;
-            MID_CNT_TOTAL[12] += 1;
-            memcpy_start = cur_memcpy_time;
+            unsafe {
+                let cur_memcpy_time: usize;
+                asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
+                MID_TIME_TOTAL[12] += cur_memcpy_time - memcpy_start;
+                MID_CNT_TOTAL[12] += 1;
+                memcpy_start = cur_memcpy_time;
+            }
         }
 
         unsafe {
@@ -327,7 +328,8 @@ impl Worker {
                     mid_cnt {}, {}, {}, {}\n \
                     \t\t {}, {}, {}, {}\n \
                     \t\t {}, {}, {}, {}\n \
-                    \t\t {}",
+                    \t\t {}\n \
+                    \t TX_NOTIFY_CNT {}",
                     RX_LEN_TOTAL, RX_TIME_TOTAL, RX_LEN_TOTAL / RX_TIME_TOTAL,
                     MID_TIME_TOTAL[0], MID_TIME_TOTAL[1], MID_TIME_TOTAL[2], MID_TIME_TOTAL[3],
                     MID_TIME_TOTAL[4], MID_TIME_TOTAL[5], MID_TIME_TOTAL[6], MID_TIME_TOTAL[7],
@@ -337,7 +339,7 @@ impl Worker {
                     MID_CNT_TOTAL[0], MID_CNT_TOTAL[1], MID_CNT_TOTAL[2], MID_CNT_TOTAL[3],
                     MID_CNT_TOTAL[4], MID_CNT_TOTAL[5], MID_CNT_TOTAL[6], MID_CNT_TOTAL[7],
                     MID_CNT_TOTAL[8], MID_CNT_TOTAL[9], MID_CNT_TOTAL[10], MID_CNT_TOTAL[11],
-                    MID_CNT_TOTAL[12]);
+                    MID_CNT_TOTAL[12], TX_NOTIFY_CNT);
                 RX_LEN_PREV_LV = cur_lv;
             }
         }
@@ -450,7 +452,12 @@ impl Worker {
             self.tx_queue.add_used(&self.mem, desc_index, 0);
         }
 
-        self.signal_used_queue(3);
+        if self.tx_queue.should_signal(&self.mem) {
+            self.signal_used_queue(3);
+            unsafe {
+                TX_NOTIFY_CNT += 1;
+            }
+        }
     }
     
     fn run_rx(
