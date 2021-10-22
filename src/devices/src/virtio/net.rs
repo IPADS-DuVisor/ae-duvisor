@@ -81,19 +81,18 @@ impl Worker {
     }
     
     fn net_fix_rx_hdr(&self, mem: &GuestMemory, index: u16, num_buffers: u16) {
-        let desc_head = mem.checked_offset(
-            self.rx_queue.desc_table, (index as usize) * 16).unwrap();
-        let addr = mem.read_obj_from_addr::<u64>(desc_head).unwrap();
-        //if num_buffers > 1 {
-        //    warn!("hdr_len {}, gso_size {}, csum_start {}, csum_offset {}",
-        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 2)).unwrap(),
-        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 4)).unwrap(),
-        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 6)).unwrap(),
-        //        mem.read_obj_from_addr::<u16>(GuestAddress(addr as usize + 8)).unwrap()
-        //    );
-        //}
-        mem.write_obj_at_addr::<u16>(190, GuestAddress(addr as usize + 2)).unwrap();
-        mem.write_obj_at_addr::<u16>(num_buffers, GuestAddress(addr as usize + 10)).unwrap();
+        unsafe {
+            let desc_head_hva = mem.get_host_address(
+                self.rx_queue.desc_table.unchecked_add(
+                    (index as usize) * 16)).unwrap();
+            let addr = *(desc_head_hva as *const u64) as usize;
+            let addr_hva = mem.get_host_address(GuestAddress(addr)).unwrap();
+            *(addr_hva.add(10) as *mut u16) = num_buffers;
+        }
+        //let desc_head = mem.checked_offset(
+        //    self.rx_queue.desc_table, (index as usize) * 16).unwrap();
+        //let addr = mem.read_obj_from_addr::<u64>(desc_head).unwrap();
+        //mem.write_obj_at_addr::<u16>(num_buffers, GuestAddress(addr as usize + 10)).unwrap();
     }
 
     // Copies a single frame from `self.rx_buf` into the guest. Returns true
