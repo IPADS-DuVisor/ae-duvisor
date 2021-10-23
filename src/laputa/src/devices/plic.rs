@@ -421,17 +421,23 @@ impl Plic {
                 time_start = cur_time;
                 PLIC_TIME += cur_time - PLIC_TIME_START;
                 PLIC_CNT += 1;
-                if PLIC_CNT % 100000 == 0 {
+                if PLIC_CNT >= 100000 {
                     println!("--- PLIC_CNT_TOTAL {}, PLIC_TIME_TOTAL {}, avg {}\n \
-                plic_time {} {} {} {}\n \
-                \t\t {} {} {} {}\n \
-                plic_cnt {} {} {} {}\n \
-                \t\t {} {} {} {}",
-                PLIC_CNT, PLIC_TIME, PLIC_CNT / PLIC_TIME,
-                PLIC_TIME_TOTAL[0], PLIC_TIME_TOTAL[1], PLIC_TIME_TOTAL[2], PLIC_TIME_TOTAL[3],
-                PLIC_TIME_TOTAL[4], PLIC_TIME_TOTAL[5], PLIC_TIME_TOTAL[6], PLIC_TIME_TOTAL[7],
-                PLIC_CNT_TOTAL[0], PLIC_CNT_TOTAL[1], PLIC_CNT_TOTAL[2], PLIC_CNT_TOTAL[3],
-                PLIC_CNT_TOTAL[4], PLIC_CNT_TOTAL[5], PLIC_CNT_TOTAL[6], PLIC_CNT_TOTAL[7]);
+                    plic_time {} {} {} {}\n \
+                    \t\t {} {} {} {}\n \
+                    plic_cnt {} {} {} {}\n \
+                    \t\t {} {} {} {}",
+                    PLIC_CNT, PLIC_TIME, PLIC_CNT / PLIC_TIME,
+                    PLIC_TIME_TOTAL[0], PLIC_TIME_TOTAL[1], PLIC_TIME_TOTAL[2], PLIC_TIME_TOTAL[3],
+                    PLIC_TIME_TOTAL[4], PLIC_TIME_TOTAL[5], PLIC_TIME_TOTAL[6], PLIC_TIME_TOTAL[7],
+                    PLIC_CNT_TOTAL[0], PLIC_CNT_TOTAL[1], PLIC_CNT_TOTAL[2], PLIC_CNT_TOTAL[3],
+                    PLIC_CNT_TOTAL[4], PLIC_CNT_TOTAL[5], PLIC_CNT_TOTAL[6], PLIC_CNT_TOTAL[7]);
+                    PLIC_TIME = 0;
+                    PLIC_CNT = 0;
+                    for i in 0..8 {
+                        PLIC_TIME_TOTAL[i] = 0;
+                        PLIC_CNT_TOTAL[i] = 0;
+                    }
                 }
             }
         }
