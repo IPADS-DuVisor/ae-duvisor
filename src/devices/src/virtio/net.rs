@@ -66,7 +66,6 @@ struct Worker {
 
 static mut RX_TIME_START: usize = 0;
 static mut RX_TIME_TOTAL: usize = 0;
-static mut RX_LEN_PREV_LV: usize = 0;
 static mut RX_LEN_TOTAL: usize = 0;
 static mut MID_TIME_TOTAL: [usize; 16] = [0; 16];
 static mut MID_CNT_TOTAL: [usize; 16] = [0; 16];
@@ -316,9 +315,7 @@ impl Worker {
             asm!("csrr {}, 0xC01", out(reg) time);
             RX_TIME_TOTAL += (time - RX_TIME_START);
             RX_LEN_TOTAL += write_count;
-            //let cur_lv = RX_LEN_TOTAL / (200 << 20);
-            let cur_lv = 0;
-            if cur_lv > RX_LEN_PREV_LV {
+            if RX_LEN_TOTAL > (200 << 20) {
                 warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}\n \
                     mid_time {}, {}, {}, {}\n \
                     \t\t {}, {}, {}, {}\n \
@@ -339,7 +336,13 @@ impl Worker {
                     MID_CNT_TOTAL[4], MID_CNT_TOTAL[5], MID_CNT_TOTAL[6], MID_CNT_TOTAL[7],
                     MID_CNT_TOTAL[8], MID_CNT_TOTAL[9], MID_CNT_TOTAL[10], MID_CNT_TOTAL[11],
                     MID_CNT_TOTAL[12], TX_NOTIFY_CNT);
-                RX_LEN_PREV_LV = cur_lv;
+                RX_LEN_TOTAL = 0;
+                RX_TIME_TOTAL = 0;
+                TX_NOTIFY_CNT = 0;
+                for i in 0..13 {
+                    MID_TIME_TOTAL[i] = 0;
+                    MID_CNT_TOTAL[i] = 0;
+                }
             }
         }
         if next_desc.is_none() {
