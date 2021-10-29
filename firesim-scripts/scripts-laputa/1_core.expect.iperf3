@@ -48,25 +48,9 @@ expect {
 
                         expect "#"
                         send "\n"
-                        
-                        expect "#"
-                        send "env TERM=vt1000 bash \n"
-
-                        expect "#"
-                        send "\n"
-                        
-                        expect "#"
-                        send "\n"
-                        send "\n"
 
 			expect "#"
-			send "./mount_dev.sh \n"
-			
-                        expect "#"
-                        send "\n"
-                        
-                        expect "#"
-			send "./guest_net.sh \n"
+			send "./mount_dev.sh && ./guest_net.sh \n"
 
 			expect "#"
 			send "./iperf3 -s \n"
@@ -110,12 +94,6 @@ expect {
 
                         send "./iperf3 -c $HOST  && echo k  2\n"
                         expect "k 2"
-
-                        send "./iperf3 -c $HOST  && echo k  3\n"
-                        expect "k 3"
-
-                        puts "Check breakdown now! \n"
-                        expect "hang hang hang "
 
                         exit 0
 

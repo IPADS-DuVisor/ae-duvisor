@@ -48,25 +48,12 @@ expect {
 
                         expect "#"
                         send "\n"
-                        
-                        expect "#"
-                        send "env TERM=vt1000 bash \n"
-
-                        expect "#"
-                        send "\n"
-                        
-                        expect "#"
-                        send "\n"
-                        send "\n"
 
 			expect "#"
-			send "./mount_dev.sh \n"
-			
-                        expect "#"
-                        send "\n"
-                        
-                        expect "#"
-			send "./guest_net.sh \n"
+			send "./mount_dev.sh && ./guest_net.sh \n"
+
+			expect "#"
+			send "./netserver \n"
 
 			expect "#"
 			send "./iperf3 -s \n"
@@ -108,14 +95,11 @@ expect {
                         send "./iperf3 -c $HOST  && echo k  1\n"
                         expect "k 1"
 
-                        send "./iperf3 -c $HOST  && echo k  2\n"
+                        send "./netperf -l 1 -H $HOST -t omni -- -T UDP -d rr -O 'THROUGHPUT, THROUGHPUT_UNITS, MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY' -W send,recv && echo k  2\n"
                         expect "k 2"
 
-                        send "./iperf3 -c $HOST  && echo k  3\n"
+                        send "./netperf -l 10 -H $HOST -t omni -- -T UDP -d rr -O 'THROUGHPUT, THROUGHPUT_UNITS, MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY' -W send,recv && echo k  3\n"
                         expect "k 3"
-
-                        puts "Check breakdown now! \n"
-                        expect "hang hang hang "
 
                         exit 0
 
