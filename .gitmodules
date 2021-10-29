@@ -10,3 +10,6 @@
 [submodule "test-files-laputa"]
 	path = test-files-laputa
 	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/test-files-laputa.git
+[submodule "linux-kvm"]
+	path = linux-kvm
+	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/linux-kvm
