@@ -17,6 +17,7 @@ use sys_util::{Error as SysError, EventFd, GuestMemory, Pollable, Poller, GuestA
 use virtio_sys::virtio_net;
 
 use irq_util::IrqChip;
+use irq_util::SharedStat;
 
 /// The maximum buffer size when segmentation offload is enabled. This
 /// includes the 12-byte virtio net header.
@@ -343,6 +344,8 @@ impl Worker {
                     MID_TIME_TOTAL[i] = 0;
                     MID_CNT_TOTAL[i] = 0;
                 }
+                SharedStat::print_all();
+                SharedStat::reset_all();
             }
         }
         if next_desc.is_none() {

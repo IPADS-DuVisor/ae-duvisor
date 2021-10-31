@@ -26,7 +26,7 @@ impl VirtualInterrupt {
         if irq >= 16 { panic!("set_pending_irq: irq {} out of range", irq); }
         self.irq_pending.fetch_and(!(1 << irq), Ordering::SeqCst);
     }
-
+    
     pub fn flush_pending_irq(&self) {
         /* Leave IRQ_U_SOFT for hardware UIPI */
         let pending = self.irq_pending.load(Ordering::SeqCst);

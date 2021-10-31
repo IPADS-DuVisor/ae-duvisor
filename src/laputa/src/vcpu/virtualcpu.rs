@@ -26,6 +26,7 @@ use crate::irq::vipi::tests::GET_UIPI_CNT;
 
 extern crate irq_util;
 use irq_util::IrqChip;
+use irq_util::SharedStat;
 
 extern crate devices;
 extern crate sys_util;
@@ -667,6 +668,7 @@ impl VirtualCpu {
         let ucause = vcpu_ctx.host_ctx.hyp_regs.ucause;
         
         if (ucause & EXC_IRQ_MASK) != 0 {
+            SharedStat::add_cnt(5);
             self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
@@ -690,6 +692,26 @@ impl VirtualCpu {
 
         self.exit_reason.store(ExitReason::ExitUnknown, Ordering::SeqCst);
 
+        match ucause {
+            EXC_VIRTUAL_SUPERVISOR_SYSCALL => {
+                SharedStat::add_cnt(0);
+            }
+            EXC_INST_GUEST_PAGE_FAULT => {
+                SharedStat::add_cnt(1);
+            }
+            EXC_LOAD_GUEST_PAGE_FAULT => {
+                SharedStat::add_cnt(2);
+            }
+            EXC_VIRTUAL_INST_FAULT => {
+                SharedStat::add_cnt(3);
+            }
+            EXC_STORE_GUEST_PAGE_FAULT => {
+                SharedStat::add_cnt(4);
+            }
+            _ => {
+                dbgprintln!("Invalid EXCP ucause: {}", ucause);
+            }
+        }
         match ucause {
             EXC_VIRTUAL_INST_FAULT => {
                 self.handle_virtual_inst_fault(vcpu_ctx);
