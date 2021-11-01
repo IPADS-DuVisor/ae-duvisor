@@ -38,11 +38,11 @@ impl SharedStat {
     
     pub fn print_all() {
         unsafe {
-            println!(">>> VM exit: total count {}, irq cnt {}, irq resp {} \n \
+            println!(">>> VM exit: total {}, irq cnt {}, resp {}, avg {} \n \
                 \t\t {} {} {} {}\n \
                 \t\t {} {} {} {}\n \
                 \t\t {} {} {} {}\n",
-                total_cnt, irq_resp_cnt, irq_resp_time,
+                total_cnt, irq_resp_cnt, irq_resp_time, irq_resp_time/ irq_resp_cnt,
                 ucause_cnt[0], ucause_cnt[1], ucause_cnt[2], ucause_cnt[3],
                 ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7],
                 ucause_cnt[8], ucause_cnt[9], ucause_cnt[10], ucause_cnt[11]);
@@ -54,7 +54,7 @@ impl SharedStat {
             total_cnt = 0;
             irq_resp_cnt = 0;
             irq_resp_time = 0;
-            for i in 0..6 {
+            for i in 0..12 {
                 ucause_cnt[i] = 0;
             }
         }
