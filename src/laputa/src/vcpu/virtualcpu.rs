@@ -355,15 +355,18 @@ impl VirtualCpu {
             fault_addr < (0xc000000 + 0x1000000) { true } else { false };
 
         if is_irqchip_mmio {
+            SharedStat::add_cnt(8);
             self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data,
                 true);
         } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
+            SharedStat::add_cnt(9);
             ret = self.console.lock().unwrap()
                 .store_emulation(fault_addr, data as u8,
                     &self.irqchip.get().unwrap());
         } else {
             let slice = &mut data.to_le_bytes();
             if self.mmio_bus.read().unwrap().write(fault_addr, slice) {
+                SharedStat::add_cnt(10);
                 ret = 0;
             } else {
                 ret = 1;
@@ -385,15 +388,18 @@ impl VirtualCpu {
             fault_addr < (0xc000000 + 0x1000000) { true } else { false };
 
         if is_irqchip_mmio {
+            SharedStat::add_cnt(5);
             self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data,
                 false);
         } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
+            SharedStat::add_cnt(6);
             data = self.console.lock().unwrap().
                 load_emulation(fault_addr, 
                     &self.irqchip.get().unwrap()) as u32;
         } else {
             let slice = &mut data.to_le_bytes();
             if self.mmio_bus.read().unwrap().read(fault_addr, slice) {
+                SharedStat::add_cnt(7);
                 data = u32::from_le_bytes(*slice);
                 ret = 0;
             } else {
@@ -482,6 +488,7 @@ impl VirtualCpu {
                 panic!("Invalid gpa! {:x}", fault_addr);
             }
 
+            SharedStat::add_cnt(4);
             ret = self.handle_mmio(fault_addr, vcpu_ctx);
 
             return ret;
@@ -667,8 +674,9 @@ impl VirtualCpu {
         let mut ret: i32 = -1;
         let ucause = vcpu_ctx.host_ctx.hyp_regs.ucause;
         
+        SharedStat::add_total_cnt();
         if (ucause & EXC_IRQ_MASK) != 0 {
-            SharedStat::add_cnt(5);
+            SharedStat::add_cnt(0);
             self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
@@ -693,35 +701,18 @@ impl VirtualCpu {
         self.exit_reason.store(ExitReason::ExitUnknown, Ordering::SeqCst);
 
         match ucause {
-            EXC_VIRTUAL_SUPERVISOR_SYSCALL => {
-                SharedStat::add_cnt(0);
-            }
-            EXC_INST_GUEST_PAGE_FAULT => {
+            EXC_VIRTUAL_INST_FAULT => {
                 SharedStat::add_cnt(1);
-            }
-            EXC_LOAD_GUEST_PAGE_FAULT => {
-                SharedStat::add_cnt(2);
-            }
-            EXC_VIRTUAL_INST_FAULT => {
-                SharedStat::add_cnt(3);
-            }
-            EXC_STORE_GUEST_PAGE_FAULT => {
-                SharedStat::add_cnt(4);
-            }
-            _ => {
-                dbgprintln!("Invalid EXCP ucause: {}", ucause);
-            }
-        }
-        match ucause {
-            EXC_VIRTUAL_INST_FAULT => {
                 self.handle_virtual_inst_fault(vcpu_ctx);
                 ret = 0;
             }
             EXC_INST_GUEST_PAGE_FAULT | EXC_LOAD_GUEST_PAGE_FAULT |
                 EXC_STORE_GUEST_PAGE_FAULT => {
+                SharedStat::add_cnt(2);
                 ret = self.handle_stage2_page_fault(vcpu_ctx);
             }
             EXC_VIRTUAL_SUPERVISOR_SYSCALL => {
+                SharedStat::add_cnt(3);
                 ret = self.handle_supervisor_ecall(vcpu_ctx);
             }
             _ => {
