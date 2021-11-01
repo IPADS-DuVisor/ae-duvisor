@@ -54,7 +54,7 @@ impl SharedStat {
             total_cnt = 0;
             irq_resp_cnt = 0;
             irq_resp_time = 0;
-            for i in 0..6 {
+            for i in 0..12 {
                 ucause_cnt[i] = 0;
             }
         }
