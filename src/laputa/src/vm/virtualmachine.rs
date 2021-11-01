@@ -26,6 +26,7 @@ use crate::plat::opensbi::emulation::SHUTDOWN_FLAG;
 
 extern crate irq_util;
 use irq_util::IrqChip;
+extern crate core_affinity;
 
 extern crate devices;
 extern crate sys_util;
@@ -480,6 +481,7 @@ impl VirtualMachine {
         println!("IO thread start polling");
 
         handle = thread::spawn(move || {
+            core_affinity::set_for_current(core_affinity::CoreId{ id: 1 });
             unsafe {
                 loop {
                     let input = getchar_emulation();
@@ -513,6 +515,7 @@ impl VirtualMachine {
 
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
+                core_affinity::set_for_current(core_affinity::CoreId{ id: 0 });
                 vcpu.thread_vcpu_run(delta_time);
 
                 /* TODO: All the structure should be freed before ULH ends */
