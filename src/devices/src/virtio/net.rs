@@ -406,7 +406,7 @@ impl Worker {
             RX_LEN_TOTAL += write_count;
             if RX_LEN_TOTAL > (200 << 20) {
                 warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}\n \
-                    RX_CYCLE_TOTAL {}, avg {}\n \
+                    RX_CYCLE_TOTAL {}, avg {}, freq {}\n \
                     mid_time {}, {}, {}, {}\n \
                     \t\t {}, {}, {}, {}\n \
                     \t\t {}, {}, {}, {}\n \
@@ -421,7 +421,7 @@ impl Worker {
                     \t\t {}\n \
                     \t TX_NOTIFY_CNT {}",
                     RX_LEN_TOTAL, RX_TIME_TOTAL, RX_LEN_TOTAL / RX_TIME_TOTAL,
-                    RX_CYCLE_TOTAL, RX_LEN_TOTAL / RX_CYCLE_TOTAL,
+                    RX_CYCLE_TOTAL, RX_LEN_TOTAL / RX_CYCLE_TOTAL, RX_CYCLE_TOTAL/ RX_TIME_TOTAL,
                     MID_TIME_TOTAL[0], MID_TIME_TOTAL[1], MID_TIME_TOTAL[2], MID_TIME_TOTAL[3],
                     MID_TIME_TOTAL[4], MID_TIME_TOTAL[5], MID_TIME_TOTAL[6], MID_TIME_TOTAL[7],
                     MID_TIME_TOTAL[8], MID_TIME_TOTAL[9], MID_TIME_TOTAL[10], MID_TIME_TOTAL[11],
@@ -437,6 +437,7 @@ impl Worker {
                     MID_CNT_TOTAL[12], TX_NOTIFY_CNT);
                 RX_LEN_TOTAL = 0;
                 RX_TIME_TOTAL = 0;
+                RX_CYCLE_TOTAL = 0;
                 TX_NOTIFY_CNT = 0;
                 for i in 0..13 {
                     MID_TIME_TOTAL[i] = 0;
