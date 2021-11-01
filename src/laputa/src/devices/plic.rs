@@ -8,6 +8,7 @@ use crate::irq::delegation::delegation_constants::*;
 
 extern crate irq_util;
 use irq_util::IrqChip;
+use irq_util::SharedStat;
 extern crate spin;
 use spin::mutex::TicketMutex;
 
@@ -31,6 +32,8 @@ const ENABLE_END: u64 = CONTEXT_BASE - 1;
 const CONTEXT_END: u64 = REG_SIZE - 1;
 
 const REG_SIZE: u64 = 0x1000000;
+
+static mut irq_set_time: usize = 0;
 
 struct PlicState {
     /* Static configuration */
@@ -393,6 +396,8 @@ impl Plic {
                         PLIC_TIME_TOTAL[4] += cur_time - time_start;
                         PLIC_CNT_TOTAL[4] += 1;
                         time_start = cur_time;
+                        
+                        irq_set_time = cur_time;
                     }
                 }
                 self.update_local_irq(&mut *ctx, &*state);
@@ -497,6 +502,13 @@ impl IrqChip for Plic {
                     offset = offset - (ctx_id * CONTEXT_PER_HART + CONTEXT_BASE);
                     if (ctx_id as usize) < self.plic_contexts.len() {
                         self.read_local_context(ctx_id as usize, offset, data);
+                        if offset == CONTEXT_CLAIM && *data == 3 {
+                            unsafe {
+                                let cur_time: usize;
+                                asm!("csrr {}, 0xC01", out(reg) cur_time);
+                                SharedStat::add_irq_resp_time(cur_time - irq_set_time);
+                            }
+                        }
                     }
                 }
                 _ => {
