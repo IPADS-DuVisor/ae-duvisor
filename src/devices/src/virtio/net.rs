@@ -18,6 +18,7 @@ use virtio_sys::virtio_net;
 
 use irq_util::IrqChip;
 use irq_util::SharedStat;
+extern crate core_affinity;
 
 /// The maximum buffer size when segmentation offload is enabled. This
 /// includes the 12-byte virtio net header.
@@ -694,6 +695,7 @@ impl VirtioDevice for Net {
                 let rx_kill_evt = kill_evt.try_clone().unwrap();
                 let rx_worker_result = thread::Builder::new().name("virtio_net_rx".to_string()).spawn(
                     move || {
+                        core_affinity::set_for_current(core_affinity::CoreId {id: 2});
                         let mut worker = Worker {
                             mem: mem_clone,
                             rx_queue: rx_queue,
@@ -726,6 +728,7 @@ impl VirtioDevice for Net {
                 let tx_queue_evt = queue_evts.remove(0);
                 let tx_worker_result = thread::Builder::new().name("virtio_net_tx".to_string()).spawn(
                     move || {
+                        core_affinity::set_for_current(core_affinity::CoreId {id: 3});
                         let mut worker = Worker {
                             mem: mem,
                             rx_queue: rx_queue,
