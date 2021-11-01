@@ -66,6 +66,9 @@ struct Worker {
     irqchip: Arc<dyn IrqChip>,
 }
 
+static mut RX_CYCLE_START: usize = 0;
+static mut RX_CYCLE_TOTAL: usize = 0;
+static mut MID_CYCLE_TOTAL: [usize; 16] = [0; 16];
 static mut RX_TIME_START: usize = 0;
 static mut RX_TIME_TOTAL: usize = 0;
 static mut RX_LEN_TOTAL: usize = 0;
@@ -107,6 +110,7 @@ impl Worker {
         }
 
         unsafe {
+            asm!("csrr {}, 0xC00", out(reg) RX_CYCLE_START);
             asm!("csrr {}, 0xC01", out(reg) RX_TIME_START);
         }
         // We just checked that the head descriptor exists.
@@ -116,6 +120,7 @@ impl Worker {
         let mut io_size = 0;
         let mut num_buffers: u16 = 0;
         
+        let mut cycle_start: usize = 0;
         let mut memcpy_start: usize = 0;
 
         // Copy from frame into buffer, which may span multiple descriptors.
@@ -126,6 +131,7 @@ impl Worker {
                         break;
                     }
                     unsafe {
+                        asm!("csrr {}, 0xC00", out(reg) cycle_start);
                         asm!("csrr {}, 0xC01", out(reg) memcpy_start);
                     }
                     loop {
@@ -155,6 +161,12 @@ impl Worker {
                         };
                     }
                     unsafe {
+                        let cur_memcpy_cycle: usize;
+                        asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                        MID_CYCLE_TOTAL[0] += cur_memcpy_cycle - cycle_start;
+                        cycle_start = cur_memcpy_cycle;
+                    }
+                    unsafe {
                         let cur_memcpy_time: usize;
                         asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
                         MID_TIME_TOTAL[0] += cur_memcpy_time - memcpy_start;
@@ -169,6 +181,12 @@ impl Worker {
                                 num_buffers);
                         num_buffers += 1;
                         unsafe {
+                            let cur_memcpy_cycle: usize;
+                            asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                            MID_CYCLE_TOTAL[1] += cur_memcpy_cycle - cycle_start;
+                            cycle_start = cur_memcpy_cycle;
+                        }
+                        unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
                             MID_TIME_TOTAL[1] += cur_memcpy_time - memcpy_start;
@@ -176,6 +194,12 @@ impl Worker {
                             memcpy_start = cur_memcpy_time;
                         }
                         break;
+                    }
+                    unsafe {
+                        let cur_memcpy_cycle: usize;
+                        asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                        MID_CYCLE_TOTAL[2] += cur_memcpy_cycle - cycle_start;
+                        cycle_start = cur_memcpy_cycle;
                     }
                     unsafe {
                         let cur_memcpy_time: usize;
@@ -186,6 +210,12 @@ impl Worker {
                     }
                     
                     if !desc.has_next() {
+                        unsafe {
+                            let cur_memcpy_cycle: usize;
+                            asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                            MID_CYCLE_TOTAL[3] += cur_memcpy_cycle - cycle_start;
+                            cycle_start = cur_memcpy_cycle;
+                        }
                         unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
@@ -199,6 +229,12 @@ impl Worker {
                                 num_buffers);
                         num_buffers += 1;
                         io_size = 0;
+                        unsafe {
+                            let cur_memcpy_cycle: usize;
+                            asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                            MID_CYCLE_TOTAL[4] += cur_memcpy_cycle - cycle_start;
+                            cycle_start = cur_memcpy_cycle;
+                        }
                         unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
@@ -215,6 +251,12 @@ impl Worker {
                         unsafe {
                             asm!("nop");
                             asm!("nop");
+                        }
+                        unsafe {
+                            let cur_memcpy_cycle: usize;
+                            asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                            MID_CYCLE_TOTAL[5] += cur_memcpy_cycle - cycle_start;
+                            cycle_start = cur_memcpy_cycle;
                         }
                         unsafe {
                             let cur_memcpy_time: usize;
@@ -236,6 +278,12 @@ impl Worker {
                         }
                         if next_desc.is_none() {
                             unsafe {
+                                let cur_memcpy_cycle: usize;
+                                asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                                MID_CYCLE_TOTAL[6] += cur_memcpy_cycle - cycle_start;
+                                cycle_start = cur_memcpy_cycle;
+                            }
+                            unsafe {
                                 let cur_memcpy_time: usize;
                                 asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
                                 MID_TIME_TOTAL[6] += cur_memcpy_time - memcpy_start;
@@ -243,6 +291,12 @@ impl Worker {
                                 memcpy_start = cur_memcpy_time;
                             }
                             break;
+                        }
+                        unsafe {
+                            let cur_memcpy_cycle: usize;
+                            asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                            MID_CYCLE_TOTAL[7] += cur_memcpy_cycle - cycle_start;
+                            cycle_start = cur_memcpy_cycle;
                         }
                         unsafe {
                             let cur_memcpy_time: usize;
@@ -254,6 +308,12 @@ impl Worker {
                         first_index = next_desc.as_ref().unwrap().index;
                     } else {
                         next_desc = desc.next_descriptor();
+                        unsafe {
+                            let cur_memcpy_cycle: usize;
+                            asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                            MID_CYCLE_TOTAL[8] += cur_memcpy_cycle - cycle_start;
+                            cycle_start = cur_memcpy_cycle;
+                        }
                         unsafe {
                             let cur_memcpy_time: usize;
                             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
@@ -273,6 +333,12 @@ impl Worker {
             }
         }
         unsafe {
+            let cur_memcpy_cycle: usize;
+            asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+            MID_CYCLE_TOTAL[9] += cur_memcpy_cycle - cycle_start;
+            cycle_start = cur_memcpy_cycle;
+        }
+        unsafe {
             let cur_memcpy_time: usize;
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
             MID_TIME_TOTAL[9] += cur_memcpy_time - memcpy_start;
@@ -281,6 +347,12 @@ impl Worker {
         }
 
         self.net_fix_rx_hdr(&self.mem, head_index, num_buffers);
+        unsafe {
+            let cur_memcpy_cycle: usize;
+            asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+            MID_CYCLE_TOTAL[10] += cur_memcpy_cycle - cycle_start;
+            cycle_start = cur_memcpy_cycle;
+        }
         unsafe {
             let cur_memcpy_time: usize;
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
@@ -291,6 +363,12 @@ impl Worker {
 
         self.rx_queue
             .update_used_idx(&self.mem, num_buffers);
+        unsafe {
+            let cur_memcpy_cycle: usize;
+            asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+            MID_CYCLE_TOTAL[11] += cur_memcpy_cycle - cycle_start;
+            cycle_start = cur_memcpy_cycle;
+        }
         unsafe {
             let cur_memcpy_time: usize;
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
@@ -304,6 +382,12 @@ impl Worker {
         if self.rx_queue.should_signal(&self.mem) {
             self.signal_used_queue(3);
             unsafe {
+                let cur_memcpy_cycle: usize;
+                asm!("csrr {}, 0xC00", out(reg) cur_memcpy_cycle);
+                MID_CYCLE_TOTAL[12] += cur_memcpy_cycle - cycle_start;
+                cycle_start = cur_memcpy_cycle;
+            }
+            unsafe {
                 let cur_memcpy_time: usize;
                 asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
                 MID_TIME_TOTAL[12] += cur_memcpy_time - memcpy_start;
@@ -313,13 +397,21 @@ impl Worker {
         }
 
         unsafe {
+            let cycle: usize;
             let time: usize;
+            asm!("csrr {}, 0xC00", out(reg) cycle);
             asm!("csrr {}, 0xC01", out(reg) time);
+            RX_CYCLE_TOTAL += (time - RX_CYCLE_START);
             RX_TIME_TOTAL += (time - RX_TIME_START);
             RX_LEN_TOTAL += write_count;
             if RX_LEN_TOTAL > (200 << 20) {
                 warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}\n \
+                    RX_CYCLE_TOTAL {}, avg {}\n \
                     mid_time {}, {}, {}, {}\n \
+                    \t\t {}, {}, {}, {}\n \
+                    \t\t {}, {}, {}, {}\n \
+                    \t\t {}\n \
+                    mid_cycle {}, {}, {}, {}\n \
                     \t\t {}, {}, {}, {}\n \
                     \t\t {}, {}, {}, {}\n \
                     \t\t {}\n \
@@ -329,10 +421,15 @@ impl Worker {
                     \t\t {}\n \
                     \t TX_NOTIFY_CNT {}",
                     RX_LEN_TOTAL, RX_TIME_TOTAL, RX_LEN_TOTAL / RX_TIME_TOTAL,
+                    RX_CYCLE_TOTAL, RX_LEN_TOTAL / RX_CYCLE_TOTAL,
                     MID_TIME_TOTAL[0], MID_TIME_TOTAL[1], MID_TIME_TOTAL[2], MID_TIME_TOTAL[3],
                     MID_TIME_TOTAL[4], MID_TIME_TOTAL[5], MID_TIME_TOTAL[6], MID_TIME_TOTAL[7],
                     MID_TIME_TOTAL[8], MID_TIME_TOTAL[9], MID_TIME_TOTAL[10], MID_TIME_TOTAL[11],
                     MID_TIME_TOTAL[12],
+                    MID_CYCLE_TOTAL[0], MID_CYCLE_TOTAL[1], MID_CYCLE_TOTAL[2], MID_CYCLE_TOTAL[3],
+                    MID_CYCLE_TOTAL[4], MID_CYCLE_TOTAL[5], MID_CYCLE_TOTAL[6], MID_CYCLE_TOTAL[7],
+                    MID_CYCLE_TOTAL[8], MID_CYCLE_TOTAL[9], MID_CYCLE_TOTAL[10], MID_CYCLE_TOTAL[11],
+                    MID_CYCLE_TOTAL[12],
 
                     MID_CNT_TOTAL[0], MID_CNT_TOTAL[1], MID_CNT_TOTAL[2], MID_CNT_TOTAL[3],
                     MID_CNT_TOTAL[4], MID_CNT_TOTAL[5], MID_CNT_TOTAL[6], MID_CNT_TOTAL[7],
@@ -343,6 +440,7 @@ impl Worker {
                 TX_NOTIFY_CNT = 0;
                 for i in 0..13 {
                     MID_TIME_TOTAL[i] = 0;
+                    MID_CYCLE_TOTAL[i] = 0;
                     MID_CNT_TOTAL[i] = 0;
                 }
                 SharedStat::print_all();
