@@ -10,14 +10,19 @@ pub trait IrqChip: Send + Sync {
 }
 
 static mut total_cnt: usize = 0;
-static mut ucause_cnt: [usize; 6] = [0; 6];
+static mut ucause_cnt: [usize; 12] = [0; 12];
 
 pub struct SharedStat {}
 
 impl SharedStat {
-    pub fn add_cnt(ucause: usize) {
+    pub fn add_total_cnt() {
         unsafe {
             total_cnt += 1;
+        }
+    }
+    
+    pub fn add_cnt(ucause: usize) {
+        unsafe {
             ucause_cnt[ucause] += 1;
         }
     }
@@ -25,10 +30,13 @@ impl SharedStat {
     pub fn print_all() {
         unsafe {
             println!(">>> VM exit: total count {} \n \
-                \t\t ucause count {} {} {} {} {} {}\n",
+                \t\t {} {} {} {}\n \
+                \t\t {} {} {} {}\n \
+                \t\t {} {} {} {}\n",
                 total_cnt,
-                ucause_cnt[0], ucause_cnt[1], ucause_cnt[2],
-                ucause_cnt[3], ucause_cnt[4], ucause_cnt[5]);
+                ucause_cnt[0], ucause_cnt[1], ucause_cnt[2], ucause_cnt[3],
+                ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7],
+                ucause_cnt[8], ucause_cnt[9], ucause_cnt[10], ucause_cnt[11]);
         }
     }
 
