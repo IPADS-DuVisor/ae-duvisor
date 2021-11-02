@@ -396,6 +396,8 @@ impl Plic {
                         PLIC_TIME_TOTAL[4] += cur_time - time_start;
                         PLIC_CNT_TOTAL[4] += 1;
                         time_start = cur_time;
+                        
+                        irq_set_time = cur_time;
                     }
                 }
                 self.update_local_irq(&mut *ctx, &*state);
