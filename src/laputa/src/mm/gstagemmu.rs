@@ -458,6 +458,14 @@ impl GStageMmu {
     }
 
     pub fn map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> Option<u32> {
+        let ret = self.__map_page(gpa, hpa, flag);
+        unsafe { 
+            hufence_gvma_all();
+        }
+        return ret;
+    }
+    
+    pub fn __map_page(&mut self, gpa: u64, hpa: u64, flag: u64) -> Option<u32> {
         dbgprintln!("enter map_page - gpa: {:x}, hpa: {:x}, flag: {:x}", 
             gpa, hpa, flag);
         let offsets_wrap = self.gpa_to_ptregion_offset(gpa);
@@ -504,11 +512,14 @@ impl GStageMmu {
         let mut offset: u64 = 0;
 
         loop {
-            self.map_page(gpa + offset, hpa + offset, flag);
+            self.__map_page(gpa + offset, hpa + offset, flag);
             offset += PAGE_SIZE;
             if offset >= length {
                 break;
             }
+        }
+        unsafe { 
+            hufence_gvma_all();
         }
 
         Some(0)
@@ -599,7 +610,12 @@ impl GStageMmu {
         length = page_size_round_up(length);
 
         let gpa_start = 0x80000000;
-        let region_wrap = self.allocator.hpm_alloc_vm_mem(gpa - gpa_start, length);
+        let region_wrap;
+        if gpa == 0xf0000000 {
+            region_wrap = self.allocator.hpm_alloc(length);
+        } else {
+            region_wrap = self.allocator.hpm_alloc_vm_mem(gpa - gpa_start, length);
+        }
 
         if region_wrap.is_none() {
             println!("gpa_block_add : hpm_alloc failed");

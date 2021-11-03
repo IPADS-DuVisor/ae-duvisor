@@ -681,7 +681,9 @@ impl VirtioDevice for Net {
                 let rx_kill_evt = kill_evt.try_clone().unwrap();
                 let rx_worker_result = thread::Builder::new().name("virtio_net_rx".to_string()).spawn(
                     move || {
-                        core_affinity::set_for_current(core_affinity::CoreId {id: 2});
+                        let cores = core_affinity::get_core_ids().unwrap();
+                        println!("core_affinity get {} cores, {:?}", cores.len(), cores);
+                        core_affinity::set_for_current(cores[2]);
                         let mut worker = Worker {
                             mem: mem_clone,
                             rx_queue: rx_queue,
@@ -714,7 +716,9 @@ impl VirtioDevice for Net {
                 let tx_queue_evt = queue_evts.remove(0);
                 let tx_worker_result = thread::Builder::new().name("virtio_net_tx".to_string()).spawn(
                     move || {
-                        core_affinity::set_for_current(core_affinity::CoreId {id: 3});
+                        let cores = core_affinity::get_core_ids().unwrap();
+                        println!("core_affinity get {} cores, {:?}", cores.len(), cores);
+                        core_affinity::set_for_current(cores[3]);
                         let mut worker = Worker {
                             mem: mem,
                             rx_queue: rx_queue,

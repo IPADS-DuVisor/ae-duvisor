@@ -310,7 +310,7 @@ impl Queue {
     }
     
     pub fn should_signal(&mut self, mem: &GuestMemory) -> bool {
-        fence(Ordering::Release);
+        unsafe { asm!("fence iorw, iorw") };
         let flags = mem.read_obj_from_addr::<u16>(self.avail_ring).unwrap();
         return (flags & 1) == 0;
     }

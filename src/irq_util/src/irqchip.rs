@@ -13,10 +13,35 @@ static mut total_cnt: usize = 0;
 static mut ucause_cnt: [usize; 12] = [0; 12];
 static mut irq_resp_cnt: usize = 0;
 static mut irq_resp_time: usize = 0;
+static mut shared_mem_hva: *mut u64 = 0 as *mut u64;
 
 pub struct SharedStat {}
 
 impl SharedStat {
+    pub fn get_shared_mem(idx: usize) -> u64 {
+        unsafe {
+            return *shared_mem_hva.add(idx);
+        }
+    }
+
+    pub fn set_shared_mem(idx: usize, val: u64) {
+        unsafe {
+            *shared_mem_hva.add(idx) = val;
+        }
+    }
+
+    pub fn set_shared_memory_hva(hva: u64) {
+        unsafe {
+            asm!("fence iorw, iorw");
+            shared_mem_hva = hva as *mut u64;
+            println!("--- shared_mem hva {:x} = {} {} {} {} {} {}",
+                shared_mem_hva as u64,
+                SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
+                SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3),
+                SharedStat::get_shared_mem(4), SharedStat::get_shared_mem(5));
+        }
+    }
+
     pub fn add_irq_resp_time(resp_time: usize) {
         unsafe {
             irq_resp_cnt += 1;
@@ -46,6 +71,10 @@ impl SharedStat {
                 ucause_cnt[0], ucause_cnt[1], ucause_cnt[2], ucause_cnt[3],
                 ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7],
                 ucause_cnt[8], ucause_cnt[9], ucause_cnt[10], ucause_cnt[11]);
+            println!("\t\t shared_mem: {} {} {} {} {} {}",
+                SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
+                SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3),
+                SharedStat::get_shared_mem(4), SharedStat::get_shared_mem(5));
         }
     }
 
@@ -57,6 +86,10 @@ impl SharedStat {
             for i in 0..12 {
                 ucause_cnt[i] = 0;
             }
+            for i in 0..6 {
+                SharedStat::set_shared_mem(i, 0);
+            }
+            asm!("fence iorw, iorw");
         }
     }
 }

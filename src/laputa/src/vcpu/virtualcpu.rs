@@ -478,6 +478,29 @@ impl VirtualCpu {
         dbgprintln!(
             "gstage fault: hutval: {:x}, utval: {:x}, fault_addr: {:x}",
             hutval, utval, fault_addr);
+
+        if fault_addr == 0xf0000000 {
+            let res = gsmmu.gpa_block_add(fault_addr, PAGE_SIZE);
+
+            if res.is_ok() {
+                /* Map new page to VM if the region exists */
+                let (hva, hpa) = res.unwrap();
+                let flag: u64 = PTE_VRWEU;
+
+                SharedStat::set_shared_memory_hva(hva);
+                #[cfg(feature = "qemu")]
+                gsmmu.map_page(fault_addr, hpa, flag);
+
+                #[cfg(feature = "xilinx")]
+                gsmmu.map_page(fault_addr, hpa, flag | PTE_ACCESS
+                    | PTE_DIRTY);
+
+                return 0;
+            } else {
+                panic!("Create gpa_block for fault addr {:x} failed!",
+                    fault_addr);
+            }
+        }
         
         let gpa_check = gsmmu.check_gpa(fault_addr);
         if !gpa_check {

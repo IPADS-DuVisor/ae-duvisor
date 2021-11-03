@@ -481,7 +481,9 @@ impl VirtualMachine {
         println!("IO thread start polling");
 
         handle = thread::spawn(move || {
-            core_affinity::set_for_current(core_affinity::CoreId{ id: 0 });
+            let cores = core_affinity::get_core_ids().unwrap();
+            println!("core_affinity get {} cores, {:?}", cores.len(), cores);
+            core_affinity::set_for_current(cores[0]);
             unsafe {
                 loop {
                     let input = getchar_emulation();
@@ -515,7 +517,9 @@ impl VirtualMachine {
 
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
-                core_affinity::set_for_current(core_affinity::CoreId{ id: 1 });
+                let cores = core_affinity::get_core_ids().unwrap();
+                println!("core_affinity get {} cores, {:?}", cores.len(), cores);
+                core_affinity::set_for_current(cores[1]);
                 vcpu.thread_vcpu_run(delta_time);
 
                 /* TODO: All the structure should be freed before ULH ends */
