@@ -1,7 +1,5 @@
 cd ~/sim_slot_0
 
-cp ~/br-base-bin linux-uniform-kvm0-br-base-bin-ulh-correct
-
 sudo mount linux-uniform-kvm0-br-base.img  linux-uniform-kvm0-br-base-mnt
 
 cd linux-uniform-kvm0-br-base-mnt/

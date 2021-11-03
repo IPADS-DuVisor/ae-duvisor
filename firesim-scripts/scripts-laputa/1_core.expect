@@ -113,6 +113,21 @@ expect {
 
                         send "./iperf3 -c $HOST  && echo k  3\n"
                         expect "k 3"
+                        
+                        send "./iperf3 -c $HOST\n"
+                        expect "#"
+                        send "./iperf3 -c $HOST\n"
+                        expect "#"
+                        send "./iperf3 -c $HOST\n"
+                        expect "#"
+                        send "./iperf3 -c $HOST\n"
+                        expect "#"
+                        send "./iperf3 -c $HOST\n"
+                        expect "#"
+                        send "./iperf3 -c $HOST\n"
+                        expect "#"
+                        send "./iperf3 -c $HOST\n"
+                        expect "#"
 
                         puts "Check breakdown now! \n"
                         expect "hang hang hang "

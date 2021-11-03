@@ -34,8 +34,12 @@ done
 scp -r ~/firesim/firesim-scripts/scripts-rootfs $FPGA_IP:~/
 scp ~/firesim/mnt-firesim.tar.gz $FPGA_IP:~/
 ssh $FPGA_IP "sudo tar -vxzf mnt-firesim.tar.gz"
-scp ~/firesim/br-base-bin $FPGA_IP:~/
 
+if [[ $1 == "laputa" ]]; then
+scp ~/firesim/br-base-bin $FPGA_IP:~/sim_slot_0/linux-uniform-kvm0-br-base-bin-ulh-correct
+else
+scp ~/firesim/br-base-bin $FPGA_IP:~/sim_slot_0/linux-uniform-kvm0-br-base-bin-kvm-correct
+fi
 ssh $FPGA_IP "./scripts-rootfs/copy_myself.sh"
 
 ssh $FPGA_IP "./switch_to_${1}.sh"
