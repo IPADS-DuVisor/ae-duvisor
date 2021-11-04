@@ -200,9 +200,12 @@ pub struct Queue {
 
     /// Guest physical address of the used ring
     pub used_ring: GuestAddress,
-
+    
+    /// Same as last_avail_idx?
     next_avail: Wrapping<u16>,
     next_used: Wrapping<u16>,
+    
+    pub last_used_signalled: u16,
 }
 
 impl Queue {
@@ -217,6 +220,7 @@ impl Queue {
             used_ring: GuestAddress(0),
             next_avail: Wrapping(0),
             next_used: Wrapping(0),
+            last_used_signalled: 0,
         }
     }
 
@@ -326,16 +330,6 @@ impl Queue {
             *(used_elem_hva as *mut u32) = head_idx as u32;
             *(used_elem_hva.add(4) as *mut u32) = len;
         }
-        //let used_ring = self.used_ring;
-        ////let next_used = ((self.next_used.0 + num_buffers) % self.actual_size()) as usize;
-        //let idx = mem.read_obj_from_addr::<u16>(self.used_ring.unchecked_add(2)).unwrap() + num_buffers;
-        //let next_used = (idx % self.actual_size()) as usize;
-        //let used_elem = used_ring.unchecked_add(4 + next_used * 8);
-
-        //// These writes can't fail as we are guaranteed to be within the descriptor ring.
-        //mem.write_obj_at_addr(head_idx as u32, used_elem).unwrap();
-        //mem.write_obj_at_addr(len as u32, used_elem.unchecked_add(4))
-        //    .unwrap();
     }
 
     pub fn update_used_idx(&mut self, mem: &GuestMemory, num_buffers: u16) {
@@ -346,16 +340,6 @@ impl Queue {
             fence(Ordering::Release);
             *(used_ring_hva.add(2) as *mut u16) = used_idx;
         }
-        ////self.next_used += Wrapping(num_buffers);
-        //self.next_used = Wrapping(
-        //    mem.read_obj_from_addr::<u16>(self.used_ring.unchecked_add(2)).unwrap()
-        //    + num_buffers);
-
-        //// This fence ensures all descriptor writes are visible before the index update is.
-        //fence(Ordering::Release);
-
-        //mem.write_obj_at_addr(self.next_used.0 as u16, self.used_ring.unchecked_add(2))
-        //    .unwrap();
     }
 
     /// Puts an available descriptor head into the used ring for use by the guest.
@@ -369,7 +353,9 @@ impl Queue {
         }
 
         let used_ring = self.used_ring;
-        let next_used = (self.next_used.0 % self.actual_size()) as usize;
+        let used_ring_hva = mem.get_host_address(used_ring).unwrap();
+        let used_idx = unsafe { *(used_ring_hva.add(2) as *const u16) };
+        let next_used = (used_idx % self.actual_size()) as usize;
         let used_elem = used_ring.unchecked_add(4 + next_used * 8);
 
         // These writes can't fail as we are guaranteed to be within the descriptor ring.
@@ -377,12 +363,10 @@ impl Queue {
         mem.write_obj_at_addr(len as u32, used_elem.unchecked_add(4))
             .unwrap();
 
-        self.next_used += Wrapping(1);
-
         // This fence ensures all descriptor writes are visible before the index update is.
         fence(Ordering::Release);
 
-        mem.write_obj_at_addr(self.next_used.0 as u16, used_ring.unchecked_add(2))
+        mem.write_obj_at_addr(used_idx + 1, used_ring.unchecked_add(2))
             .unwrap();
     }
 }
