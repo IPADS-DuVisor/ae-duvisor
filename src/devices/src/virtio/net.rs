@@ -208,6 +208,10 @@ impl Worker {
                             MID_CNT_TOTAL[4] += 1;
                             memcpy_start = cur_memcpy_time;
                         }
+                        while !self.rx_queue.has_avail(&self.mem) {
+                            use std::{thread, time};
+                            thread::sleep(time::Duration::from_millis(0));
+                        }
                         //next_desc = self.rx_queue.iter(&self.mem).next();
                         let mut iter = self.rx_queue.iter(&self.mem);
                         unsafe {
@@ -345,6 +349,8 @@ impl Worker {
     fn process_rx(&mut self) {
         // Read as many frames as possible.
         loop {
+            if !self.rx_queue.has_avail(&self.mem) { break; }
+
             let res = self.tap.read(&mut self.rx_buf);
             match res {
                 Ok(count) => {

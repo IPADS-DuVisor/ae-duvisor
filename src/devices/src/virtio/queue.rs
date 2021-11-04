@@ -203,6 +203,7 @@ pub struct Queue {
     
     /// Same as last_avail_idx?
     next_avail: Wrapping<u16>,
+    /// Used as last_used_signalled
     next_used: Wrapping<u16>,
     
     pub last_used_signalled: u16,
@@ -310,6 +311,20 @@ impl Queue {
             last_index: Wrapping(last_index),
             queue_size: queue_size,
             next_avail: &mut self.next_avail,
+        }
+    }
+
+    // For EVENT_IDX
+    pub fn has_avail(&self, mem: &GuestMemory) -> bool {
+        unsafe {
+            let avail_ring_hva = mem.get_host_address(self.avail_ring).unwrap();
+            let avail_idx = *(avail_ring_hva.add(2) as *const u16);
+            let used_ring_hva = mem.get_host_address(self.used_ring).unwrap();
+            // FIXME: actual_size should be 256
+            *(used_ring_hva.add(self.actual_size() as usize * 8)
+                as *mut u16) = self.next_avail.0;
+            asm!("fence iorw, iorw");
+            return avail_idx != self.next_avail.0;
         }
     }
     
