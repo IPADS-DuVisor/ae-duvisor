@@ -145,9 +145,9 @@ impl HpmAllocator {
         let test_buf_pfn: u64; /* HPA */
         
         #[cfg(feature = "xilinx")]
-        let test_buf_size: usize = 32 << 20; /* 1 GB for now */
+        let test_buf_size: usize = 2 << 20; /* 1 GB for now */
         #[cfg(feature = "qemu")]
-        let test_buf_size: usize = 32 << 20; /* 1 GB for now */
+        let test_buf_size: usize = 2 << 20; /* 1 GB for now */
         
         let version: u64 = 0;
 
@@ -202,7 +202,7 @@ impl HpmAllocator {
 
         // TODO: check if (offset + gpa_start, length) is in (gpa_start, 1 GB)
         if self.vm_mem_region.length == 0 {
-            self.vm_mem_region = self.pmp_alloc_vm_mem(1 << 30).unwrap();
+            self.vm_mem_region = self.pmp_alloc_vm_mem(512 << 20).unwrap();
         }
 
         target_hpm_region = &self.vm_mem_region;

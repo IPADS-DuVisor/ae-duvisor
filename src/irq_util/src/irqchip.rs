@@ -66,12 +66,15 @@ impl SharedStat {
             println!(">>> VM exit: total {}, irq cnt {}, resp {}, avg {} \n \
                 \t\t {} {} {} {}\n \
                 \t\t {} {} {} {}\n \
-                \t\t {} {} {} {}\n",
+                \t\t {} {} {} {}",
                 total_cnt, irq_resp_cnt, irq_resp_time, irq_resp_time/ irq_resp_cnt,
                 ucause_cnt[0], ucause_cnt[1], ucause_cnt[2], ucause_cnt[3],
                 ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7],
                 ucause_cnt[8], ucause_cnt[9], ucause_cnt[10], ucause_cnt[11]);
-            println!("\t\t shared_mem: {} {} {} {} {} {}",
+            println!("\t disable_irq total {}, cnt {}, avg {}\n \
+                \t\t {} {} {} {} {} {}",
+                SharedStat::get_shared_mem(6), SharedStat::get_shared_mem(7),
+                SharedStat::get_shared_mem(6) / SharedStat::get_shared_mem(7),
                 SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
                 SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3),
                 SharedStat::get_shared_mem(4), SharedStat::get_shared_mem(5));
@@ -86,7 +89,7 @@ impl SharedStat {
             for i in 0..12 {
                 ucause_cnt[i] = 0;
             }
-            for i in 0..6 {
+            for i in 0..8 {
                 SharedStat::set_shared_mem(i, 0);
             }
             asm!("fence iorw, iorw");

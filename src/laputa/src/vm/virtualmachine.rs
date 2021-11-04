@@ -480,10 +480,24 @@ impl VirtualMachine {
 
         println!("IO thread start polling");
 
+        let set_aff = |cpuid: usize| {
+            use libc::{cpu_set_t, sched_setaffinity, CPU_SET};
+            use std::mem::{size_of, zeroed};
+
+            let mut set = unsafe { zeroed::<cpu_set_t>() };
+            unsafe { CPU_SET(cpuid, &mut set) };
+
+            unsafe {
+                sched_setaffinity(
+                    0, // Defaults to current thread
+                    size_of::<cpu_set_t>(),
+                    &set as *const _,
+                )
+            }
+        };
+
         handle = thread::spawn(move || {
-            let cores = core_affinity::get_core_ids().unwrap();
-            println!("core_affinity get {} cores, {:?}", cores.len(), cores);
-            core_affinity::set_for_current(cores[0]);
+            set_aff(0);
             unsafe {
                 loop {
                     let input = getchar_emulation();
@@ -512,14 +526,28 @@ impl VirtualMachine {
             vcpu_handle.push(io_handle);
         }
 
+        let set_aff = |cpuid: usize| {
+            use libc::{cpu_set_t, sched_setaffinity, CPU_SET};
+            use std::mem::{size_of, zeroed};
+
+            let mut set = unsafe { zeroed::<cpu_set_t>() };
+            unsafe { CPU_SET(cpuid, &mut set) };
+
+            unsafe {
+                sched_setaffinity(
+                    0, // Defaults to current thread
+                    size_of::<cpu_set_t>(),
+                    &set as *const _,
+                )
+            }
+        };
+
         for i in &self.vcpus {
             let vcpu = i.clone();
 
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
-                let cores = core_affinity::get_core_ids().unwrap();
-                println!("core_affinity get {} cores, {:?}", cores.len(), cores);
-                core_affinity::set_for_current(cores[1]);
+                set_aff(1);
                 vcpu.thread_vcpu_run(delta_time);
 
                 /* TODO: All the structure should be freed before ULH ends */

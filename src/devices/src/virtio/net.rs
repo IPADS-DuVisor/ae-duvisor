@@ -665,6 +665,22 @@ impl VirtioDevice for Net {
             return;
         }
 
+        let set_aff = |cpuid: usize| {
+            use libc::{cpu_set_t, sched_setaffinity, CPU_SET};
+            use std::mem::{size_of, zeroed};
+
+            let mut set = unsafe { zeroed::<cpu_set_t>() };
+            unsafe { CPU_SET(cpuid, &mut set) };
+
+            unsafe {
+                sched_setaffinity(
+                    0, // Defaults to current thread
+                    size_of::<cpu_set_t>(),
+                    &set as *const _,
+                )
+            }
+        };
+
         if let Some(tap) = self.tap.take() {
             if let Some(kill_evt) = self.workers_kill_evt.take() {
                 let acked_features = self.acked_features;
@@ -681,9 +697,7 @@ impl VirtioDevice for Net {
                 let rx_kill_evt = kill_evt.try_clone().unwrap();
                 let rx_worker_result = thread::Builder::new().name("virtio_net_rx".to_string()).spawn(
                     move || {
-                        let cores = core_affinity::get_core_ids().unwrap();
-                        println!("core_affinity get {} cores, {:?}", cores.len(), cores);
-                        core_affinity::set_for_current(cores[2]);
+                        set_aff(2);
                         let mut worker = Worker {
                             mem: mem_clone,
                             rx_queue: rx_queue,
@@ -716,9 +730,7 @@ impl VirtioDevice for Net {
                 let tx_queue_evt = queue_evts.remove(0);
                 let tx_worker_result = thread::Builder::new().name("virtio_net_tx".to_string()).spawn(
                     move || {
-                        let cores = core_affinity::get_core_ids().unwrap();
-                        println!("core_affinity get {} cores, {:?}", cores.len(), cores);
-                        core_affinity::set_for_current(cores[3]);
+                        set_aff(3);
                         let mut worker = Worker {
                             mem: mem,
                             rx_queue: rx_queue,
