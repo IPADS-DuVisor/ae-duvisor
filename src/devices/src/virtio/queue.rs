@@ -205,8 +205,6 @@ pub struct Queue {
     next_avail: Wrapping<u16>,
     /// Used as last_used_signalled
     next_used: Wrapping<u16>,
-    
-    pub last_used_signalled: u16,
 }
 
 impl Queue {
@@ -221,7 +219,6 @@ impl Queue {
             used_ring: GuestAddress(0),
             next_avail: Wrapping(0),
             next_used: Wrapping(0),
-            last_used_signalled: 0,
         }
     }
 
@@ -285,7 +282,8 @@ impl Queue {
 
     /// A consuming iterator over all available descriptor chain heads offered by the driver.
     pub fn iter<'a, 'b>(&'b mut self, mem: &'a GuestMemory) -> AvailIter<'a, 'b> {
-        if !self.is_valid(mem) {
+        //if !self.is_valid(mem) {
+        if !self.has_avail(mem) || !self.is_valid(mem) {
             return AvailIter {
                 mem: mem,
                 desc_table: GuestAddress(0),
@@ -299,6 +297,7 @@ impl Queue {
         let queue_size = self.actual_size();
         let avail_ring = self.avail_ring;
 
+        unsafe { asm!("fence iorw, iorw"); }
         let index_addr = mem.checked_offset(avail_ring, 2).unwrap();
         // Note that last_index has no invalid values
         let last_index: u16 = mem.read_obj_from_addr::<u16>(index_addr).unwrap();
@@ -321,17 +320,34 @@ impl Queue {
             let avail_idx = *(avail_ring_hva.add(2) as *const u16);
             let used_ring_hva = mem.get_host_address(self.used_ring).unwrap();
             // FIXME: actual_size should be 256
-            *(used_ring_hva.add(self.actual_size() as usize * 8)
+            *(used_ring_hva.add(4 + 8 * self.actual_size() as usize)
                 as *mut u16) = self.next_avail.0;
             asm!("fence iorw, iorw");
+            //return true;
             return avail_idx != self.next_avail.0;
         }
     }
     
     pub fn should_signal(&mut self, mem: &GuestMemory) -> bool {
-        unsafe { asm!("fence iorw, iorw") };
-        let flags = mem.read_obj_from_addr::<u16>(self.avail_ring).unwrap();
-        return (flags & 1) == 0;
+        unsafe {
+            asm!("fence iorw, iorw");
+            
+            let used_ring_hva = mem.get_host_address(self.used_ring).unwrap();
+            let avail_ring_hva = mem.get_host_address(self.avail_ring).unwrap();
+            let old_idx = self.next_used.0;
+            let new_idx = *(used_ring_hva.add(2) as *const u16);
+            let event_idx = *(avail_ring_hva.add(4 + 2 * self.actual_size() as usize)
+                as *const u16);
+
+            if (new_idx - event_idx - 1) < (new_idx - old_idx) {
+                self.next_used = Wrapping(new_idx);
+                return true;
+            }
+            return true;
+            //return false;
+        }
+        //let flags = mem.read_obj_from_addr::<u16>(self.avail_ring).unwrap();
+        //return (flags & 1) == 0;
     }
 
     // For F_MRG_RXBUF

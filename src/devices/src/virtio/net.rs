@@ -335,8 +335,8 @@ impl Worker {
                     MID_TIME_TOTAL[i] = 0;
                     MID_CNT_TOTAL[i] = 0;
                 }
-                SharedStat::print_all();
-                SharedStat::reset_all();
+                //SharedStat::print_all();
+                //SharedStat::reset_all();
             }
         }
         if next_desc.is_none() {
@@ -349,7 +349,7 @@ impl Worker {
     fn process_rx(&mut self) {
         // Read as many frames as possible.
         loop {
-            if !self.rx_queue.has_avail(&self.mem) { break; }
+            //if !self.rx_queue.has_avail(&self.mem) { break; }
 
             let res = self.tap.read(&mut self.rx_buf);
             match res {
@@ -377,9 +377,14 @@ impl Worker {
         let mut used_desc_heads = [0u16; QUEUE_SIZE as usize];
         let mut used_count = 0;
 
-        for avail_desc in self.tx_queue.iter(&self.mem) {
-            let head_index = avail_desc.index;
-            let mut next_desc = Some(avail_desc);
+        loop {
+            let mut next_desc = self.tx_queue.iter(&self.mem).next();
+            
+            if next_desc.is_none() {
+                break;
+            }
+
+            let head_index = next_desc.as_ref().unwrap().index;
             let mut read_count = 0;
 
             // Copy buffer from across multiple descriptors.
@@ -390,31 +395,10 @@ impl Worker {
                             break;
                         }
                         let limit = cmp::min(read_count + desc.len as usize, frame.len());
-                        //let read_result = self.mem
-                        //    .read_slice_at_addr(&mut frame[read_count..limit as usize], desc.addr);
-                        //if limit - read_count > 4096 {
-                        //    println!("--- {}:{} limit - read_count: {}, res: {:?}",
-                        //        limit, read_count, limit - read_count, 
-                        //        read_result);
-                        //}
-                        //match read_result {
-                        //    Ok(sz) => {
-                        //        read_count += sz;
-                        //    }
-                        //    Err(e) => {
-                        //        warn!("net: tx: failed to read slice: {:?}", e);
-                        //        break;
-                        //    }
-                        //}
                         let mut cur_len: usize = 0;
                         while cur_len < desc.len as usize {
                             let read_result = self.mem
                                 .read_slice_at_addr(&mut frame[read_count..limit as usize], desc.addr.unchecked_add(cur_len));
-                            //if limit - read_count > 4096 {
-                            //    println!("--- {}:{} limit - read_count: {}, res: {:?}",
-                            //        limit, read_count, limit - read_count, 
-                            //        read_result);
-                            //}
                             match read_result {
                                 Ok(sz) => {
                                     read_count += sz;
@@ -590,6 +574,7 @@ impl Net {
             | 1 << virtio_net::VIRTIO_NET_F_HOST_TSO4
             | 1 << virtio_net::VIRTIO_NET_F_HOST_UFO
             | 1 << virtio_net::VIRTIO_NET_F_MRG_RXBUF
+            | 1 << virtio_net::VIRTIO_RING_F_EVENT_IDX
             | 1 << virtio_net::VIRTIO_F_VERSION_1;
 
         Ok(Net {
