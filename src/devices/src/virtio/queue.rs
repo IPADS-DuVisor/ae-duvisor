@@ -282,7 +282,6 @@ impl Queue {
 
     /// A consuming iterator over all available descriptor chain heads offered by the driver.
     pub fn iter<'a, 'b>(&'b mut self, mem: &'a GuestMemory) -> AvailIter<'a, 'b> {
-        //if !self.is_valid(mem) {
         if !self.has_avail(mem) || !self.is_valid(mem) {
             return AvailIter {
                 mem: mem,
@@ -319,11 +318,9 @@ impl Queue {
             let avail_ring_hva = mem.get_host_address(self.avail_ring).unwrap();
             let avail_idx = *(avail_ring_hva.add(2) as *const u16);
             let used_ring_hva = mem.get_host_address(self.used_ring).unwrap();
-            // FIXME: actual_size should be 256
             *(used_ring_hva.add(4 + 8 * self.actual_size() as usize)
                 as *mut u16) = self.next_avail.0;
             asm!("fence iorw, iorw");
-            //return true;
             return avail_idx != self.next_avail.0;
         }
     }
@@ -343,8 +340,7 @@ impl Queue {
                 self.next_used = Wrapping(new_idx);
                 return true;
             }
-            return true;
-            //return false;
+            return false;
         }
         //let flags = mem.read_obj_from_addr::<u16>(self.avail_ring).unwrap();
         //return (flags & 1) == 0;
@@ -367,7 +363,6 @@ impl Queue {
         unsafe {
             let used_ring_hva = mem.get_host_address(self.used_ring).unwrap();
             let used_idx = *(used_ring_hva.add(2) as *const u16) + num_buffers;
-            self.next_used = Wrapping(used_idx);
             fence(Ordering::Release);
             *(used_ring_hva.add(2) as *mut u16) = used_idx;
         }
