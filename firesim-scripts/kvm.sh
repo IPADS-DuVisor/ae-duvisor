@@ -18,10 +18,8 @@ IP=`echo $IP_STRING | cut -d " " -f 1`
 echo IP is $IP
 
 if [ $1 == "sync" ]; then
-    scp -o "ProxyCommand nc -X 5 -x 192.168.10.1:1080 %h %p" -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem -r firesim-scripts centos@${IP}:~/firesim
     tar -czf mnt-firesim.tar.gz mnt-firesim
-    scp -o "ProxyCommand nc -X 5 -x 192.168.10.1:1080 %h %p" -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem mnt-firesim.tar.gz centos@${IP}:~/firesim
-    scp -o "ProxyCommand nc -X 5 -x 192.168.10.1:1080 %h %p" -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem br-base-bin centos@${IP}:~/firesim
+    rsync -P -avz -e 'ssh -o "ProxyCommand nc -X 5 -x 192.168.10.1:1080 %h %p" -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem' -r br-base-bin-kvm mnt-firesim.tar.gz firesim-scripts centos@${IP}:~/firesim
 fi
 # running laputa
 #echo running laputa benchmark
@@ -29,7 +27,7 @@ fi
 
 # running kvm
 echo running kvm benchmark
-ssh -f -o "ProxyCommand nc -X 5 -x 192.168.10.1:1080 %h %p" -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem centos@${IP} "cd firesim/firesim-scripts && nohup ./scripts-laputa/start.sh kvm >/dev/null 2>&1 &"
+ssh -f -o "ProxyCommand nc -X 5 -x 192.168.10.1:1080 %h %p" -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem centos@${IP} "cd firesim/firesim-scripts && nohup ./scripts-laputa/start.sh kvm > ~/kvm.log 2>&1 &"
 
 ## sync remote results
 #rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem" -r centos@${IP}:~/firesim/log-laputa/ raw/ 
