@@ -335,8 +335,8 @@ impl Worker {
                     MID_TIME_TOTAL[i] = 0;
                     MID_CNT_TOTAL[i] = 0;
                 }
-                //SharedStat::print_all();
-                //SharedStat::reset_all();
+                SharedStat::print_all();
+                SharedStat::reset_all();
             }
         }
         if next_desc.is_none() {
@@ -688,7 +688,7 @@ impl VirtioDevice for Net {
                 let rx_kill_evt = kill_evt.try_clone().unwrap();
                 let rx_worker_result = thread::Builder::new().name("virtio_net_rx".to_string()).spawn(
                     move || {
-                        set_aff(2);
+                        //set_aff(2);
                         let mut worker = Worker {
                             mem: mem_clone,
                             rx_queue: rx_queue,
@@ -721,7 +721,7 @@ impl VirtioDevice for Net {
                 let tx_queue_evt = queue_evts.remove(0);
                 let tx_worker_result = thread::Builder::new().name("virtio_net_tx".to_string()).spawn(
                     move || {
-                        set_aff(3);
+                        //set_aff(3);
                         let mut worker = Worker {
                             mem: mem,
                             rx_queue: rx_queue,

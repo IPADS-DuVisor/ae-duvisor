@@ -321,7 +321,8 @@ impl Queue {
             *(used_ring_hva.add(4 + 8 * self.actual_size() as usize)
                 as *mut u16) = self.next_avail.0;
             asm!("fence iorw, iorw");
-            return avail_idx != self.next_avail.0;
+            //return avail_idx != self.next_avail.0;
+            return true;
         }
     }
     

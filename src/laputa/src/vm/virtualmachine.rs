@@ -497,7 +497,7 @@ impl VirtualMachine {
         };
 
         handle = thread::spawn(move || {
-            set_aff(0);
+            //set_aff(0);
             unsafe {
                 loop {
                     let input = getchar_emulation();
@@ -547,7 +547,7 @@ impl VirtualMachine {
 
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
-                set_aff(1);
+                //set_aff(1);
                 vcpu.thread_vcpu_run(delta_time);
 
                 /* TODO: All the structure should be freed before ULH ends */
