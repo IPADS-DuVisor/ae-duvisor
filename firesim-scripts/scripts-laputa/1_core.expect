@@ -9,7 +9,7 @@ set env(SUDO_COMMAND) /bin/bash
 set HOST "172.16.0.4"
 set FPGA "192.168.3.5"
 set kvm_or_laputa [lindex $argv 0]
-set TIMES 10
+set TIMES 50
 
 if {$kvm_or_laputa == "laputa"} {
     set HOST_NET "host_net_ulh.sh"
@@ -45,15 +45,19 @@ expect {
 	
 			expect "#"
 			send "mount /dev/vda root && chroot root bash\n"
-
-                        expect "#"
-                        send "\n"
                         
                         expect "#"
                         send "env TERM=vt1000 bash \n"
 
                         expect "#"
                         send "\n"
+                        
+#                        expect "#"
+#                        send "insmod toy.ko && rmmod toy \n"
+#                        
+#                        expect "iter 800000"
+#                        send "\n"
+#                        send "\n"
                         
                         expect "#"
                         send "\n"
@@ -102,11 +106,14 @@ expect {
    		 	send "mount blk-dev.img root && chroot root \n"
    		 	expect "root@buildroot:"
 
-                        send "./iperf3 -c $HOST  && echo k  j\n"
+                        send "./iperf3 -c $HOST -t 30 && echo k  j\n"
                         expect "k j"
 
-                        send "./iperf3 -c $HOST  && echo k  1\n"
+                        send "./iperf3 -c $HOST -t 30 && echo k  1\n"
                         expect "k 1"
+
+                        send "./iperf3 -c $HOST -t 30 && echo k  2\n"
+                        expect "k 2"
 
                         send "\n"
                         send "\n"
@@ -124,17 +131,51 @@ expect {
 	}
 }
 
-expect {
-        "Server listening" {
+expect "Server listening"
             send "\n"
             send "\n"
             send "\n"
-            exp_continue
-        }
-	
-        "#" {
+        
+        expect "#" {
 		send "killall iperf3 && echo a  1\n"
 		expect "a 1" 
+
+                send "rm -f /var/run/apache2/apache2.pid && echo a  2\n"
+		expect "a 2" 
+                
+                send "./apache_server.sh && echo 'hello apache' | tr a-z A-Z\n"
+                expect "HELLO APACHE"
+                send "\x01"; send "d"
+        }	
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+expect {
+    "#" {
+        send "HOST=http://$HOST/ TIMES=$TIMES ./apache_client.sh && HOST=http://$HOST/data TIMES=$TIMES ./curl_client.sh  && echo 'bye apache' | tr a-z A-Z\n"
+            expect "BYE APACHE"
+
+            send "\x01"; send "d"
+    }	
+}
+
+expect {
+	"centos@ip" {
+		send "\n"
+		send "\n"
+                expect "centos@ip"
+		
+                send "screen -r fsim0\n"
+	}
+}
+expect {
+        "#" {
+		send "./apache_kill.sh && echo a  b\n"
+		expect "a b"
 		send "./memcached_server.sh && echo a  c\n"
 		expect "a c" 
 		send "echo 'Hello Memcached' | tr a-z A-Z\n"
