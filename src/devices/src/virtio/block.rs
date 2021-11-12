@@ -401,10 +401,27 @@ impl VirtioDevice for Block {
             }
         };
         self.kill_evt = Some(self_kill_evt);
+        
+        let set_aff = |cpuid: usize| {
+            use libc::{cpu_set_t, sched_setaffinity, CPU_SET};
+            use std::mem::{size_of, zeroed};
+
+            let mut set = unsafe { zeroed::<cpu_set_t>() };
+            unsafe { CPU_SET(cpuid, &mut set) };
+
+            unsafe {
+                sched_setaffinity(
+                    0, // Defaults to current thread
+                    size_of::<cpu_set_t>(),
+                    &set as *const _,
+                )
+            }
+        };
 
         if let Some(disk_image) = self.disk_image.take() {
             let worker_result = thread::Builder::new().name("virtio_blk".to_string()).spawn(
                 move || {
+                    set_aff(1);
                     let mut worker = Worker {
                         queues: queues,
                         mem: mem,

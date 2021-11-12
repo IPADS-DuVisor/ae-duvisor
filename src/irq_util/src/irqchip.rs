@@ -10,10 +10,13 @@ pub trait IrqChip: Send + Sync {
 }
 
 static mut total_cnt: usize = 0;
+static mut total_time: usize = 0;
 static mut ucause_cnt: [usize; 12] = [0; 12];
+static mut ucause_time: [usize; 12] = [0; 12];
 static mut irq_resp_cnt: usize = 0;
 static mut irq_resp_time: usize = 0;
 static mut shared_mem_hva: *mut u64 = 0 as *mut u64;
+static mut NO_AVAIL_CNT: usize = 0;
 
 pub struct SharedStat {}
 
@@ -49,35 +52,45 @@ impl SharedStat {
         }
     }
 
-    pub fn add_total_cnt() {
+    pub fn add_total_cnt(time: usize) {
         unsafe {
+            total_time += time;
             total_cnt += 1;
         }
     }
     
-    pub fn add_cnt(ucause: usize) {
+    pub fn add_cnt(ucause: usize, time: usize) {
         unsafe {
+            ucause_time[ucause] += time;
             ucause_cnt[ucause] += 1;
+        }
+    }
+    
+    pub fn cnt_no_avail() {
+        unsafe {
+            NO_AVAIL_CNT += 1;
         }
     }
     
     pub fn print_all() {
         unsafe {
-            println!(">>> VM exit: total {}, irq cnt {}, resp {}, avg {} \n \
+            println!(">>> VM exit: time {}, cnt {}, avg {}, NO_AVAIL_CNT {} \n \
+                \t\t time {} {} {} {}\n \
                 \t\t {} {} {} {}\n \
-                \t\t {} {} {} {}\n \
+                \t\t cnt {} {} {} {}\n \
                 \t\t {} {} {} {}",
-                total_cnt, irq_resp_cnt, irq_resp_time, irq_resp_time/ irq_resp_cnt,
+                total_time, total_cnt, total_time / total_cnt, NO_AVAIL_CNT,
+                ucause_time[0], ucause_time[1], ucause_time[2], ucause_time[3],
+                ucause_time[4], ucause_time[5], ucause_time[6], ucause_time[7],
                 ucause_cnt[0], ucause_cnt[1], ucause_cnt[2], ucause_cnt[3],
-                ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7],
-                ucause_cnt[8], ucause_cnt[9], ucause_cnt[10], ucause_cnt[11]);
-            println!("\t disable_irq total {}, cnt {}, avg {}\n \
-                \t\t {} {} {} {} {} {}",
-                SharedStat::get_shared_mem(6), SharedStat::get_shared_mem(7),
-                SharedStat::get_shared_mem(6) / SharedStat::get_shared_mem(7),
-                SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
-                SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3),
-                SharedStat::get_shared_mem(4), SharedStat::get_shared_mem(5));
+                ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7]);
+            //println!("  total {}, cnt {}, avg {}\n \
+            //    \t\t {} {} {} {} {} {}",
+            //    SharedStat::get_shared_mem(6), SharedStat::get_shared_mem(7),
+            //    SharedStat::get_shared_mem(6) / SharedStat::get_shared_mem(7),
+            //    SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
+            //    SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3),
+            //    SharedStat::get_shared_mem(4), SharedStat::get_shared_mem(5));
         }
     }
 
@@ -86,12 +99,14 @@ impl SharedStat {
             total_cnt = 0;
             irq_resp_cnt = 0;
             irq_resp_time = 0;
+            NO_AVAIL_CNT = 0;
             for i in 0..12 {
+                ucause_time[i] = 0;
                 ucause_cnt[i] = 0;
             }
-            for i in 0..8 {
-                SharedStat::set_shared_mem(i, 0);
-            }
+            //for i in 0..8 {
+            //    SharedStat::set_shared_mem(i, 0);
+            //}
             asm!("fence iorw, iorw");
         }
     }

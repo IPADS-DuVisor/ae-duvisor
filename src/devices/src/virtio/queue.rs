@@ -314,6 +314,8 @@ impl Queue {
 
     // For EVENT_IDX
     pub fn has_avail(&self, mem: &GuestMemory) -> bool {
+        use irq_util::SharedStat;
+        //return true;
         unsafe {
             let avail_ring_hva = mem.get_host_address(self.avail_ring).unwrap();
             let avail_idx = *(avail_ring_hva.add(2) as *const u16);
@@ -321,6 +323,9 @@ impl Queue {
             *(used_ring_hva.add(4 + 8 * self.actual_size() as usize)
                 as *mut u16) = self.next_avail.0;
             asm!("fence iorw, iorw");
+            if avail_idx == self.next_avail.0 {
+                SharedStat::cnt_no_avail();
+            }
             //return avail_idx != self.next_avail.0;
             return true;
         }

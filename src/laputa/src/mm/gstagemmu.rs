@@ -639,7 +639,7 @@ impl GStageMmu {
         }
         if self.guest_mem.end_addr().offset() == 0 {
             let offset = gpa - gpa_start;
-            self.guest_mem.lazy_init(hva - offset, gpa_start, hpa - offset, 1 << 30);
+            self.guest_mem.lazy_init(hva - offset, gpa_start, hpa - offset, 2 << 30);
         }
 
         return Ok((hva, hpa));

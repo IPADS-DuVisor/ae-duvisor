@@ -72,6 +72,7 @@ static mut RX_LEN_TOTAL: usize = 0;
 static mut MID_TIME_TOTAL: [usize; 16] = [0; 16];
 static mut MID_CNT_TOTAL: [usize; 16] = [0; 16];
 static mut TX_NOTIFY_CNT: usize = 0;
+static mut DEFERRED_CNT: usize = 0;
 
 impl Worker {
     fn signal_used_queue(&self, nr_irq: u32) {
@@ -103,6 +104,7 @@ impl Worker {
         let mut next_desc = self.rx_queue.iter(&self.mem).next();
 
         if next_desc.is_none() {
+            unsafe { DEFERRED_CNT += 1; }
             return false;
         }
 
@@ -317,7 +319,7 @@ impl Worker {
                     \t\t {}, {}, {}, {}\n \
                     \t\t {}, {}, {}, {}\n \
                     \t\t {}\n \
-                    \t TX_NOTIFY_CNT {}",
+                    \t TX_NOTIFY_CNT {}, DEFERRED_CNT {}",
                     RX_LEN_TOTAL, RX_TIME_TOTAL, RX_LEN_TOTAL / RX_TIME_TOTAL,
                     MID_TIME_TOTAL[0], MID_TIME_TOTAL[1], MID_TIME_TOTAL[2], MID_TIME_TOTAL[3],
                     MID_TIME_TOTAL[4], MID_TIME_TOTAL[5], MID_TIME_TOTAL[6], MID_TIME_TOTAL[7],
@@ -327,10 +329,11 @@ impl Worker {
                     MID_CNT_TOTAL[0], MID_CNT_TOTAL[1], MID_CNT_TOTAL[2], MID_CNT_TOTAL[3],
                     MID_CNT_TOTAL[4], MID_CNT_TOTAL[5], MID_CNT_TOTAL[6], MID_CNT_TOTAL[7],
                     MID_CNT_TOTAL[8], MID_CNT_TOTAL[9], MID_CNT_TOTAL[10], MID_CNT_TOTAL[11],
-                    MID_CNT_TOTAL[12], TX_NOTIFY_CNT);
+                    MID_CNT_TOTAL[12], TX_NOTIFY_CNT, DEFERRED_CNT);
                 RX_LEN_TOTAL = 0;
                 RX_TIME_TOTAL = 0;
                 TX_NOTIFY_CNT = 0;
+                DEFERRED_CNT = 0;
                 for i in 0..13 {
                     MID_TIME_TOTAL[i] = 0;
                     MID_CNT_TOTAL[i] = 0;
@@ -340,6 +343,7 @@ impl Worker {
             }
         }
         if next_desc.is_none() {
+            unsafe { DEFERRED_CNT += 1; }
             return false;
         } else {
             return true;
@@ -688,7 +692,7 @@ impl VirtioDevice for Net {
                 let rx_kill_evt = kill_evt.try_clone().unwrap();
                 let rx_worker_result = thread::Builder::new().name("virtio_net_rx".to_string()).spawn(
                     move || {
-                        //set_aff(2);
+                        set_aff(2);
                         let mut worker = Worker {
                             mem: mem_clone,
                             rx_queue: rx_queue,
@@ -721,7 +725,7 @@ impl VirtioDevice for Net {
                 let tx_queue_evt = queue_evts.remove(0);
                 let tx_worker_result = thread::Builder::new().name("virtio_net_tx".to_string()).spawn(
                     move || {
-                        //set_aff(3);
+                        set_aff(3);
                         let mut worker = Worker {
                             mem: mem,
                             rx_queue: rx_queue,

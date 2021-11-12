@@ -547,7 +547,7 @@ impl VirtualMachine {
 
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
-                //set_aff(1);
+                set_aff(7 - vcpu.vcpu_id as usize);
                 vcpu.thread_vcpu_run(delta_time);
 
                 /* TODO: All the structure should be freed before ULH ends */
