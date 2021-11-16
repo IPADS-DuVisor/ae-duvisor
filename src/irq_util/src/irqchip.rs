@@ -17,10 +17,23 @@ static mut irq_resp_cnt: usize = 0;
 static mut irq_resp_time: usize = 0;
 static mut shared_mem_hva: *mut u64 = 0 as *mut u64;
 static mut NO_AVAIL_CNT: usize = 0;
+static mut DEBUG_FLAG: bool = false;
 
 pub struct SharedStat {}
 
 impl SharedStat {
+    pub fn set_debug_flag(val: bool) {
+        unsafe {
+            DEBUG_FLAG = val;
+        }
+    }
+
+    pub fn get_debug_flag() -> bool {
+        unsafe {
+            return DEBUG_FLAG;
+        }
+    }
+
     pub fn get_shared_mem(idx: usize) -> u64 {
         unsafe {
             return *shared_mem_hva.add(idx);
@@ -96,6 +109,7 @@ impl SharedStat {
 
     pub fn reset_all() {
         unsafe {
+            total_time = 0;
             total_cnt = 0;
             irq_resp_cnt = 0;
             irq_resp_time = 0;

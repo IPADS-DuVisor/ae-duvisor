@@ -34,6 +34,8 @@ pub mod sbi_number {
     pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA: u64 = 0x6;
     pub const SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID: u64 = 0x7;
     pub const SBI_EXT_0_1_SHUTDOWN: u64 = 0x8;
+    pub const SBI_EXT_0_1_DEBUG_START: u64 = 0x11;
+    pub const SBI_EXT_0_1_DEBUG_END: u64 = 0x12;
 }
 
 /*
@@ -214,6 +216,20 @@ impl Ecall {
                     self.ret[0] = ecall_ret[0];
                     self.ret[1] = ecall_ret[1];
                 }
+                ret = 0;
+            },
+            SBI_EXT_0_1_DEBUG_START => {
+                extern crate irq_util;
+                use irq_util::SharedStat;
+                SharedStat::reset_all();
+                SharedStat::set_debug_flag(true);
+                ret = 0;
+            },
+            SBI_EXT_0_1_DEBUG_END => {
+                extern crate irq_util;
+                use irq_util::SharedStat;
+                SharedStat::set_debug_flag(false);
+                SharedStat::print_all();
                 ret = 0;
             },
             SBI_TEST_SPACE_START..=SBI_TEST_SPACE_END => { /* ULH Extension */
