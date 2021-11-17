@@ -46,6 +46,12 @@ impl SharedStat {
         }
     }
 
+    pub fn add_shared_mem(idx: usize, val: u64) {
+        unsafe {
+            *shared_mem_hva.add(idx) += val;
+        }
+    }
+
     pub fn set_shared_memory_hva(hva: u64) {
         unsafe {
             asm!("fence iorw, iorw");
@@ -97,13 +103,9 @@ impl SharedStat {
                 ucause_time[4], ucause_time[5], ucause_time[6], ucause_time[7],
                 ucause_cnt[0], ucause_cnt[1], ucause_cnt[2], ucause_cnt[3],
                 ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7]);
-            //println!("  total {}, cnt {}, avg {}\n \
-            //    \t\t {} {} {} {} {} {}",
-            //    SharedStat::get_shared_mem(6), SharedStat::get_shared_mem(7),
-            //    SharedStat::get_shared_mem(6) / SharedStat::get_shared_mem(7),
-            //    SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
-            //    SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3),
-            //    SharedStat::get_shared_mem(4), SharedStat::get_shared_mem(5));
+            println!("\t\t host irq cnt {} {} notify {} {}",
+                SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
+                SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3));
         }
     }
 
@@ -118,9 +120,9 @@ impl SharedStat {
                 ucause_time[i] = 0;
                 ucause_cnt[i] = 0;
             }
-            //for i in 0..8 {
-            //    SharedStat::set_shared_mem(i, 0);
-            //}
+            for i in 0..8 {
+                SharedStat::set_shared_mem(i, 0);
+            }
             asm!("fence iorw, iorw");
         }
     }

@@ -286,6 +286,7 @@ impl Worker {
             asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
             MID_TIME_TOTAL[11] += cur_memcpy_time - memcpy_start;
             MID_CNT_TOTAL[11] += 1;
+            SharedStat::set_shared_mem(2, MID_CNT_TOTAL[11] as u64);
             memcpy_start = cur_memcpy_time;
         }
 
@@ -298,6 +299,7 @@ impl Worker {
                 asm!("csrr {}, 0xC01", out(reg) cur_memcpy_time);
                 MID_TIME_TOTAL[12] += cur_memcpy_time - memcpy_start;
                 MID_CNT_TOTAL[12] += 1;
+                SharedStat::set_shared_mem(3, MID_CNT_TOTAL[12] as u64);
                 memcpy_start = cur_memcpy_time;
             }
         }

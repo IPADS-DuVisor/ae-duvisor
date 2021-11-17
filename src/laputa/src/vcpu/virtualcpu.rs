@@ -834,7 +834,14 @@ impl VirtualCpu {
                         prev_cause = 5;
                     }
                     _ => {
-                        prev_cause = 0;
+                        let hwirq = cause & (!EXC_IRQ_MASK);
+                        if hwirq == IRQ_U_SOFT {
+                            prev_cause = 6;
+                        } else if hwirq == IRQ_U_TIMER {
+                            prev_cause = 7;
+                        } else {
+                            prev_cause = 0;
+                        } 
                     }
                 }
             }
