@@ -18,6 +18,8 @@ static mut irq_resp_time: usize = 0;
 static mut shared_mem_hva: *mut u64 = 0 as *mut u64;
 static mut NO_AVAIL_CNT: usize = 0;
 static mut DEBUG_FLAG: bool = false;
+static mut PRODUCER_IDX: usize = 0;
+static mut CONSUMER_IDX: usize = 1;
 
 pub struct SharedStat {}
 
@@ -49,6 +51,26 @@ impl SharedStat {
     pub fn add_shared_mem(idx: usize, val: u64) {
         unsafe {
             *shared_mem_hva.add(idx) += val;
+        }
+    }
+
+    pub fn get_rx_pkt() {
+        unsafe {
+            if CONSUMER_IDX > 50000 || CONSUMER_IDX > PRODUCER_IDX { return; }
+            let prev_time = *shared_mem_hva.add(6 + CONSUMER_IDX - 1);
+            let cur_time: u64;
+            asm!("csrr {}, 0xC01", out(reg) cur_time);
+            *shared_mem_hva.add(50006 + CONSUMER_IDX - 1) =
+                cur_time - prev_time;
+            CONSUMER_IDX += 1;
+        }
+    }
+
+    pub fn add_rx_pkt(time: u64) {
+        unsafe {
+            if PRODUCER_IDX >= 50000 { return; }
+            *shared_mem_hva.add(6 + PRODUCER_IDX) = time;
+            PRODUCER_IDX += 1;
         }
     }
 
@@ -103,9 +125,34 @@ impl SharedStat {
                 ucause_time[4], ucause_time[5], ucause_time[6], ucause_time[7],
                 ucause_cnt[0], ucause_cnt[1], ucause_cnt[2], ucause_cnt[3],
                 ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7]);
-            println!("\t\t host irq cnt {} {} notify {} {}",
+            println!("\t host irq {} {} loop notify {} {} rx time len {} {} \n \
+                \t tap cnt {} time {} {} len {} avg {}",
                 SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
-                SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3));
+                SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3),
+                SharedStat::get_shared_mem(4), SharedStat::get_shared_mem(5),
+                SharedStat::get_shared_mem(110000), SharedStat::get_shared_mem(110001),
+                SharedStat::get_shared_mem(110003), SharedStat::get_shared_mem(110002),
+                SharedStat::get_shared_mem(110002) / SharedStat::get_shared_mem(110000));
+            let mut sum_rx = 0;
+            let mut nr_rx = 0;
+            let mut nr_zero = 0;
+            for i in 0..50000 {
+                let prev_time = SharedStat::get_shared_mem(6 + i);
+                let elem = SharedStat::get_shared_mem(50006 + i);
+                if elem != 0 {
+                    sum_rx += elem;
+                    nr_rx += 1;
+                } else if prev_time != 0 {
+                    nr_zero += 1;
+                }
+                if i % 10000 == 0 && nr_rx != 0 {
+                    println!("\t\t [{}] time_rx {} nr_rx {} nr_zero {} avg {}",
+                        i, sum_rx, nr_rx, nr_zero, sum_rx / nr_rx);
+                    sum_rx = 0;
+                    nr_rx = 0;
+                    nr_zero = 0;
+                }
+            }
         }
     }
 
@@ -120,7 +167,9 @@ impl SharedStat {
                 ucause_time[i] = 0;
                 ucause_cnt[i] = 0;
             }
-            for i in 0..8 {
+            PRODUCER_IDX = 0;
+            CONSUMER_IDX = 1;
+            for i in 0..131072 {
                 SharedStat::set_shared_mem(i, 0);
             }
             asm!("fence iorw, iorw");

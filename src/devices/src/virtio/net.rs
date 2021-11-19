@@ -302,47 +302,56 @@ impl Worker {
                 SharedStat::set_shared_mem(3, MID_CNT_TOTAL[12] as u64);
                 memcpy_start = cur_memcpy_time;
             }
+            if SharedStat::get_debug_flag() {
+                unsafe {
+                    let time: usize;
+                    asm!("csrr {}, 0xC01", out(reg) time);
+                    SharedStat::add_shared_mem(4, (time - RX_TIME_START) as u64);
+                    SharedStat::add_shared_mem(5, write_count as u64);
+                    SharedStat::add_rx_pkt(time as u64);
+                }
+            }
         }
 
         unsafe {
-            let cycle: usize;
-            let time: usize;
-            asm!("csrr {}, 0xC00", out(reg) cycle);
-            asm!("csrr {}, 0xC01", out(reg) time);
-            RX_TIME_TOTAL += (time - RX_TIME_START);
-            RX_LEN_TOTAL += write_count;
-            if RX_LEN_TOTAL > (200 << 20) {
-                warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}\n \
-                    mid_time {}, {}, {}, {}\n \
-                    \t\t {}, {}, {}, {}\n \
-                    \t\t {}, {}, {}, {}\n \
-                    \t\t {}\n \
-                    mid_cnt {}, {}, {}, {}\n \
-                    \t\t {}, {}, {}, {}\n \
-                    \t\t {}, {}, {}, {}\n \
-                    \t\t {}\n \
-                    \t TX_NOTIFY_CNT {}, DEFERRED_CNT {}",
-                    RX_LEN_TOTAL, RX_TIME_TOTAL, RX_LEN_TOTAL / RX_TIME_TOTAL,
-                    MID_TIME_TOTAL[0], MID_TIME_TOTAL[1], MID_TIME_TOTAL[2], MID_TIME_TOTAL[3],
-                    MID_TIME_TOTAL[4], MID_TIME_TOTAL[5], MID_TIME_TOTAL[6], MID_TIME_TOTAL[7],
-                    MID_TIME_TOTAL[8], MID_TIME_TOTAL[9], MID_TIME_TOTAL[10], MID_TIME_TOTAL[11],
-                    MID_TIME_TOTAL[12],
+            //let cycle: usize;
+            //let time: usize;
+            //asm!("csrr {}, 0xC00", out(reg) cycle);
+            //asm!("csrr {}, 0xC01", out(reg) time);
+            //RX_TIME_TOTAL += (time - RX_TIME_START);
+            //RX_LEN_TOTAL += write_count;
+            //if RX_LEN_TOTAL > (200 << 20) {
+            //    warn!("--- RX_LEN_TOTAL {}, RX_TIME_TOTAL {}, avg {}\n \
+            //        mid_time {}, {}, {}, {}\n \
+            //        \t\t {}, {}, {}, {}\n \
+            //        \t\t {}, {}, {}, {}\n \
+            //        \t\t {}\n \
+            //        mid_cnt {}, {}, {}, {}\n \
+            //        \t\t {}, {}, {}, {}\n \
+            //        \t\t {}, {}, {}, {}\n \
+            //        \t\t {}\n \
+            //        \t TX_NOTIFY_CNT {}, DEFERRED_CNT {}",
+            //        RX_LEN_TOTAL, RX_TIME_TOTAL, RX_LEN_TOTAL / RX_TIME_TOTAL,
+            //        MID_TIME_TOTAL[0], MID_TIME_TOTAL[1], MID_TIME_TOTAL[2], MID_TIME_TOTAL[3],
+            //        MID_TIME_TOTAL[4], MID_TIME_TOTAL[5], MID_TIME_TOTAL[6], MID_TIME_TOTAL[7],
+            //        MID_TIME_TOTAL[8], MID_TIME_TOTAL[9], MID_TIME_TOTAL[10], MID_TIME_TOTAL[11],
+            //        MID_TIME_TOTAL[12],
 
-                    MID_CNT_TOTAL[0], MID_CNT_TOTAL[1], MID_CNT_TOTAL[2], MID_CNT_TOTAL[3],
-                    MID_CNT_TOTAL[4], MID_CNT_TOTAL[5], MID_CNT_TOTAL[6], MID_CNT_TOTAL[7],
-                    MID_CNT_TOTAL[8], MID_CNT_TOTAL[9], MID_CNT_TOTAL[10], MID_CNT_TOTAL[11],
-                    MID_CNT_TOTAL[12], TX_NOTIFY_CNT, DEFERRED_CNT);
-                RX_LEN_TOTAL = 0;
-                RX_TIME_TOTAL = 0;
-                TX_NOTIFY_CNT = 0;
-                DEFERRED_CNT = 0;
-                for i in 0..13 {
-                    MID_TIME_TOTAL[i] = 0;
-                    MID_CNT_TOTAL[i] = 0;
-                }
-                SharedStat::print_all();
-                SharedStat::reset_all();
-            }
+            //        MID_CNT_TOTAL[0], MID_CNT_TOTAL[1], MID_CNT_TOTAL[2], MID_CNT_TOTAL[3],
+            //        MID_CNT_TOTAL[4], MID_CNT_TOTAL[5], MID_CNT_TOTAL[6], MID_CNT_TOTAL[7],
+            //        MID_CNT_TOTAL[8], MID_CNT_TOTAL[9], MID_CNT_TOTAL[10], MID_CNT_TOTAL[11],
+            //        MID_CNT_TOTAL[12], TX_NOTIFY_CNT, DEFERRED_CNT);
+            //    RX_LEN_TOTAL = 0;
+            //    RX_TIME_TOTAL = 0;
+            //    TX_NOTIFY_CNT = 0;
+            //    DEFERRED_CNT = 0;
+            //    for i in 0..13 {
+            //        MID_TIME_TOTAL[i] = 0;
+            //        MID_CNT_TOTAL[i] = 0;
+            //    }
+            //    SharedStat::print_all();
+            //    SharedStat::reset_all();
+            //}
         }
         if next_desc.is_none() {
             unsafe { DEFERRED_CNT += 1; }
@@ -357,9 +366,21 @@ impl Worker {
         loop {
             //if !self.rx_queue.has_avail(&self.mem) { break; }
 
+            let tap_start_time: u64;
+            let tap_end_time: u64;
+            unsafe {
+                asm!("csrr {}, 0xC01", out(reg) tap_start_time);
+            }
             let res = self.tap.read(&mut self.rx_buf);
             match res {
                 Ok(count) => {
+                    unsafe {
+                        asm!("csrr {}, 0xC01", out(reg) tap_end_time);
+                        SharedStat::add_shared_mem(110000, 1);
+                        SharedStat::add_shared_mem(110001, tap_end_time - tap_start_time);
+                        SharedStat::set_shared_mem(110003, tap_end_time - tap_start_time);
+                        SharedStat::add_shared_mem(110002, count as u64);
+                    }
                     self.rx_count = count;
                     if !self.rx_single_frame() {
                         self.deferred_rx = true;

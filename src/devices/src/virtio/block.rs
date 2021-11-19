@@ -195,18 +195,22 @@ impl Request {
             .map_err(ExecuteError::Seek)?;
         match self.request_type {
             RequestType::In => {
-                self.do_in_pages(move |gpa, src, len| {
-                    mem.read_to_memory(gpa, src, len)
-                        .map_err(ExecuteError::Read)
-                    }, disk)?;
+                mem.read_to_memory(self.data_addr, disk, self.data_len as usize)
+                    .map_err(ExecuteError::Read)?;
+                //self.do_in_pages(move |gpa, src, len| {
+                //    mem.read_to_memory(gpa, src, len)
+                //        .map_err(ExecuteError::Read)
+                //    }, disk)?;
 
                 return Ok(self.data_len);
             }
             RequestType::Out => {
-                self.do_in_pages(move |gpa, src, len| {
-                    mem.write_from_memory(gpa, src, len)
-                        .map_err(ExecuteError::Write)
-                    }, disk)?;
+                mem.write_from_memory(self.data_addr, disk, self.data_len as usize)
+                    .map_err(ExecuteError::Write)?;
+                //self.do_in_pages(move |gpa, src, len| {
+                //    mem.write_from_memory(gpa, src, len)
+                //        .map_err(ExecuteError::Write)
+                //    }, disk)?;
             }
             RequestType::Flush => disk.flush().map_err(ExecuteError::Flush)?,
             RequestType::Unsupported(t) => return Err(ExecuteError::Unsupported(t)),
