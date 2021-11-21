@@ -125,34 +125,47 @@ impl SharedStat {
                 ucause_time[4], ucause_time[5], ucause_time[6], ucause_time[7],
                 ucause_cnt[0], ucause_cnt[1], ucause_cnt[2], ucause_cnt[3],
                 ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7]);
-            println!("\t host irq {} {} loop notify {} {} rx time len {} {} \n \
-                \t tap cnt {} time {} {} len {} avg {}",
-                SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
-                SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3),
-                SharedStat::get_shared_mem(4), SharedStat::get_shared_mem(5),
-                SharedStat::get_shared_mem(110000), SharedStat::get_shared_mem(110001),
-                SharedStat::get_shared_mem(110003), SharedStat::get_shared_mem(110002),
-                SharedStat::get_shared_mem(110002) / SharedStat::get_shared_mem(110000));
-            let mut sum_rx = 0;
-            let mut nr_rx = 0;
-            let mut nr_zero = 0;
-            for i in 0..50000 {
-                let prev_time = SharedStat::get_shared_mem(6 + i);
-                let elem = SharedStat::get_shared_mem(50006 + i);
-                if elem != 0 {
-                    sum_rx += elem;
-                    nr_rx += 1;
-                } else if prev_time != 0 {
-                    nr_zero += 1;
-                }
-                if i % 10000 == 0 && nr_rx != 0 {
-                    println!("\t\t [{}] time_rx {} nr_rx {} nr_zero {} avg {}",
-                        i, sum_rx, nr_rx, nr_zero, sum_rx / nr_rx);
-                    sum_rx = 0;
-                    nr_rx = 0;
-                    nr_zero = 0;
-                }
-            }
+            //println!("\t host irq {} {} loop notify {} {} rx time len {} {} \n \
+            //    \t tap cnt {} time {} {} len {} avg {}",
+            //    SharedStat::get_shared_mem(0), SharedStat::get_shared_mem(1),
+            //    SharedStat::get_shared_mem(2), SharedStat::get_shared_mem(3),
+            //    SharedStat::get_shared_mem(4), SharedStat::get_shared_mem(5),
+            //    SharedStat::get_shared_mem(110000), SharedStat::get_shared_mem(110001),
+            //    SharedStat::get_shared_mem(110003), SharedStat::get_shared_mem(110002),
+            //    SharedStat::get_shared_mem(110002) / SharedStat::get_shared_mem(110000));
+            println!("\t block READ cnt {} time {} len {} avg {}",
+                SharedStat::get_shared_mem(110005), SharedStat::get_shared_mem(110006),
+                SharedStat::get_shared_mem(110007),
+                SharedStat::get_shared_mem(110007) / (SharedStat::get_shared_mem(110006) + 1));
+            println!("\t block WRITE cnt {} time {} len {} avg {}",
+                SharedStat::get_shared_mem(110010), SharedStat::get_shared_mem(110011),
+                SharedStat::get_shared_mem(110012),
+                SharedStat::get_shared_mem(110012) / (SharedStat::get_shared_mem(110011) + 1));
+            println!("\t block FLUSH cnt {} time {} len {} avg {}",
+                SharedStat::get_shared_mem(110015), SharedStat::get_shared_mem(110016),
+                SharedStat::get_shared_mem(110017),
+                SharedStat::get_shared_mem(110017) / (SharedStat::get_shared_mem(110016) + 1));
+
+            //let mut sum_rx = 0;
+            //let mut nr_rx = 0;
+            //let mut nr_zero = 0;
+            //for i in 0..50000 {
+            //    let prev_time = SharedStat::get_shared_mem(6 + i);
+            //    let elem = SharedStat::get_shared_mem(50006 + i);
+            //    if elem != 0 {
+            //        sum_rx += elem;
+            //        nr_rx += 1;
+            //    } else if prev_time != 0 {
+            //        nr_zero += 1;
+            //    }
+            //    if i % 10000 == 0 && nr_rx != 0 {
+            //        println!("\t\t [{}] time_rx {} nr_rx {} nr_zero {} avg {}",
+            //            i, sum_rx, nr_rx, nr_zero, sum_rx / nr_rx);
+            //        sum_rx = 0;
+            //        nr_rx = 0;
+            //        nr_zero = 0;
+            //    }
+            //}
         }
     }
 

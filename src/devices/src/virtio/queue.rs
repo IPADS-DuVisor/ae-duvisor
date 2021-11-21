@@ -39,6 +39,22 @@ pub struct DescriptorChain<'a> {
 it be an error, rather than returning None ?! Maybe it makes sense sometimes to have a 0
 length queue? strange ... */
 impl<'a> DescriptorChain<'a> {
+    fn invalid_new(
+        mem: &GuestMemory,
+    ) -> DescriptorChain {
+        DescriptorChain {
+            mem: mem,
+            desc_table: GuestAddress(0),
+            queue_size: 0,
+            ttl: 0,
+            index: 0,
+            addr: GuestAddress(0),
+            len: 0,
+            flags: 0,
+            next: 0,
+        }
+    }
+
     fn checked_new(
         mem: &GuestMemory,
         desc_table: GuestAddress,
@@ -139,6 +155,10 @@ impl<'a> DescriptorChain<'a> {
             //    line!(), self.flags & VIRTQ_DESC_F_NEXT, self.ttl);
             None
         }
+    }
+    
+    pub fn null_descriptor(&self) -> DescriptorChain<'a> {
+        DescriptorChain::invalid_new(self.mem)
     }
 }
 

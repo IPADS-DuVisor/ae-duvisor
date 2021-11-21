@@ -4,7 +4,7 @@
 
 use std::cmp;
 use std::fs::File;
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write, Result};
 use std::result;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -20,6 +20,10 @@ const SECTOR_SHIFT: u8 = 9;
 const SECTOR_SIZE: u64 = 0x01 << SECTOR_SHIFT;
 const QUEUE_SIZE: u16 = 256;
 const QUEUE_SIZES: &'static [u16] = &[QUEUE_SIZE];
+
+const VIRTIO_BLK_F_SEG_MAX: u32 = 2;
+const VIRTIO_BLK_F_FLUSH: u32 = 9;
+const VIRTIO_RING_F_EVENT_IDX: u32 = 29;
 
 const VIRTIO_BLK_T_IN: u32 = 0;
 const VIRTIO_BLK_T_OUT: u32 = 1;
@@ -107,6 +111,16 @@ struct Request {
     status_addr: GuestAddress,
 }
 
+pub trait Fsync {
+    fn fsync(&self) -> io::Result<()>;
+}
+
+impl Fsync for File {
+    fn fsync(&self) -> io::Result<()> {
+        self.sync_all()
+    }
+}
+
 impl Request {
     fn parse(
         avail_desc: &DescriptorChain,
@@ -119,18 +133,30 @@ impl Request {
 
         let req_type = request_type(&mem, avail_desc.addr)?;
         let sector = sector(&mem, avail_desc.addr)?;
-        let data_desc = avail_desc
-            .next_descriptor()
-            .ok_or(ParseError::DescriptorChainTooShort)?;
-        let status_desc = data_desc
-            .next_descriptor()
-            .ok_or(ParseError::DescriptorChainTooShort)?;
+        let data_desc;
+        if req_type != RequestType::Flush {
+            data_desc = avail_desc
+                .next_descriptor()
+                .ok_or(ParseError::DescriptorChainTooShort)?;
+        } else {
+            data_desc = avail_desc.null_descriptor();
+        }
+        let status_desc; 
+        if req_type == RequestType::Flush {
+            status_desc = avail_desc
+                .next_descriptor()
+                .ok_or(ParseError::DescriptorChainTooShort)?;
+        } else {
+            status_desc = data_desc
+                .next_descriptor()
+                .ok_or(ParseError::DescriptorChainTooShort)?;
+        }
 
-        if data_desc.is_write_only() && req_type == RequestType::Out {
+        if req_type == RequestType::Out && data_desc.is_write_only() {
             return Err(ParseError::UnexpectedWriteOnlyDescriptor);
         }
 
-        if !data_desc.is_write_only() && req_type == RequestType::In {
+        if req_type == RequestType::In && !data_desc.is_write_only() {
             return Err(ParseError::UnexpectedReadOnlyDescriptor);
         }
 
@@ -186,17 +212,28 @@ impl Request {
         Ok(())
     }
 
-    fn execute<T: Seek + Read + Write>(
+    fn execute<T: Seek + Read + Write + Fsync>(
         &self,
         disk: &mut T,
         mem: &GuestMemory,
     ) -> result::Result<u32, ExecuteError> {
+        use irq_util::SharedStat;
         disk.seek(SeekFrom::Start(self.sector << SECTOR_SHIFT))
             .map_err(ExecuteError::Seek)?;
         match self.request_type {
             RequestType::In => {
+                let (time_start, time_end): (u64, u64);
+                unsafe {
+                    asm!("csrr {}, 0xC01", out(reg) time_start);
+                }
                 mem.read_to_memory(self.data_addr, disk, self.data_len as usize)
                     .map_err(ExecuteError::Read)?;
+                unsafe {
+                    asm!("csrr {}, 0xC01", out(reg) time_end);
+                }
+                SharedStat::add_shared_mem(110005, 1);
+                SharedStat::add_shared_mem(110006, time_end - time_start);
+                SharedStat::add_shared_mem(110007, self.data_len as u64);
                 //self.do_in_pages(move |gpa, src, len| {
                 //    mem.read_to_memory(gpa, src, len)
                 //        .map_err(ExecuteError::Read)
@@ -205,14 +242,37 @@ impl Request {
                 return Ok(self.data_len);
             }
             RequestType::Out => {
+                let (time_start, time_end): (u64, u64);
+                unsafe {
+                    asm!("csrr {}, 0xC01", out(reg) time_start);
+                }
                 mem.write_from_memory(self.data_addr, disk, self.data_len as usize)
                     .map_err(ExecuteError::Write)?;
+                unsafe {
+                    asm!("csrr {}, 0xC01", out(reg) time_end);
+                }
+                SharedStat::add_shared_mem(110010, 1);
+                SharedStat::add_shared_mem(110011, time_end - time_start);
+                SharedStat::add_shared_mem(110012, self.data_len as u64);
                 //self.do_in_pages(move |gpa, src, len| {
                 //    mem.write_from_memory(gpa, src, len)
                 //        .map_err(ExecuteError::Write)
                 //    }, disk)?;
             }
-            RequestType::Flush => disk.flush().map_err(ExecuteError::Flush)?,
+            RequestType::Flush => {
+                let (time_start, time_end): (u64, u64);
+                unsafe {
+                    asm!("csrr {}, 0xC01", out(reg) time_start);
+                }
+                //disk.flush().map_err(ExecuteError::Flush)?;
+                disk.fsync().map_err(ExecuteError::Flush)?;
+                unsafe {
+                    asm!("csrr {}, 0xC01", out(reg) time_end);
+                }
+                SharedStat::add_shared_mem(110015, 1);
+                SharedStat::add_shared_mem(110016, time_end - time_start);
+                SharedStat::add_shared_mem(110017, 0);
+            }
             RequestType::Unsupported(t) => return Err(ExecuteError::Unsupported(t)),
         };
         Ok(0)
@@ -318,6 +378,8 @@ pub struct Block {
     kill_evt: Option<EventFd>,
     disk_image: Option<File>,
     config_space: Vec<u8>,
+    avail_features: u64,
+    acked_features: u64,
 }
 
 fn build_config_space(disk_size: u64) -> Vec<u8> {
@@ -346,10 +408,18 @@ impl Block {
                 SECTOR_SIZE
             );
         }
+        let avail_features = 1 << VIRTIO_BLK_F_SEG_MAX
+        | 1 << VIRTIO_BLK_F_FLUSH;
+        //let avail_features = 1 << VIRTIO_BLK_F_SEG_MAX
+        //    | 1 << VIRTIO_BLK_F_FLUSH
+        //    | 1 << VIRTIO_RING_F_EVENT_IDX;
+
         Ok(Block {
             kill_evt: None,
             disk_image: Some(disk_image),
             config_space: build_config_space(disk_size),
+            avail_features: avail_features,
+            acked_features: 0u64,
         })
     }
 }
@@ -370,6 +440,42 @@ impl VirtioDevice for Block {
 
     fn queue_max_sizes(&self) -> &[u16] {
         QUEUE_SIZES
+    }
+
+    fn features(&self, page: u32) -> u32 {
+        match page {
+            0 => self.avail_features as u32,
+            1 => (self.avail_features >> 32) as u32,
+            _ => {
+                warn!("blk: virtio block got request for features page: {}", page);
+                0u32
+            }
+        }
+    }
+
+    fn ack_features(&mut self, page: u32, value: u32) {
+        let mut v = match page {
+            0 => value as u64,
+            1 => (value as u64) << 32,
+            _ => {
+                warn!(
+                    "blk: virtio block device cannot ack unknown feature page: {}",
+                    page
+                );
+                0u64
+            }
+        };
+
+        // Check if the guest is ACK'ing a feature that we didn't claim to have.
+        let unrequested_features = v & !self.avail_features;
+        if unrequested_features != 0 {
+            warn!("blk: virtio block got unknown feature ack: {:x}", v);
+
+            // Don't count these features as acked.
+            v &= !unrequested_features;
+        }
+        self.acked_features |= v;
+        warn!("--- virtio block acked_features 0x{:x}", self.acked_features);
     }
 
     fn read_config(&self, offset: u64, mut data: &mut [u8]) {
