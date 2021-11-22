@@ -7,7 +7,7 @@ set env(SHELL) /bin/bash
 set env(SHLVL) 2
 set env(SUDO_COMMAND) /bin/bash
 set HOST "172.16.0.4"
-set FPGA "192.168.3.5"
+set FPGA "192.168.0.80"
 set kvm_or_laputa [lindex $argv 0]
 set TIMES 10
 

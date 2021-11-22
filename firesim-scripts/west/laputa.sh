@@ -19,18 +19,18 @@ echo IP is $IP
 
 if [ $1 == "sync" ]; then
     tar -czf mnt-firesim.tar.gz mnt-firesim
-    rsync -P -avz -e 'ssh -o "ProxyCommand nc -X 5 -x 192.168.10.1:1080 %h %p" -o StrictHostKeyChecking=no -i ~/aws-scripts/west/firesim.pem' -r br-base-bin-laputa mnt-firesim.tar.gz firesim-scripts centos@${IP}:~/firesim
+    rsync -P -avz -e 'ssh -o "ProxyCommand nc -X 5 -x 192.168.10.1:7890 %h %p" -o StrictHostKeyChecking=no -i ~/aws-scripts/west/firesim.pem' -r br-base-bin-laputa mnt-firesim.tar.gz firesim-scripts centos@${IP}:~/firesim
 fi
 # running laputa
 echo running laputa benchmark
-ssh -f -o "ProxyCommand nc -X 5 -x 192.168.10.1:1080 %h %p" -o StrictHostKeyChecking=no -i ~/aws-scripts/west/firesim.pem centos@${IP} "cd firesim/firesim-scripts && nohup ./scripts-laputa/start.sh laputa > ~/laputa.log 2>&1 &"
+ssh -f -o "ProxyCommand nc -X 5 -x 192.168.10.1:7890 %h %p" -o StrictHostKeyChecking=no -i ~/aws-scripts/west/firesim.pem centos@${IP} "cd firesim/firesim-scripts && nohup ./scripts-laputa/start.sh laputa > ~/laputa.log 2>&1 &"
 
 # running kvm
 #echo running kvm benchmark
-#ssh -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem centos@${IP} "cd firesim/firesim-scripts && ./scripts-laputa/start.sh kvm"
+#ssh -o StrictHostKeyChecking=no -i ~/aws-scripts/west/firesim.pem centos@${IP} "cd firesim/firesim-scripts && ./scripts-laputa/start.sh kvm"
 
 ## sync remote results
-#rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem" -r centos@${IP}:~/firesim/log-laputa/ raw/ 
+#rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ~/aws-scripts/west/firesim.pem" -r centos@${IP}:~/firesim/log-laputa/ raw/ 
 
 # stop firesim
 #aws ec2 stop-instances --instance-ids i-05d4ae3c817ac285a --no-cli-pager
@@ -59,8 +59,8 @@ ssh -f -o "ProxyCommand nc -X 5 -x 192.168.10.1:1080 %h %p" -o StrictHostKeyChec
 #echo IP is $IP
 #
 ## sync remote firesim files to CI
-#rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem" -r centos@${IP}:~/firesim/log-laputa/ raw/ 
-#rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ~/Downloads/firesim.pem" -r centos@${IP}:~/firesim/firesim-scripts/log-laputa/ raw/ 
+#rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ~/aws-scripts/west/firesim.pem" -r centos@${IP}:~/firesim/log-laputa/ raw/ 
+#rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ~/aws-scripts/west/firesim.pem" -r centos@${IP}:~/firesim/firesim-scripts/log-laputa/ raw/ 
 #
 ## stop firesim
 #aws ec2 stop-instances --instance-ids i-05d4ae3c817ac285a --no-cli-pager

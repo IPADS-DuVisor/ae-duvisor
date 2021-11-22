@@ -46,41 +46,33 @@ expect {
 			expect "#"
 			send "mount /dev/vda root && chroot root bash\n"
 
-			expect "#"
-			send "\n"
-			
-
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-                        send "dd if=/dev/zero of=test.img bs=1M count=100   && echo c  d\n"
-                        expect "c d"
-                        sleep 3
+                        expect "#"
+                        send "\n"
                         
-                        exit 0
-#			expect "#"
-#			send "./mount_dev.sh && ./guest_net.sh \n"
-#	expect "#"
-#			send "./apache_server.sh && echo 'hello apache' | tr a-z A-Z\n"
-#
-#			expect "HELLO APACHE"
-#			send "\x01"; send "d"
+                        expect "#"
+                        send "env TERM=vt1000 bash \n"
+
+                        expect "#"
+                        send "\n"
+                        
+                        expect "#"
+                        send "\n"
+                        send "\n"
+
+			expect "#"
+			send "./mount_dev.sh \n"
+			
+                        expect "#"
+                        send "\n"
+                        
+                        expect "#"
+			send "./guest_net.sh \n"
+
+			expect "#"
+			send "./iperf3 -s \n"
+
+			expect "Server listening"
+			send "\x01"; send "d"
    		}
    	}
     }
@@ -109,6 +101,26 @@ expect {
 
    		 	send "mount blk-dev.img root && chroot root \n"
    		 	expect "root@buildroot:"
+
+                        send "ip link set eth0 down && sleep 5 && ip link set eth0 up && echo j  1\n"
+                        expect "j 1"
+                        send "./iperf3 -c $HOST  && echo k  j\n"
+                        expect "k j"
+
+                        send "ip link set eth0 down && sleep 5 && ip link set eth0 up && echo j  2\n"
+                        expect "j 2"
+                        send "./iperf3 -c $HOST  && echo k  1\n"
+                        expect "k 1"
+
+                        send "ip link set eth0 down && sleep 5 && ip link set eth0 up && echo j  3\n"
+                        expect "j 3"
+                        send "./iperf3 -c $HOST  && echo k  2\n"
+                        expect "k 2"
+
+                        puts "Check breakdown now! \n"
+                        expect "hang hang hang "
+
+                        exit 0
 
 	                send "HOST=http://$HOST/ TIMES=$TIMES ./apache_client.sh && HOST=http://$HOST/data TIMES=$TIMES ./curl_client.sh  && echo 'bye apache' | tr a-z A-Z\n"
 		 	expect "BYE APACHE"
