@@ -9,7 +9,8 @@ set env(SUDO_COMMAND) /bin/bash
 set HOST "172.16.0.4"
 set FPGA "192.168.0.80"
 set kvm_or_laputa [lindex $argv 0]
-set TIMES 1
+set TIMES 5
+#set CPU_MASK "0-3"
 
 if {$kvm_or_laputa == "laputa"} {
     set HOST_NET "host_net_ulh.sh"
@@ -45,6 +46,9 @@ expect {
 	
 			expect "#"
 			send "mount /dev/vda root && chroot root bash\n"
+
+                        expect "#"
+                        send "\n"
                         
                         expect "#"
                         send "env TERM=vt1000 bash \n"
@@ -52,81 +56,31 @@ expect {
                         expect "#"
                         send "\n"
                         
-#                        expect "#"
-#                        send "insmod toy.ko && rmmod toy \n"
-#                        
-#                        expect "iter 800000"
-#                        send "\n"
-#                        send "\n"
-                        
                         expect "#"
                         send "\n"
                         send "\n"
+			
+			expect "#"
+			send "./mount_dev.sh && ./guest_net.sh \n"
+                        
+			expect "#"
+			send "./netserver \n"
 
 			expect "#"
-			send "./mount_dev.sh \n"
-			
-                        expect "#"
-                        send "\n"
-                        
-                        expect "#"
-			send "./guest_net.sh \n"
+                        send "./iperf3 -s & \n"
 
-                        expect "#"
-                        send "\n"
-                        send "\n"
-                        
-                        expect "#"
-                        send "insmod debug.ko\n"
-        
-                        expect "DEBUG START"
-                        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
-                        
-                        expect "a i"
-                        send "rmmod debug\n"
-
-                        expect "DEBUG END"
-                        send "clear\n"
-
-                        expect "#"
-                        send "insmod debug.ko\n"
-        
-                        expect "DEBUG START"
-                        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
-                        
-                        expect "a i"
-                        send "rmmod debug\n"
-
-                        expect "DEBUG END"
-                        send "clear\n"
-
-                        expect "#"
-                        send "insmod debug.ko\n"
-        
-                        expect "DEBUG START"
-                        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
-                        
-                        expect "a i"
-                        send "rmmod debug\n"
-
-                        expect "DEBUG END"
-                        send "clear\n"
-
-                        expect "#"
-                        
-                        exit 0
-
-                        send "\x01"; send "d"
-                }
-        }
+			expect "Server listening"
+			send "\x01"; send "d"
+   		}
+   	}
     }
 }
 
 
 
 expect {
-    "centos@ip" {
-        send "screen -r fsim1\n"
+	"centos@ip" {
+		send "screen -r fsim1\n"
 	}
 }
 
@@ -145,32 +99,51 @@ expect {
 
    		 	send "mount blk-dev.img root && chroot root \n"
    		 	expect "root@buildroot:"
+
+                        send "./iperf3 -c $HOST  && echo k  1\n"
+                        expect "k 1"
                         
-                        send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo 'bye apache' | tr a-z A-Z\n"
-                        expect "BYE APACHE"
-                        send "\x01"; send "d"
-                }
-        }
+                        send "./iperf3 -c $HOST  && echo k  2\n"
+                        expect "k 2"
+                        
+                        send "./iperf3 -c $HOST  && echo k  3\n"
+                        expect "k 3"
+                        
+                        send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo k  4\n"
+                        expect "k 4"
+
+			send "\x01"; send "d"
+		}
+	}
     }
 }
 
 expect {
 	"centos@ip" {
-                send "screen -r fsim0\n"
+		send "screen -r fsim0\n"
 	}
 }
+
+expect "Server listening" {
+            send "\n"
+            send "killall iperf3 \n"
+            send "\n"
+            send "killall netserver \n"
+            send "\n"
+            send "clear \n"
+            send "\n"
+}
+	
 expect {
         "#" {
-            send "rmmod debug\n"
-            
-            expect "DEBUG END"
-            send "clear\n"
-            
-            expect "#"
-            send "insmod debug.ko\n"
-
-            expect "DEBUG START"
-            send "\x01"; send "d"
+		send "./memcached_server.sh && echo a  c\n"
+		expect "a c" 
+		send "echo 'Hello Memcached' | tr a-z A-Z\n"
+		expect {
+			"HELLO MEMCACHED" {
+				send "\x01"; send "d"
+			}
+		}
     }	
 
 }
@@ -183,9 +156,9 @@ expect {
 }
 expect {
     "root@buildroot:" {
-        send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo 'bye 2' | tr a-z A-Z\n"
-            expect "BYE 2"
-            send "\x01"; send "d"
+        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+        expect "BYE MEMCACHED"
+	send "\x01"; send "d"
     }	
 }
 
@@ -195,50 +168,29 @@ expect {
 		send "screen -r fsim0\n"
 	}
 }
-expect {
-        "#" {
-            send "rmmod debug\n"
-            
-            expect "DEBUG END"
-            send "clear\n"
-            
-            expect "#"
-            send "insmod debug.ko\n"
-
-            expect "DEBUG START"
-            send "\x01"; send "d"
-    }	
-
-}
 
 expect {
-	"centos@ip" {
-		send "screen -r fsim1\n"
-	}
-}
-expect {
-    "root@buildroot:" {
-        send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo 'bye 3' | tr a-z A-Z\n"
-            expect "BYE 3"
-            send "\x01"; send "d"
-    }	
-}
+    "#" {
+    	send "./memcached_kill.sh && echo a  d\n" 
+        expect "a d"
+        
+        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
+        expect "a i"
+        
+        send "TIMES=$TIMES ./hackbench.sh && echo a  g\n"
+        expect "a g"
 
-expect {
-	"centos@ip" {
-		send "screen -r fsim0\n"
-	}
-}
-expect {
-        "#" {
-            send "rmmod debug\n"
-            
-            expect "DEBUG END"
-            send "clear\n"
-            
-            expect "#"
-            send "\x01"; send "d"
-    }	
+        send "TIMES=$TIMES ./untar_large.sh && echo a  h\n"
+        expect {
+            "a h" {
+
+            }
+            "display a backtrace" {
+
+            }
+        }
+		send "\x01"; send "d"
+    }
 
 }
 

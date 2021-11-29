@@ -9,7 +9,7 @@ set env(SUDO_COMMAND) /bin/bash
 set HOST "172.16.0.4"
 set FPGA "192.168.0.80"
 set kvm_or_laputa [lindex $argv 0]
-set TIMES 5
+set TIMES 1
 
 if {$kvm_or_laputa == "laputa"} {
     set HOST_NET "host_net_ulh.sh"
@@ -92,7 +92,7 @@ expect {
                         send "insmod debug.ko\n"
         
                         expect "DEBUG START"
-                        send "TIMES=$TIMES taskset -a 1 ./sysbench_io_run.sh && echo a  i\n"
+                        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
                         
                         expect "a i"
                         send "rmmod debug\n"
@@ -104,7 +104,7 @@ expect {
                         send "insmod debug.ko\n"
         
                         expect "DEBUG START"
-                        send "TIMES=$TIMES taskset -a 3 ./sysbench_io_run.sh && echo a  i\n"
+                        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
                         
                         expect "a i"
                         send "rmmod debug\n"
@@ -116,7 +116,7 @@ expect {
                         send "insmod debug.ko\n"
         
                         expect "DEBUG START"
-                        send "TIMES=$TIMES taskset -a 1 ./sysbench_io_run.sh && echo a  i\n"
+                        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
                         
                         expect "a i"
                         send "rmmod debug\n"

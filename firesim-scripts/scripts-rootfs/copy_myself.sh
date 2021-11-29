@@ -6,11 +6,15 @@ sudo mount linux-uniform0-br-base.img  linux-uniform0-br-base-mnt
 
 cd linux-uniform0-br-base-mnt/
 
+sudo e2fsck -yf ubuntu-vdisk.img
+
 sudo mount ubuntu-vdisk.img root/
 
 sudo cp -rf ~/mnt-firesim/* root/
 
 cd root/
+
+sudo e2fsck -yf blk-dev.img
 
 sudo mount blk-dev.img root/
 
@@ -45,6 +49,8 @@ cd linux-uniform1-br-base-mnt/
 sudo mount ubuntu-vdisk.img root/
 
 cd root/
+
+sudo e2fsck -yf blk-dev.img
 
 sudo mount blk-dev.img root/
 

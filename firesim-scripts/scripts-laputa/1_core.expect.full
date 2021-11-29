@@ -9,7 +9,8 @@ set env(SUDO_COMMAND) /bin/bash
 set HOST "172.16.0.4"
 set FPGA "192.168.0.80"
 set kvm_or_laputa [lindex $argv 0]
-set TIMES 1
+set TIMES 5
+set CPU_MASK "0-3"
 
 if {$kvm_or_laputa == "laputa"} {
     set HOST_NET "host_net_ulh.sh"
@@ -51,11 +52,14 @@ expect {
 			
 			expect "#"
 			send "./mount_dev.sh && ./guest_net.sh \n"
+                        
+			expect "#"
+			send "taskset -a $CPU_MASK ./netserver \n"
 
 			expect "#"
-			send "./apache_server.sh && echo 'hello apache' | tr a-z A-Z\n"
+                        send "taskset -a $CPU_MASK ./iperf3 -s & \n"
 
-			expect "HELLO APACHE"
+			expect "Server listening"
 			send "\x01"; send "d"
    		}
    	}
@@ -86,9 +90,18 @@ expect {
    		 	send "mount blk-dev.img root && chroot root \n"
    		 	expect "root@buildroot:"
 
-	                send "HOST=http://$HOST/ TIMES=$TIMES ./apache_client.sh && HOST=http://$HOST/data TIMES=$TIMES ./curl_client.sh  && echo 'bye apache' | tr a-z A-Z\n"
-		 	expect "BYE APACHE"
-		
+                        send "./iperf3 -c $HOST  && echo k  1\n"
+                        expect "k 1"
+                        
+                        send "./iperf3 -c $HOST  && echo k  2\n"
+                        expect "k 2"
+                        
+                        send "./iperf3 -c $HOST  && echo k  3\n"
+                        expect "k 3"
+                        
+                        send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo k  4\n"
+                        expect "k 4"
+
 			send "\x01"; send "d"
 		}
 	}
@@ -101,11 +114,19 @@ expect {
 	}
 }
 
+expect "Server listening" {
+            send "\n"
+            send "killall iperf3 \n"
+            send "\n"
+            send "killall netserver \n"
+            send "\n"
+            send "clear \n"
+            send "\n"
+}
+	
 expect {
-	"#" {
-		send "./apache_kill.sh && echo a  b\n"
-		expect "a b"
-		send "./memcached_server.sh && echo a  c\n"
+        "#" {
+		send "taskset -a $CPU_MASK ./memcached_server.sh && echo a  c\n"
 		expect "a c" 
 		send "echo 'Hello Memcached' | tr a-z A-Z\n"
 		expect {
@@ -141,16 +162,17 @@ expect {
 expect {
     "#" {
     	send "./memcached_kill.sh && echo a  d\n" 
-	    expect "a d"
-send "TIMES=$TIMES ./lmbench.sh && echo a  f\n"
-        expect "a f"
-        send "TIMES=$TIMES ./hackbench.sh && echo a  g\n"
+        expect "a d"
+        
+        send "TIMES=$TIMES taskset -a $CPU_MASK ./sysbench_io_run.sh && echo a  i\n"
+        expect "a i"
+        
+        send "TIMES=$TIMES taskset -a $CPU_MASK ./hackbench.sh && echo a  g\n"
         expect "a g"
-        send "TIMES=$TIMES ./untar_large.sh && echo a  h\n"
-        expect "a h"
-        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
+
+        send "TIMES=$TIMES taskset -a $CPU_MASK ./untar_large.sh && echo a  h\n"
         expect {
-            "a i" {
+            "a h" {
 
             }
             "display a backtrace" {

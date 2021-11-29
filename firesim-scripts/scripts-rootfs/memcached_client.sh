@@ -6,6 +6,6 @@ cd /home/ubuntu/libmemcached-1.0.18/clients
 n=0
 
 while [ $n -lt $TIMES ]; do 
-    ./memaslap -s $HOST:11211 -t 10s -v 0.2 -e 0.05 -B -T 4
+    ./memaslap -s $HOST:11211 -t 10s -v 0.2 -e 0.05 -B -T 4 -c 128
     n=$(( n + 1 ))
 done
