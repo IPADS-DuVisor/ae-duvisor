@@ -162,6 +162,8 @@ impl Ecall {
                 ret = self.unsupported_sbi();
             },
             SBI_EXT_0_1_SEND_IPI => {
+                extern crate irq_util;
+                use irq_util::SharedStat;
                 dbgprintln!("ready to hart mask");
                 let hart_mask = self.get_hart_mask(self.arg[0]);
                 dbgprintln!("finish hart mask");
@@ -181,6 +183,7 @@ impl Ecall {
                         }
                         vipi_id = vcpu.vipi.vcpu_id_map[i as usize]
                             .load(Ordering::SeqCst);
+                        SharedStat::add_shared_mem(110020 + i as usize, 1);
                         if vcpu.irqchip.get().unwrap().trigger_virtual_irq(i) {
                             VirtualIpi::set_vipi(vipi_id);
                         }
@@ -236,7 +239,7 @@ impl Ecall {
                 ret = self.ulh_extension_emulation(vcpu);
             },
             _ => {
-                dbgprintln!("EXT ID {} has not been implemented yet.", ext_id);
+                println!("EXT ID {} has not been implemented yet.", ext_id);
                 ret = self.unsupported_sbi();
             },
         }

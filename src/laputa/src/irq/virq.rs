@@ -29,17 +29,18 @@ impl VirtualInterrupt {
     pub fn set_pending_irq(&self, irq: u64) {
         if irq >= 16 { panic!("set_pending_irq: irq {} out of range", irq); }
         self.irq_pending.fetch_or(1 << irq, Ordering::SeqCst);
+        unsafe { asm!("fence iorw, iorw"); }
         self.irq_pending_mask.fetch_or(1 << irq, Ordering::SeqCst);
     }
     
     pub fn unset_pending_irq(&self, irq: u64) {
         if irq >= 16 { panic!("set_pending_irq: irq {} out of range", irq); }
         self.irq_pending.fetch_and(!(1 << irq), Ordering::SeqCst);
+        unsafe { asm!("fence iorw, iorw"); }
         self.irq_pending_mask.fetch_or(1 << irq, Ordering::SeqCst);
     }
     
     pub fn flush_pending_irq(&self) {
-        use crate::irq::delegation::delegation_constants::*;
         let pending_mask = self.irq_pending_mask.load(Ordering::SeqCst);
         if pending_mask != 0 {
             let prev_mask = self.irq_pending_mask.swap(0, Ordering::SeqCst);
@@ -49,7 +50,8 @@ impl VirtualInterrupt {
             for i in 1..16 {
                 if (val & (1 << i)) != 0 {
                     unsafe { csrs!(HUVIP, 1 << i); }
-                } else if (!prev_mask & (1 << i)) == 0 {
+                //} else if (!prev_mask & (1 << i)) == 0 {
+                } else if (prev_mask & (1 << i)) != 0 {
                     unsafe { csrc!(HUVIP, 1 << i); }
                 }
             }
@@ -67,6 +69,8 @@ impl VirtualInterrupt {
             if self.irq_pending_mask.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst)
                 & (1 << IRQ_VS_SOFT) == 0 {
                     self.irq_pending.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst);
+                    println!("sync_pending_irq real_vipi {:x} pending_vipi {:x}",
+                        huvip, pending);
             }
         } else if !real_vipi && pending_vipi {
             if self.irq_pending_mask.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst)

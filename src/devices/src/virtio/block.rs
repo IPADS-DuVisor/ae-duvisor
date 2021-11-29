@@ -408,8 +408,8 @@ impl Block {
                 SECTOR_SIZE
             );
         }
-        let avail_features = 1 << VIRTIO_BLK_F_SEG_MAX
-        | 1 << VIRTIO_BLK_F_FLUSH;
+        //let avail_features = 0;
+        let avail_features = 1 << VIRTIO_BLK_F_FLUSH;
         //let avail_features = 1 << VIRTIO_BLK_F_SEG_MAX
         //    | 1 << VIRTIO_BLK_F_FLUSH
         //    | 1 << VIRTIO_RING_F_EVENT_IDX;

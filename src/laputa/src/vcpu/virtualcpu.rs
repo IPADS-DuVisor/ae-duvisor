@@ -539,8 +539,10 @@ impl VirtualCpu {
                 } else if ucause == EXC_INST_GUEST_PAGE_FAULT 
                     && (i.value & PTE_EXECUTE) == 0 {
                     ret = ENOPERMIT;
-                }else {
+                } else {
                     /* S2PT contention with other vcpus */
+                    extern "C" { fn hufence_gvma_all(); }
+                    unsafe { hufence_gvma_all(); }
                     return 0;
                 }
             } else {
@@ -852,7 +854,7 @@ impl VirtualCpu {
             }
             self.is_running.store(false, Ordering::SeqCst);
 
-            self.virq.sync_pending_irq();
+            //self.virq.sync_pending_irq();
             /* FIXME: why KVM need sync_pending_irq() here? */
             ret = self.handle_vcpu_exit(&mut *vcpu_ctx);
         }

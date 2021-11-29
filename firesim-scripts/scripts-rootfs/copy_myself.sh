@@ -1,8 +1,10 @@
 cd ~/sim_slot_0
 
-sudo mount linux-uniform-kvm0-br-base.img  linux-uniform-kvm0-br-base-mnt
+sudo e2fsck -yf linux-uniform0-br-base.img
 
-cd linux-uniform-kvm0-br-base-mnt/
+sudo mount linux-uniform0-br-base.img  linux-uniform0-br-base-mnt
+
+cd linux-uniform0-br-base-mnt/
 
 sudo mount ubuntu-vdisk.img root/
 
@@ -26,7 +28,7 @@ sudo umount root/
 
 cd ..
 
-sudo umount linux-uniform-kvm0-br-base-mnt
+sudo umount linux-uniform0-br-base-mnt
 
 cd ..
 
@@ -34,9 +36,11 @@ echo copy succeed for slot 0
 
 cd ~/sim_slot_1
 
-sudo mount linux-uniform-kvm1-br-base.img  linux-uniform-kvm1-br-base-mnt
+sudo e2fsck -yf linux-uniform1-br-base.img
 
-cd linux-uniform-kvm1-br-base-mnt/
+sudo mount linux-uniform1-br-base.img  linux-uniform1-br-base-mnt
+
+cd linux-uniform1-br-base-mnt/
 
 sudo mount ubuntu-vdisk.img root/
 
@@ -58,7 +62,7 @@ sudo umount root/
 
 cd ..
 
-sudo umount linux-uniform-kvm1-br-base-mnt
+sudo umount linux-uniform1-br-base-mnt
 
 cd ..
 

@@ -36,13 +36,17 @@ scp ~/firesim/mnt-firesim.tar.gz $FPGA_IP:~/
 ssh $FPGA_IP "sudo tar -vxzf mnt-firesim.tar.gz"
 
 if [[ $1 == "laputa" ]]; then
-scp ~/firesim/br-base-bin-laputa $FPGA_IP:~/sim_slot_0/linux-uniform-kvm0-br-base-bin-ulh-correct
+scp ~/firesim/br-base-bin-laputa $FPGA_IP:~/sim_slot_0/linux-uniform0-br-base-bin-ulh-correct
 else
-scp ~/firesim/br-base-bin-kvm $FPGA_IP:~/sim_slot_0/linux-uniform-kvm0-br-base-bin-kvm-correct
+scp ~/firesim/br-base-bin-kvm $FPGA_IP:~/sim_slot_0/linux-uniform0-br-base-bin-kvm-correct
 fi
 ssh $FPGA_IP "./scripts-rootfs/copy_myself.sh"
 
-ssh $FPGA_IP "./switch_to_${1}.sh"
+if [[ $1 == "laputa" ]]; then
+ssh $FPGA_IP "cp sim_slot_0/linux-uniform0-br-base-bin-ulh-correct sim_slot_0/linux-uniform0-br-base-bin"
+else
+ssh $FPGA_IP "cp sim_slot_0/linux-uniform0-br-base-bin-kvm-correct sim_slot_0/linux-uniform0-br-base-bin"
+fi
 
 ./scripts-laputa/start_workload.sh
 

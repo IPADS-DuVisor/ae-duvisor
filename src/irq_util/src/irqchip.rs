@@ -38,18 +38,21 @@ impl SharedStat {
 
     pub fn get_shared_mem(idx: usize) -> u64 {
         unsafe {
+            if shared_mem_hva as u64 == 0 { return 0; }
             return *shared_mem_hva.add(idx);
         }
     }
 
     pub fn set_shared_mem(idx: usize, val: u64) {
         unsafe {
+            if shared_mem_hva as u64 == 0 { return; }
             *shared_mem_hva.add(idx) = val;
         }
     }
 
     pub fn add_shared_mem(idx: usize, val: u64) {
         unsafe {
+            if shared_mem_hva as u64 == 0 { return; }
             *shared_mem_hva.add(idx) += val;
         }
     }
@@ -133,18 +136,37 @@ impl SharedStat {
             //    SharedStat::get_shared_mem(110000), SharedStat::get_shared_mem(110001),
             //    SharedStat::get_shared_mem(110003), SharedStat::get_shared_mem(110002),
             //    SharedStat::get_shared_mem(110002) / SharedStat::get_shared_mem(110000));
+            println!("\t VIPI sender {} {} {} {}",
+                SharedStat::get_shared_mem(110020),
+                SharedStat::get_shared_mem(110021),
+                SharedStat::get_shared_mem(110022),
+                SharedStat::get_shared_mem(110023));
+            println!("\t\t receiver {} {} {} {}",
+                SharedStat::get_shared_mem(2),
+                SharedStat::get_shared_mem(3),
+                SharedStat::get_shared_mem(4),
+                SharedStat::get_shared_mem(5));
             println!("\t block READ cnt {} time {} len {} avg {}",
                 SharedStat::get_shared_mem(110005), SharedStat::get_shared_mem(110006),
                 SharedStat::get_shared_mem(110007),
-                SharedStat::get_shared_mem(110007) / (SharedStat::get_shared_mem(110006) + 1));
+                if SharedStat::get_shared_mem(110006) == 0 { 0 } else {
+                    SharedStat::get_shared_mem(110007)
+                        / SharedStat::get_shared_mem(110006)
+                });
             println!("\t block WRITE cnt {} time {} len {} avg {}",
                 SharedStat::get_shared_mem(110010), SharedStat::get_shared_mem(110011),
                 SharedStat::get_shared_mem(110012),
-                SharedStat::get_shared_mem(110012) / (SharedStat::get_shared_mem(110011) + 1));
+                if SharedStat::get_shared_mem(110011) == 0 { 0 } else {
+                    SharedStat::get_shared_mem(110012)
+                        / SharedStat::get_shared_mem(110011)
+                });
             println!("\t block FLUSH cnt {} time {} len {} avg {}",
                 SharedStat::get_shared_mem(110015), SharedStat::get_shared_mem(110016),
                 SharedStat::get_shared_mem(110017),
-                SharedStat::get_shared_mem(110017) / (SharedStat::get_shared_mem(110016) + 1));
+                if SharedStat::get_shared_mem(110016) == 0 { 0 } else {
+                    SharedStat::get_shared_mem(110017)
+                        / SharedStat::get_shared_mem(110016)
+                });
 
             //let mut sum_rx = 0;
             //let mut nr_rx = 0;
