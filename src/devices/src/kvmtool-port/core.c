@@ -87,12 +87,17 @@ static unsigned next_desc(struct virt_queue *vq, struct vring_desc *desc,
 	return min(next, max);
 }
 
+static u64 (*gpa_to_hpa)(u64 *, u64) = NULL;
+static u64 *guest_mem = NULL;
 void *guest_flat_to_host(struct kvm *kvm, u64 offset)
 {
-    if (offset > 0)
-        return (void *)offset;
+    if (!gpa_to_hpa || !guest_mem) {
+        printf("%s:%d cb %p, mem %p, offset %llx\n",
+                __func__, __LINE__, gpa_to_hpa, guest_mem, offset);
+        return NULL;
+    }
 
-    return NULL;
+    return (void *)gpa_to_hpa(guest_mem, offset);
 }
 
 int kvm_cpu__get_endianness(struct kvm_cpu *vcpu)
@@ -295,4 +300,10 @@ int virtio_init(struct kvm *kvm, void *dev, struct virtio_device *vdev,
 	};
 
 	return r;
+}
+
+void lkvm_register_guest_mem(u64 (*cb)(u64 *, u64), u64 *mem);
+void lkvm_register_guest_mem(u64 (*cb)(u64 *, u64), u64 *mem) {
+    gpa_to_hpa = cb;
+    guest_mem = mem;
 }

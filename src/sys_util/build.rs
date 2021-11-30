@@ -8,4 +8,5 @@ fn main() {
     cc::Build::new().file("sock_ctrl_msg.c").compile(
         "sock_ctrl_msg",
     );
+    println!("cargo:rustc-link-search=/home/ubuntu/laputa/src/devices/src/kvmtool-port/");
 }

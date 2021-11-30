@@ -108,8 +108,10 @@ static void *virtio_net_rx_thread(void *p)
 	int len, copied;
 
 	kvm__set_thread_name("virtio-net-rx");
-
-	kvm = ndev->kvm;
+    printf("--- %s:%d desc %p, avail %p, used %p\n", __func__, __LINE__,
+            vq->vring.desc, vq->vring.avail, vq->vring.used);
+	
+    kvm = ndev->kvm;
 	while (1) {
 		mutex_lock(&queue->lock);
 		if (!virt_queue__available(vq))
@@ -131,10 +133,12 @@ static void *virtio_net_rx_thread(void *p)
 						__func__, queue->id, len);
 				goto out_err;
 			}
+            printf("--- %s:%d len %u\n", __func__, __LINE__, len);
 
 			copied = num_buffers = 0;
 			head = virt_queue__get_iov(vq, iov, &out, &in, kvm);
 			hdr = iov[0].iov_base;
+            printf("--- %s:%d head %u\n", __func__, __LINE__, head);
 			while (copied < len) {
 				size_t iovsize = min_t(size_t, len - copied, iov_size(iov, in));
 
@@ -147,6 +151,8 @@ static void *virtio_net_rx_thread(void *p)
 					sleep(0);
 				head = virt_queue__get_iov(vq, iov, &out, &in, kvm);
 			}
+            printf("--- %s:%d copied %u, nr_buf %u\n",
+                    __func__, __LINE__, copied, num_buffers);
 
 			virtio_net_fix_rx_hdr(&hdr->hdr, ndev);
 			if (has_virtio_feature(ndev, VIRTIO_NET_F_MRG_RXBUF))
@@ -155,8 +161,11 @@ static void *virtio_net_rx_thread(void *p)
 			virt_queue__used_idx_advance(vq, num_buffers);
 
 			/* We should interrupt guest right now, otherwise latency is huge. */
-			if (virtio_queue__should_signal(vq))
+			if (virtio_queue__should_signal(vq)) {
+                printf("--- %s:%d virtio_queue__should_signal\n",
+                        __func__, __LINE__);
 				ndev->vdev.ops->signal_vq(kvm, &ndev->vdev, queue->id);
+            }
 		}
 	}
 
@@ -178,6 +187,8 @@ static void *virtio_net_tx_thread(void *p)
 	int len;
 
 	kvm__set_thread_name("virtio-net-tx");
+    printf("--- %s:%d desc %p, avail %p, used %p\n", __func__, __LINE__,
+            vq->vring.desc, vq->vring.avail, vq->vring.used);
 
 	kvm = ndev->kvm;
 
@@ -229,6 +240,8 @@ static void *virtio_net_ctrl_thread(void *p)
 	virtio_net_ctrl_ack *ack;
 
 	kvm__set_thread_name("virtio-net-ctrl");
+    printf("--- %s:%d desc %p, avail %p, used %p\n", __func__, __LINE__,
+            vq->vring.desc, vq->vring.avail, vq->vring.used);
 
 	while (1) {
 		mutex_lock(&queue->lock);
@@ -745,23 +758,25 @@ void lkvm_net_init(void) {
     virtio_net__init(&fake_kvm);
 }
 
-extern void virtio_mmio_read(void *ndev, u64 addr, u8 *data, u32 len);
-extern void virtio_mmio_write(void *ndev, u64 addr, u8 *data, u32 len);
+extern void virtio_mmio_read(void *ndev, u64 offset, u8 *data, u32 len);
+extern void virtio_mmio_write(void *ndev, u64 offset, u8 *data, u32 len);
 
-void lkvm_net_mmio_read(u64 addr, u8 *data, u32 len);
-void lkvm_net_mmio_read(u64 addr, u8 *data, u32 len)
+void lkvm_net_mmio_read(u64 offset, u8 *data, u32 len);
+void lkvm_net_mmio_read(u64 offset, u8 *data, u32 len)
 {
-    virtio_mmio_read(&lkvm_ndev->vdev, addr, data, len);
+    //printf(">>> %s:%d offset %llx, data %p, len %x\n",
+    //        __func__, __LINE__, offset, data, len);
+    virtio_mmio_read(&lkvm_ndev->vdev, offset, data, len);
+    //printf("<<< %s:%d offset %llx, data %x %x %x, len %x\n",
+    //        __func__, __LINE__, offset, *data, *(u16 *)data, *(u32 *)data, len);
 }
 
-void lkvm_net_mmio_write(u64 addr, u8 *data, u32 len);
-void lkvm_net_mmio_write(u64 addr, u8 *data, u32 len)
+void lkvm_net_mmio_write(u64 offset, u8 *data, u32 len);
+void lkvm_net_mmio_write(u64 offset, u8 *data, u32 len)
 {
-    virtio_mmio_write(&lkvm_ndev->vdev, addr, data, len);
-}
-
-int test_lkvm_lib(int);
-int test_lkvm_lib(int x)
-{
-    return x * 3;
+    //printf(">>> %s:%d offset %llx, data %p, len %x\n",
+    //        __func__, __LINE__, offset, data, len);
+    virtio_mmio_write(&lkvm_ndev->vdev, offset, data, len);
+    //printf("<<< %s:%d offset %llx, data %x %x %x, len %x\n",
+    //        __func__, __LINE__, offset, *data, *(u16 *)data, *(u32 *)data, len);
 }

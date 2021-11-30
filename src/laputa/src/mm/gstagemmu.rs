@@ -640,6 +640,7 @@ impl GStageMmu {
         if self.guest_mem.end_addr().offset() == 0 {
             let offset = gpa - gpa_start;
             self.guest_mem.lazy_init(hva - offset, gpa_start, hpa - offset, 2 << 30);
+            println!("guest_mem.lazy_init gpa {:x} hva {:x}", gpa_start, hva - offset);
         }
 
         return Ok((hva, hpa));

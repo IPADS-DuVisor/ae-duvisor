@@ -79,7 +79,7 @@ ifneq ($(WERROR),0)
 	CFLAGS += -Werror
 endif
 
-all: $(PROGRAM)
+all: $(PROGRAM) static-lib
 
 # CFLAGS used when building objects
 # This is intentionally not assigned using :=

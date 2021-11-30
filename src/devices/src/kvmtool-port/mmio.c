@@ -240,9 +240,7 @@ static void virtio_mmio_mmio_callback(struct kvm_cpu *vcpu,
 				      u64 addr, u8 *data, u32 len,
 				      u8 is_write, void *ptr)
 {
-	struct virtio_device *vdev = ptr;
-	struct virtio_mmio *vmmio = vdev->virtio;
-	u32 offset = addr - vmmio->addr;
+	u32 offset = addr;
 
 	if (offset >= VIRTIO_MMIO_CONFIG) {
 		offset -= VIRTIO_MMIO_CONFIG;
@@ -256,16 +254,16 @@ static void virtio_mmio_mmio_callback(struct kvm_cpu *vcpu,
 		virtio_mmio_config_in(vcpu, offset, data, len, ptr);
 }
 
-void virtio_mmio_read(void *vdev, u64 addr, u8 *data, u32 len);
-void virtio_mmio_read(void *vdev, u64 addr, u8 *data, u32 len)
+void virtio_mmio_read(void *vdev, u64 offset, u8 *data, u32 len);
+void virtio_mmio_read(void *vdev, u64 offset, u8 *data, u32 len)
 {
-    virtio_mmio_mmio_callback(NULL, addr, data, len, false, vdev);
+    virtio_mmio_mmio_callback(NULL, offset, data, len, false, vdev);
 }
 
-void virtio_mmio_write(void *vdev, u64 addr, u8 *data, u32 len);
-void virtio_mmio_write(void *vdev, u64 addr, u8 *data, u32 len)
+void virtio_mmio_write(void *vdev, u64 offset, u8 *data, u32 len);
+void virtio_mmio_write(void *vdev, u64 offset, u8 *data, u32 len)
 {
-    virtio_mmio_mmio_callback(NULL, addr, data, len, true, vdev);
+    virtio_mmio_mmio_callback(NULL, offset, data, len, true, vdev);
 }
 
 #ifdef CONFIG_HAS_LIBFDT

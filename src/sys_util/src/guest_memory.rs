@@ -54,6 +54,20 @@ pub struct GuestMemory {
     guest_mm: Arc<Lazy<GuestMemoryMap>>,
 }
 
+#[link(name = "lkvm")]
+extern "C" {
+    fn lkvm_register_guest_mem(cb: unsafe extern "C" fn(*const u64, u64) -> u64,
+        arg: *const u64);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wrapper_gpa_to_hva(
+    mem_ptr: *const u64, gpa: u64) -> u64 {
+    let mem = &*(mem_ptr as *const GuestMemory);
+    let res = mem.query_region(gpa).unwrap();
+    return res.0;
+}
+
 impl GuestMemory {
     /*
     /// Creates a container for guest memory regions.
@@ -95,12 +109,18 @@ impl GuestMemory {
     }
 
     pub fn lazy_init(&self, hva: u64, gpa: u64, hpa: u64, len: usize) {
+        println!("guest_mem.lazy_init self {:x} gpa {:x} hva {:x} hpa {:x} len {:x}",
+            (self as *const GuestMemory) as u64, gpa, hva, hpa, len);
         self.guest_mm.get_or_create(|| {
             GuestMemoryMap {
                 gpa: GuestAddress(gpa as usize),
                 mm: MemoryMapping::new(hva, hpa, len).unwrap(),
             }
         });
+        unsafe {
+            lkvm_register_guest_mem(wrapper_gpa_to_hva,
+                (self as *const GuestMemory) as *const u64);
+        }
     }
 
     pub fn query_region(&self, gpa: u64) -> Option<(u64, u64)> {
@@ -109,11 +129,19 @@ impl GuestMemory {
         let guest_mm_lazy = self.guest_mm.get();
         match guest_mm_lazy {
             Some(guest_mm) => {
+                if gpa == 0x8786c000 {
+                    println!("guest_mem.query_region self {:x} gpa {:x} range {:x} - {:x}",
+                        (self as *const GuestMemory) as u64, gpa, guest_mm.gpa.offset(), guest_mm.gpa.offset() + guest_mm.mm.size());
+                }
                 if guest_mm.gpa < guest_base &&
                     guest_base.unchecked_add(0x1000) <
                         guest_mm.gpa.unchecked_add(guest_mm.mm.size()) {
                             let offset = guest_base.offset_from(guest_mm.gpa) as u64;
                             let mmap = &guest_mm.mm;
+                            if gpa == 0x8786c000 {
+                                println!("guest_mem.query_region gpa {:x} hva {:x}",
+                                    gpa, mmap.hva() + offset);
+                            }
                             return Some((mmap.hva() + offset, mmap.hpa() + offset));
                 }
                 return None;

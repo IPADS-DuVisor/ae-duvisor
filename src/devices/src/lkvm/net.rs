@@ -14,20 +14,25 @@ extern "C" {
     fn lkvm_net_mmio_write(addr: u64, data: *const u8, len: u32);
 }
 
-pub struct LkvmDevice {
+pub struct LkvmNet {
     mem: GuestMemory,
     irqchip: Arc<dyn IrqChip>,
 }
 
-impl LkvmDevice {
-    pub fn init(mem: GuestMemory, irqchip: Arc<dyn IrqChip>) {
-        unsafe {
-            lkvm_net_init();
-        }
+impl LkvmNet {
+    pub fn init(mem: GuestMemory, irqchip: Arc<dyn IrqChip>)
+        -> Result<LkvmNet> {
+            unsafe {
+                lkvm_net_init();
+            }
+            Ok(LkvmNet {
+                mem: mem,
+                irqchip: irqchip,
+            })
     }
 }
 
-impl BusDevice for LkvmDevice {
+impl BusDevice for LkvmNet {
     fn read(&mut self, offset: u64, data: &mut [u8]) {
         unsafe {
             lkvm_net_mmio_read(offset, data.as_mut_ptr(), data.len() as u32);
