@@ -21,6 +21,7 @@ mod i8042;
 mod serial;
 
 pub mod virtio;
+pub mod lkvm;
 
 pub use self::bus::{Bus, BusDevice};
 pub use self::i8042::I8042Device;

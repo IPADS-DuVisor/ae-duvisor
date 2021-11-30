@@ -19,4 +19,12 @@ mount -t proc proc /proc
 #ip link set dev vmtap0 up
 
 cd laputa
-./laputa --smp 1 --initrd ./test-files-laputa/rootfs-net.img --dtb ./test-files-laputa/vmlinux.dtb  --kernel ./test-files-laputa/Image --memory 1024 --machine laputa_virt
+
+NR_VCPU=8
+
+./laputa --smp $NR_VCPU \
+    --initrd ./test-files-laputa/rootfs-net.img \
+    --dtb ./test-files-laputa/smp$NR_VCPU-io.dtb  \
+    --kernel ./test-files-laputa/Image \
+    --memory 512 \
+    --machine laputa_virt

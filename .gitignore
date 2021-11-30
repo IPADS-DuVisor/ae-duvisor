@@ -21,3 +21,6 @@ br-base-bin
 /br-base-bin*
 *-log/*
 guest-modules
+*.o
+*.o.d
+*.a
