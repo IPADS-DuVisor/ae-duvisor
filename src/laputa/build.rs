@@ -38,4 +38,6 @@ fn main() {
     for i in 0..filenames.len() {
         cc_build_filename(filenames[i]);
     }    
+    
+    println!("cargo:rustc-link-search=/home/ubuntu/laputa/src/devices/src/kvmtool-port/");
 }

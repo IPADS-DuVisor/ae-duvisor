@@ -73,14 +73,18 @@ static int virtio_mmio_init_ioeventfd(struct kvm *kvm,
 }
 #endif
 
+static u64 (*trigger_edge_irq)(u64 *, u32) = NULL;
+static u64 *irqchip = NULL;
+
 int virtio_mmio_signal_vq(struct kvm *kvm, struct virtio_device *vdev, u32 vq)
 {
 	struct virtio_mmio *vmmio = vdev->virtio;
 
 	vmmio->hdr.interrupt_state |= VIRTIO_MMIO_INT_VRING;
-    /* TODO: use rust PLIC */
 #if 0
 	kvm__irq_trigger(vmmio->kvm, vmmio->irq);
+#else
+    trigger_edge_irq(irqchip, vmmio->irq);
 #endif
 
 	return 0;
@@ -104,6 +108,10 @@ int virtio_mmio_signal_config(struct kvm *kvm, struct virtio_device *vdev)
 	vmmio->hdr.interrupt_state |= VIRTIO_MMIO_INT_CONFIG;
 #if 0
 	kvm__irq_trigger(vmmio->kvm, vmmio->irq);
+#else
+    printf("%s:%d vmmio->irq %u\n",
+            __func__, __LINE__, vmmio->irq);
+    trigger_edge_irq(irqchip, 3);
 #endif
 
 	return 0;
@@ -208,9 +216,10 @@ static void virtio_mmio_config_out(struct kvm_cpu *vcpu,
 		break;
 	case VIRTIO_MMIO_QUEUE_PFN:
 		val = ioport__read32(data);
+        printf("%s:%d VIRTIO_MMIO_QUEUE_PFN %x, queue_sel %u\n",
+                __func__, __LINE__, val, vmmio->hdr.queue_sel);
 		if (val) {
 #if 0
-            /* FIXME: init eventfd */
 			virtio_mmio_init_ioeventfd(vmmio->kvm, vdev,
 						   vmmio->hdr.queue_sel);
 #endif
@@ -383,4 +392,11 @@ int virtio_mmio_exit(struct kvm *kvm, struct virtio_device *vdev)
 #endif
 
 	return 0;
+}
+
+void lkvm_register_irqchip(u64 (*cb)(u64 *, u32), u64 *ic);
+void lkvm_register_irqchip(u64 (*cb)(u64 *, u32), u64 *ic) {
+    printf("%s:%d cb %p, ic %p\n", __func__, __LINE__, cb, ic);
+    trigger_edge_irq = cb;
+    irqchip = ic;
 }

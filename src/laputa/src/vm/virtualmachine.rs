@@ -57,6 +57,15 @@ extern "C"
 extern "C"
 {
     fn getchar_emulation() -> i32;
+    
+    fn lkvm_register_irqchip(cb: unsafe extern "C" fn(*const u64, u32), irqchip: *const u64);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wrapper_trigger_edge_irq(
+    irqchip_ptr: *const u64, irq: u32) {
+    let irqchip = &*(irqchip_ptr as *const Plic);
+    irqchip.trigger_edge_irq(irq);
 }
 
 #[cfg(test)]
@@ -241,6 +250,13 @@ impl VirtualMachine {
         }
         
         let irqchip = Arc::new(Plic::new(&vcpus));
+        
+        unsafe {
+            let irqchip_ptr = &*irqchip as *const Plic;
+            let ptr = irqchip_ptr as *const u64;
+            println!("lkvm_register_irqchip irqchip: ptr {:?}", ptr);
+            lkvm_register_irqchip(wrapper_trigger_edge_irq, ptr);
+        }
         
         VirtualMachine::create_block_dev(&mmio_bus, &guest_mem, &irqchip, vm_config.block_path);
 
