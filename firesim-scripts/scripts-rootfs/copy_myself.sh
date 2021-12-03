@@ -18,7 +18,7 @@ sudo e2fsck -yf blk-dev.img
 
 sudo mount blk-dev.img root/
 
-sudo cp -f ~/scripts-rootfs/* root/
+sudo cp -rf ~/scripts-rootfs/* root/
 
 sleep 1
 
@@ -54,7 +54,7 @@ sudo e2fsck -yf blk-dev.img
 
 sudo mount blk-dev.img root/
 
-sudo cp -f ~/scripts-rootfs/* root/
+sudo cp -rf ~/scripts-rootfs/* root/
 
 sleep 1
 

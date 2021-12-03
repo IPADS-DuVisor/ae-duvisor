@@ -50,7 +50,6 @@ impl VirtualInterrupt {
             for i in 1..16 {
                 if (val & (1 << i)) != 0 {
                     unsafe { csrs!(HUVIP, 1 << i); }
-                //} else if (!prev_mask & (1 << i)) == 0 {
                 } else if (prev_mask & (1 << i)) != 0 {
                     unsafe { csrc!(HUVIP, 1 << i); }
                 }

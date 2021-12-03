@@ -110,6 +110,13 @@ static void *virtio_net_rx_thread(void *p)
 	kvm__set_thread_name("virtio-net-rx");
     printf("--- %s:%d desc %p, avail %p, used %p\n", __func__, __LINE__,
             vq->vring.desc, vq->vring.avail, vq->vring.used);
+    {
+        cpu_set_t my_set;
+        CPU_ZERO(&my_set);
+        CPU_SET((size_t)2, &my_set);
+        printf("%s: >>> pin rx to pCPU 2\n", __func__);
+        sched_setaffinity(0, sizeof(cpu_set_t), &my_set);
+    }
 	
     kvm = ndev->kvm;
 	while (1) {
@@ -183,6 +190,13 @@ static void *virtio_net_tx_thread(void *p)
 	kvm__set_thread_name("virtio-net-tx");
     printf("--- %s:%d desc %p, avail %p, used %p\n", __func__, __LINE__,
             vq->vring.desc, vq->vring.avail, vq->vring.used);
+    {
+        cpu_set_t my_set;
+        CPU_ZERO(&my_set);
+        CPU_SET((size_t)3, &my_set);
+        printf("%s: >>> pin tx to pCPU 3\n", __func__);
+        sched_setaffinity(0, sizeof(cpu_set_t), &my_set);
+    }
 
 	kvm = ndev->kvm;
 

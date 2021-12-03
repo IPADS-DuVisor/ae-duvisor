@@ -855,7 +855,7 @@ impl VirtualCpu {
             self.is_running.store(false, Ordering::SeqCst);
 
             //self.virq.sync_pending_irq();
-            /* FIXME: why KVM need sync_pending_irq() here? */
+
             ret = self.handle_vcpu_exit(&mut *vcpu_ctx);
         }
         
