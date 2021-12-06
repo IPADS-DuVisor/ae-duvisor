@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use BusDevice;
 use super::*;
-use sys_util::{EventFd, GuestAddress, GuestMemory, Result};
-use irq_util::IrqChip;
+use sys_util::Result;
 
 #[link(name = "lkvm")]
 extern "C" {
@@ -14,21 +13,14 @@ extern "C" {
     fn lkvm_net_mmio_write(addr: u64, data: *const u8, len: u32);
 }
 
-pub struct LkvmNet {
-    mem: GuestMemory,
-    irqchip: Arc<dyn IrqChip>,
-}
+pub struct LkvmNet {}
 
 impl LkvmNet {
-    pub fn init(mem: GuestMemory, irqchip: Arc<dyn IrqChip>)
-        -> Result<LkvmNet> {
+    pub fn init() -> Result<LkvmNet> {
             unsafe {
                 lkvm_net_init();
             }
-            Ok(LkvmNet {
-                mem: mem,
-                irqchip: irqchip,
-            })
+            Ok(LkvmNet {})
     }
 }
 

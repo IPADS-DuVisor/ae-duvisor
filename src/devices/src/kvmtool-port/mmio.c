@@ -9,6 +9,7 @@
 #include "kvm/fdt.h"
 
 #include <linux/virtio_mmio.h>
+#include <linux/virtio_ids.h>
 #include <string.h>
 
 static u32 virtio_mmio_io_space_blocks = KVM_VIRTIO_MMIO_AREA;
@@ -109,9 +110,7 @@ int virtio_mmio_signal_config(struct kvm *kvm, struct virtio_device *vdev)
 #if 0
 	kvm__irq_trigger(vmmio->kvm, vmmio->irq);
 #else
-    printf("%s:%d vmmio->irq %u\n",
-            __func__, __LINE__, vmmio->irq);
-    trigger_edge_irq(irqchip, 3);
+    trigger_edge_irq(irqchip, vmmio->irq);
 #endif
 
 	return 0;
@@ -352,7 +351,7 @@ int virtio_mmio_init(struct kvm *kvm, void *dev, struct virtio_device *vdev,
 		return r;
 	}
 #else
-	vmmio->irq = 3;
+	vmmio->irq = subsys_id == VIRTIO_ID_BLOCK ? 2 : 3;
 #endif
 
 #if 0

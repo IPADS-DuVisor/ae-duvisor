@@ -497,6 +497,8 @@ impl VirtualCpu {
                 panic!("Create gpa_block for fault addr {:x} failed!",
                     fault_addr);
             }
+        } else if (fault_addr >> 12) == 0xf0000 {
+            return 0;
         }
         
         let gpa_check = gsmmu.check_gpa(fault_addr);
@@ -814,11 +816,11 @@ impl VirtualCpu {
                     SharedStat::add_total_cnt(cur_time - exit_time);
                     SharedStat::add_cnt(prev_cause as usize, cur_time - exit_time);
                 }
-                let huvip = csrr!(HUVIP);
-                if SharedStat::get_debug_flag() &&
-                    (huvip >> IRQ_VS_EXT) & 0x1 == 0x1 {
-                    SharedStat::get_rx_pkt();
-                }
+                //let huvip = csrr!(HUVIP);
+                //if SharedStat::get_debug_flag() &&
+                //    (huvip >> IRQ_VS_EXT) & 0x1 == 0x1 {
+                //    SharedStat::get_rx_pkt();
+                //}
                 
                 enter_guest(vcpu_ctx_ptr_u64);
                 

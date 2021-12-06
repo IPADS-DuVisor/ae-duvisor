@@ -67,9 +67,9 @@ expect {
                         send "\n"
 
                         expect "#"
-                        send "./memcached_server.sh && echo a  c\n"
+                        send "./iperf3 -s &\n"
                         
-                        expect "a c"
+                        expect "Server listening"
                         send "insmod debug.ko\n"
                         
                         expect "DEBUG START"
@@ -103,7 +103,7 @@ expect {
    		 	send "mount blk-dev.img root && chroot root \n"
    		 	expect "root@buildroot:"
 
-                        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+                        send "HOST=$HOST TIMES=$TIMES ./iperf3.sh && echo 'bye memcached' | tr a-z A-Z\n"
                         expect "BYE MEMCACHED"
                         send "\n"
 
@@ -120,6 +120,9 @@ expect {
 expect {
 	"centos@ip" {
 		send "screen -r fsim0\n"
+		send "\n"
+		send "\n"
+		send "\n"
 	}
 }
 expect {
@@ -148,7 +151,7 @@ expect {
 }
 expect {
     "#" {
-        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+        send "HOST=$HOST TIMES=$TIMES ./iperf3.sh && echo 'bye memcached' | tr a-z A-Z\n"
         expect "BYE MEMCACHED"
         send "\n"
 
@@ -163,6 +166,9 @@ expect {
 expect {
 	"centos@ip" {
 		send "screen -r fsim0\n"
+		send "\n"
+		send "\n"
+		send "\n"
 	}
 }
 expect {
@@ -191,7 +197,7 @@ expect {
 }
 expect {
     "#" {
-        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+        send "HOST=$HOST TIMES=$TIMES ./iperf3.sh && echo 'bye memcached' | tr a-z A-Z\n"
         expect "BYE MEMCACHED"
         send "\n"
 
@@ -207,6 +213,9 @@ expect {
 expect {
 	"centos@ip" {
 		send "screen -r fsim0\n"
+		send "\n"
+		send "\n"
+		send "\n"
 	}
 }
 expect {

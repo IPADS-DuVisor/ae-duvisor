@@ -98,14 +98,14 @@ expect {
 
    		 	send "mount blk-dev.img root && chroot root \n"
    		 	expect "root@buildroot:"
-                        
-                        #send "HOST=$HOST TIMES=1 ./iperf3.sh && echo k  j\n"
-                        send "HOST=$HOST TIMES=$TIMES ./iperf3.sh && echo k  j\n"
-                        expect "k j"
 
                         #send "HOST=$HOST TIMES=1 ./netperf.sh && echo k  4\n"
                         send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo k  4\n"
                         expect "k 4"
+                        
+                        #send "HOST=$HOST TIMES=1 ./iperf3.sh && echo k  j\n"
+                        send "HOST=$HOST TIMES=$TIMES ./iperf3.sh && echo k  j\n"
+                        expect "k j"
 
 			send "\x01"; send "d"
 		}

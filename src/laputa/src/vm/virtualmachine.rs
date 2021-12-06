@@ -127,16 +127,18 @@ impl VirtualMachine {
     
     fn create_block_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
         guest_mem: &GuestMemory, irqchip: &Arc<Plic>, block_path: String) {
-        let root_image = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(block_path.as_str())
-            .unwrap();
+        //let root_image = OpenOptions::new()
+        //    .read(true)
+        //    .write(true)
+        //    .open(block_path.as_str())
+        //    .unwrap();
 
-        let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
+        //let block_box = Box::new(devices::virtio::Block::new(root_image).unwrap());
+        //
+        //let mmio_blk = devices::virtio::MmioDevice::new(
+        //    guest_mem.clone(), block_box, irqchip.clone()).unwrap();
         
-        let mmio_blk = devices::virtio::MmioDevice::new(
-            guest_mem.clone(), block_box, irqchip.clone()).unwrap();
+        let mmio_blk = devices::lkvm::LkvmBlk::init().unwrap();
 
         mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_blk)), 
             0x10000000, 0x200).unwrap();
@@ -145,7 +147,6 @@ impl VirtualMachine {
     #[allow(unused)]
     fn create_network_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
         guest_mem: &GuestMemory, irqchip: &Arc<Plic>, vmtap_name: String) {
-
         //let net_box = Box::new(devices::virtio::Net::new(
         //        Ipv4Addr::new(192, 168, 254, 2), /* IP */
         //        Ipv4Addr::new(255, 255, 0, 0), /* NETMASK */
@@ -154,8 +155,7 @@ impl VirtualMachine {
         //let mmio_net = devices::virtio::MmioDevice::new(
         //    guest_mem.clone(), net_box, irqchip.clone()).unwrap();
         
-        let mmio_net = devices::lkvm::LkvmNet::init(
-            guest_mem.clone(), irqchip.clone()).unwrap();
+        let mmio_net = devices::lkvm::LkvmNet::init().unwrap();
 
         mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_net)), 
             0x10000200, 0x200).unwrap();

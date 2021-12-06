@@ -21,6 +21,9 @@ OBJCOPY := $(CROSS_COMPILE)objcopy
 
 PROGRAM	:= lkvm.o
 
+OBJS 	+= disk/core.o
+OBJS 	+= disk/raw.o
+OBJS 	+= blk.o
 OBJS 	+= net.o
 OBJS 	+= mmio.o
 OBJS 	+= core.o
@@ -131,7 +134,7 @@ endif
 	$(Q) $(CC) -c $(c_flags) $(CFLAGS_DYNOPT) $< -o $@
 
 static-lib:
-	ar rcs liblkvm.a net.o mmio.o core.o util/*.o
+	ar rcs liblkvm.a net.o blk.o mmio.o core.o disk/*.o util/*.o
 
 clean:
 	$(E) "  CLEAN"

@@ -754,7 +754,7 @@ cleanup:
     return r;
 }
 
-static struct kvm fake_kvm = {
+static struct kvm fake_kvm_for_net = {
 	.cfg = {
         .guest_mac = "52:54:00:12:34:88",
         .host_mac = "52:54:00:12:34:99",
@@ -763,7 +763,7 @@ static struct kvm fake_kvm = {
 
 void lkvm_net_init(void);
 void lkvm_net_init(void) {
-    virtio_net__init(&fake_kvm);
+    virtio_net__init(&fake_kvm_for_net);
 }
 
 extern void virtio_mmio_read(void *ndev, u64 offset, u8 *data, u32 len);

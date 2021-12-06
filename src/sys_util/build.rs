@@ -8,5 +8,5 @@ fn main() {
     cc::Build::new().file("sock_ctrl_msg.c").compile(
         "sock_ctrl_msg",
     );
-    println!("cargo:rustc-link-search=/ulh/workspace/src/devices/src/kvmtool-port/");
+    println!("cargo:rustc-link-search=native=./src/devices/src/kvmtool-port/");
 }

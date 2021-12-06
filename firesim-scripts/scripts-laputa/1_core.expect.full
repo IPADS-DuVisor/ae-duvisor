@@ -9,8 +9,7 @@ set env(SUDO_COMMAND) /bin/bash
 set HOST "172.16.0.4"
 set FPGA "192.168.0.80"
 set kvm_or_laputa [lindex $argv 0]
-set TIMES 5
-set CPU_MASK "0-3"
+set TIMES 3
 
 if {$kvm_or_laputa == "laputa"} {
     set HOST_NET "host_net_ulh.sh"
@@ -47,17 +46,27 @@ expect {
 			expect "#"
 			send "mount /dev/vda root && chroot root bash\n"
 
-			expect "#"
-			send "\n"
+                        expect "#"
+                        send "\n"
+                        
+                        expect "#"
+                        send "\n"
+
+                        expect "#"
+                        send "\n"
+                        
+                        expect "#"
+                        send "\n"
+                        send "\n"
 			
 			expect "#"
 			send "./mount_dev.sh && ./guest_net.sh \n"
                         
 			expect "#"
-			send "taskset -a $CPU_MASK ./netserver \n"
+			send "./netserver \n"
 
 			expect "#"
-                        send "taskset -a $CPU_MASK ./iperf3 -s & \n"
+			send "./iperf3 -s &\n"
 
 			expect "Server listening"
 			send "\x01"; send "d"
@@ -89,16 +98,12 @@ expect {
 
    		 	send "mount blk-dev.img root && chroot root \n"
    		 	expect "root@buildroot:"
+                        
+                        send "HOST=$HOST TIMES=1 ./iperf3.sh && echo k  j\n"
+                        #send "HOST=$HOST TIMES=$TIMES ./iperf3.sh && echo k  j\n"
+                        expect "k j"
 
-                        send "./iperf3 -c $HOST  && echo k  1\n"
-                        expect "k 1"
-                        
-                        send "./iperf3 -c $HOST  && echo k  2\n"
-                        expect "k 2"
-                        
-                        send "./iperf3 -c $HOST  && echo k  3\n"
-                        expect "k 3"
-                        
+                        #send "HOST=$HOST TIMES=1 ./netperf.sh && echo k  4\n"
                         send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo k  4\n"
                         expect "k 4"
 
@@ -126,7 +131,7 @@ expect "Server listening" {
 	
 expect {
         "#" {
-		send "taskset -a $CPU_MASK ./memcached_server.sh && echo a  c\n"
+		send "./memcached_server.sh && echo a  c\n"
 		expect "a c" 
 		send "echo 'Hello Memcached' | tr a-z A-Z\n"
 		expect {
@@ -163,14 +168,45 @@ expect {
     "#" {
     	send "./memcached_kill.sh && echo a  d\n" 
         expect "a d"
+    	
+        send "./nginx && echo a  0\n" 
+        expect "a 0"
+	send "\x01"; send "d"
+    }
+}
         
-        send "TIMES=$TIMES taskset -a $CPU_MASK ./sysbench_io_run.sh && echo a  i\n"
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+
+expect {
+    "root@buildroot:" {
+        send "HOST=http://$HOST/ TIMES=$TIMES ./nginx_client.sh && echo 'bye nginx' | tr a-z A-Z\n"
+        expect "BYE NGINX"
+	send "\x01"; send "d"
+    }	
+}
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+
+expect {
+    "#" {
+    	send "killall nginx && echo a  1\n" 
+        expect "a 1"
+
+        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
         expect "a i"
         
-        send "TIMES=$TIMES taskset -a $CPU_MASK ./hackbench.sh && echo a  g\n"
+        send "TIMES=$TIMES ./hackbench.sh && echo a  g\n"
         expect "a g"
 
-        send "TIMES=$TIMES taskset -a $CPU_MASK ./untar_large.sh && echo a  h\n"
+        send "TIMES=$TIMES ./untar_large.sh && echo a  h\n"
         expect {
             "a h" {
 
