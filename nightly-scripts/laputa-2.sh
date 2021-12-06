@@ -20,7 +20,7 @@ mount -t proc proc /proc
 
 cd laputa
 
-NR_VCPU=4
+NR_VCPU=2
 
 ./laputa --smp $NR_VCPU \
     --initrd ./test-files-laputa/rootfs-net.img \
