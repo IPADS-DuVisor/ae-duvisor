@@ -8,7 +8,7 @@ pub struct VirtualInterrupt {
      * UVTIMER (#16) is not controlled by vcpu.virq field
      * FIXME: use a bit array
      */
-    irq_pending: AtomicU16,
+    pub irq_pending: AtomicU16,
     irq_pending_mask: AtomicU16,
 }
 
@@ -39,6 +39,25 @@ impl VirtualInterrupt {
         unsafe { asm!("fence iorw, iorw"); }
         self.irq_pending_mask.fetch_or(1 << irq, Ordering::SeqCst);
     }
+
+    pub fn has_pending_utimer(&self) -> bool {
+        //let huie: u64;
+        //unsafe { huie = csrr!(HUIE); }
+        let huip: u64;
+        unsafe { huip = csrr!(HUIP); }
+        //return huip & huie != 0;
+        return huip & (1 << IRQ_U_TIMER) != 0;
+    }
+    
+    pub fn has_pending_virq(&self) -> bool {
+        //let huvsie: u64;
+        //unsafe { huvsie = csrr!(HUVSIE); }
+        let pending = self.irq_pending.load(Ordering::SeqCst);
+        let pending_mask = self.irq_pending_mask.load(Ordering::SeqCst);
+        return pending & pending_mask != 0;
+        //return pending as u64 & huvsie != 0;
+        //return pending != 0;
+    }
     
     pub fn flush_pending_irq(&self) {
         let pending_mask = self.irq_pending_mask.load(Ordering::SeqCst);
@@ -46,12 +65,14 @@ impl VirtualInterrupt {
             let prev_mask = self.irq_pending_mask.swap(0, Ordering::SeqCst);
             /* Leave IRQ_U_SOFT for hardware UIPI */
             let pending = self.irq_pending.load(Ordering::SeqCst);
+            let unset = !prev_mask;
             let val = pending & prev_mask;
-            for i in 1..16 {
+            for i in (2..11).step_by(4) {
+                if (unset & (1 << i)) == 0 {
+                    unsafe { csrc!(HUVIP, 1 << i); }
+                }
                 if (val & (1 << i)) != 0 {
                     unsafe { csrs!(HUVIP, 1 << i); }
-                } else if (prev_mask & (1 << i)) != 0 {
-                    unsafe { csrc!(HUVIP, 1 << i); }
                 }
             }
         }
@@ -64,17 +85,24 @@ impl VirtualInterrupt {
         let real_vipi = ((huvip >> IRQ_VS_SOFT) & 0x1) == 0x1;
         let pending = self.irq_pending.load(Ordering::SeqCst);
         let pending_vipi = ((pending >> IRQ_VS_SOFT) & 0x1) == 0x1;
-        if real_vipi && !pending_vipi {
+        if !real_vipi && pending_vipi {
+            if self.irq_pending_mask.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst)
+                & (1 << IRQ_VS_SOFT) == 0 {
+                    self.irq_pending.fetch_and(!(1 << IRQ_VS_SOFT), Ordering::SeqCst);
+            }
+            //println!("sync_pending_irq huvip {:x} pending {:x}",
+            //    huvip, pending);
+        } else if real_vipi && pending_vipi {
+            if self.irq_pending_mask.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst)
+                & (1 << IRQ_VS_SOFT) == 0 {
+                    self.irq_pending.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst);
+            }
+        } else if real_vipi && !pending_vipi {
             if self.irq_pending_mask.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst)
                 & (1 << IRQ_VS_SOFT) == 0 {
                     self.irq_pending.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst);
                     println!("sync_pending_irq real_vipi {:x} pending_vipi {:x}",
                         huvip, pending);
-            }
-        } else if !real_vipi && pending_vipi {
-            if self.irq_pending_mask.fetch_or(1 << IRQ_VS_SOFT, Ordering::SeqCst)
-                & (1 << IRQ_VS_SOFT) == 0 {
-                    self.irq_pending.fetch_and(!(1 << IRQ_VS_SOFT), Ordering::SeqCst);
             }
         }
     }

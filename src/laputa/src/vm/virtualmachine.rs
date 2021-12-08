@@ -5,7 +5,7 @@ use crate::mm::gstagemmu;
 use crate::plat::uhe::ioctl::ioctl_constants;
 use crate::irq::delegation::delegation_constants;
 use std::thread;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock, Condvar};
 use std::ffi::CString;
 use ioctl_constants::*;
 use delegation_constants::*;
@@ -76,11 +76,14 @@ pub struct VmSharedState {
     pub vm_id: u64,
     pub ioctl_fd: i32,
     pub gsmmu: Mutex<gstagemmu::GStageMmu>,
+    pub wfi_mutex: Vec<Mutex<bool>>,
+    pub wfi_cv: Vec<Condvar>,
 }
 
 impl VmSharedState {
     pub fn new(ioctl_fd: i32, mem_size: u64, guest_mem: &GuestMemory,
-        mmio_regions: Vec<GpaRegion>, vm_id: u64)
+        mmio_regions: Vec<GpaRegion>, vm_id: u64,
+        wfi_mutex: Vec<Mutex<bool>>, wfi_cv: Vec<Condvar>)
         -> Self {
         Self {
             vm_id,
@@ -88,6 +91,8 @@ impl VmSharedState {
             gsmmu: Mutex::new(
                     gstagemmu::GStageMmu::new(
                         ioctl_fd, mem_size, guest_mem.clone(), mmio_regions)),
+            wfi_mutex,
+            wfi_cv,
         }
     }
 }
@@ -238,8 +243,15 @@ impl VirtualMachine {
         let mmio_bus = Arc::new(RwLock::new(devices::Bus::new()));
         let guest_mem = GuestMemory::new().unwrap();
         
+        let mut wfi_mutex = Vec::new();
+        let mut wfi_cv = Vec::new();
+        for i in 0..vcpu_num {
+            wfi_mutex.push(Mutex::new(false));
+            wfi_cv.push(Condvar::new());
+        }
+        
         let vm_state = Arc::new(VmSharedState::new(ioctl_fd, mem_size,
-                &guest_mem, mmio_regions, vmid));
+                &guest_mem, mmio_regions, vmid, wfi_mutex, wfi_cv));
         
         /* Create vcpu struct instances */
         for i in 0..vcpu_num {

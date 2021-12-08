@@ -184,8 +184,15 @@ impl Ecall {
                         vipi_id = vcpu.vipi.vcpu_id_map[i as usize]
                             .load(Ordering::SeqCst);
                         SharedStat::add_shared_mem(110020 + i as usize, 1);
-                        if vcpu.irqchip.get().unwrap().trigger_virtual_irq(i) {
+                        let vcpu_state =  vcpu.irqchip.get().unwrap()
+                            .trigger_virtual_irq(i);
+                        if vcpu_state == 1 {
                             VirtualIpi::set_vipi(vipi_id);
+                        //} else if vcpu_state == 2 {
+                        } else {
+                            let mut guard = vcpu.vm.wfi_mutex[i as usize].lock().unwrap();
+                            *guard = true;
+                            vcpu.vm.wfi_cv[i as usize].notify_one();
                         }
                     }
                 }

@@ -6,7 +6,7 @@ pub trait IrqChip: Send + Sync {
     fn trigger_edge_irq(&self, irq: u32);
 
     /* TODO: Vcpu should find running vcpus via plic, remove it */
-    fn trigger_virtual_irq(&self, vcpu_id: u32) -> bool;
+    fn trigger_virtual_irq(&self, vcpu_id: u32) -> u16;
 }
 
 static mut total_cnt: usize = 0;

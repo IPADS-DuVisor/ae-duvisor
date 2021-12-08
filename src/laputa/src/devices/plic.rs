@@ -168,12 +168,19 @@ impl Plic {
         } else {
             /* Set irq */
             vcpu.virq.set_pending_irq(IRQ_VS_EXT);
-
-            if vcpu.is_running.load(Ordering::SeqCst) {
+            
+            let vcpu_state = vcpu.is_running.load(Ordering::SeqCst);
+            if vcpu_state == 1 {
                 let vipi_id = vcpu.vipi.vcpu_id_map[vcpu.vcpu_id as usize]
                     .load(Ordering::SeqCst);
 
                 VirtualIpi::set_vipi(vipi_id);
+            //} else if vcpu_state == 2 {
+            } else {
+                let vcpu_id = vcpu.vcpu_id as usize;
+                let mut guard = vcpu.vm.wfi_mutex[vcpu_id].lock().unwrap();
+                *guard = true;
+                vcpu.vm.wfi_cv[vcpu_id].notify_one();
             }
         }
     }
@@ -527,7 +534,7 @@ impl IrqChip for Plic {
         self.plic_trigger_irq(irq, true, true);
     }
 
-    fn trigger_virtual_irq(&self, vcpu_id: u32) -> bool {
+    fn trigger_virtual_irq(&self, vcpu_id: u32) -> u16 {
         let ctx_id = (vcpu_id * 2) as usize;
         let vcpu = self.plic_contexts[ctx_id].lock()
             .vcpu.upgrade().unwrap();

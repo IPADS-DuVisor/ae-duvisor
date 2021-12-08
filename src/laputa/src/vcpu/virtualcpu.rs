@@ -2,6 +2,7 @@ use crate::vm::virtualmachine;
 use crate::irq::virq;
 use crate::vcpu::vcpucontext;
 use std::sync::{Arc, Mutex, RwLock};
+use std::time;
 use vcpucontext::*;
 use crate::mm::utils::*;
 use crate::mm::gstagemmu::*;
@@ -14,7 +15,7 @@ use crate::vcpu::utils::*;
 use std::lazy::SyncOnceCell;
 use crate::devices::tty::Tty;
 use crate::irq::vipi::VirtualIpi;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::thread;
 use atomic_enum::*;
 use crate::init::cmdline::MAX_VCPU;
@@ -149,7 +150,7 @@ pub struct VirtualCpu {
     pub console: Arc<Mutex<Tty>>,
     pub guest_mem: GuestMemory,
     pub mmio_bus: Arc<RwLock<devices::Bus>>,
-    pub is_running: AtomicBool,
+    pub is_running: AtomicU16,
 }
 
 impl VirtualCpu {
@@ -163,7 +164,7 @@ impl VirtualCpu {
         let virq = virq::VirtualInterrupt::new();
         let exit_reason = AtomicExitReason::new(ExitReason::ExitUnknown);
         let irqchip = SyncOnceCell::new();
-        let is_running = AtomicBool::new(false);
+        let is_running = AtomicU16::new(0);
 
         Self {
             vcpu_id,
@@ -205,10 +206,67 @@ impl VirtualCpu {
     fn handle_virtual_inst_fault(&self, vcpu_ctx: &mut VcpuCtx) -> i32 {
         let ret = 0;
 
+        self.is_running.store(2, Ordering::SeqCst);
+        while true {
+            if self.virq.has_pending_virq() {
+                //let huvsie: u64;
+                //unsafe { huvsie = csrr!(HUVSIE); }
+                //let pending = self.virq.irq_pending.load(Ordering::SeqCst);
+                //println!("!!! NO SLEEP: vsie {:x}, pending {:x}", huvsie, pending);
+                break;
+            }
+
+            if self.virq.has_pending_utimer() {
+                self.handle_u_vtimer_irq();
+                break;
+            }
+         
+            let vcpu_id = self.vcpu_id as usize;
+            let mut guard = self.vm.wfi_mutex[vcpu_id].lock().unwrap();
+            let cur_time;
+            let time_cmp;
+            unsafe {
+                extern "C" { fn rdvtimecmp() -> u64; }
+                cur_time = csrr!(TIME);
+                
+                #[cfg(feature = "xilinx")]
+                {
+                    time_cmp = rdvtimecmp();
+                }
+                
+                #[cfg(feature = "qemu")]
+                {
+                    time_cmp = csrr!(VTIMECMP);
+                }
+            }
+            if time_cmp <= cur_time || time_cmp - cur_time < 50 {
+                //let huip;
+                //unsafe { huip = csrr!(HUIP); }
+                //println!("halt-poll: time_cmp {} cur_time {} diff {} huip {:x}", 
+                //    time_cmp, cur_time, time_cmp - cur_time, huip);
+                continue;
+            }
+            let res = self.vm.wfi_cv[vcpu_id].wait_timeout(guard,
+                time::Duration::from_micros(time_cmp - cur_time - 50)).unwrap();
+            guard = res.0;
+            *guard = false;
+            if res.1.timed_out() {
+                unsafe {
+                    let out_time = csrr!(TIME);
+                    if out_time > time_cmp && !self.virq.has_pending_utimer() {
+                        let huip = csrr!(HUIP);
+                        println!("time_cmp {} out_time {} diff {} huip {:x}", 
+                            time_cmp, out_time, out_time - time_cmp, huip);
+                    }
+                }
+            }
+        }
+        self.is_running.store(0, Ordering::SeqCst);
+        
+        //thread::yield_now();
+        
         vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
 
-        thread::yield_now();
-        
         ret
     }
 
@@ -809,7 +867,7 @@ impl VirtualCpu {
             /* Flush pending irqs into HUVIP */
             self.virq.flush_pending_irq();
 
-            self.is_running.store(true, Ordering::SeqCst);
+            self.is_running.store(1, Ordering::SeqCst);
             unsafe {
                 let cur_time = csrr!(TIME) as usize;
                 if 0 <= prev_cause && prev_cause < 8 {
@@ -854,9 +912,9 @@ impl VirtualCpu {
                     }
                 }
             }
-            self.is_running.store(false, Ordering::SeqCst);
+            self.is_running.store(0, Ordering::SeqCst);
 
-            //self.virq.sync_pending_irq();
+            self.virq.sync_pending_irq();
 
             ret = self.handle_vcpu_exit(&mut *vcpu_ctx);
         }
