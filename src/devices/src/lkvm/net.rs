@@ -6,7 +6,7 @@ use sys_util::Result;
 
 #[link(name = "lkvm")]
 extern "C" {
-    fn lkvm_net_init();
+    fn lkvm_net_init(fd: i32);
 
     fn lkvm_net_mmio_read(addr: u64, data: *mut u8, len: u32);
     
@@ -16,9 +16,9 @@ extern "C" {
 pub struct LkvmNet {}
 
 impl LkvmNet {
-    pub fn init() -> Result<LkvmNet> {
+    pub fn init(ioctl_fd: i32) -> Result<LkvmNet> {
             unsafe {
-                lkvm_net_init();
+                lkvm_net_init(ioctl_fd);
             }
             Ok(LkvmNet {})
     }

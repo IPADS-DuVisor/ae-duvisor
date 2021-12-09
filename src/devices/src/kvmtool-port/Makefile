@@ -63,18 +63,19 @@ CFLAGS	+= $(CPPFLAGS) $(DEFINES) -I$(KVM_INCLUDE) -I$(ARCH_INCLUDE) -O2 -fno-str
 WARNINGS += -Wall
 WARNINGS += -Wformat=2
 WARNINGS += -Winit-self
-WARNINGS += -Wmissing-declarations
-WARNINGS += -Wmissing-prototypes
+#WARNINGS += -Wmissing-declarations
+#WARNINGS += -Wmissing-prototypes
 WARNINGS += -Wnested-externs
 WARNINGS += -Wno-system-headers
-WARNINGS += -Wold-style-definition
+#WARNINGS += -Wold-style-definition
 WARNINGS += -Wredundant-decls
 WARNINGS += -Wsign-compare
-WARNINGS += -Wstrict-prototypes
+#WARNINGS += -Wstrict-prototypes
 WARNINGS += -Wundef
 WARNINGS += -Wvolatile-register-var
 WARNINGS += -Wwrite-strings
 WARNINGS += -Wno-format-nonliteral
+WARNINGS += -Wno-unused
 
 CFLAGS	+= $(WARNINGS)
 

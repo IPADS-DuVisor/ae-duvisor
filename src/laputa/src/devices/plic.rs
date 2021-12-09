@@ -175,12 +175,6 @@ impl Plic {
                     .load(Ordering::SeqCst);
 
                 VirtualIpi::set_vipi(vipi_id);
-            //} else if vcpu_state == 2 {
-            } else {
-                let vcpu_id = vcpu.vcpu_id as usize;
-                let mut guard = vcpu.vm.wfi_mutex[vcpu_id].lock().unwrap();
-                *guard = true;
-                vcpu.vm.wfi_cv[vcpu_id].notify_one();
             }
         }
     }

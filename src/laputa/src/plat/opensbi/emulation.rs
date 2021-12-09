@@ -188,11 +188,6 @@ impl Ecall {
                             .trigger_virtual_irq(i);
                         if vcpu_state == 1 {
                             VirtualIpi::set_vipi(vipi_id);
-                        //} else if vcpu_state == 2 {
-                        } else {
-                            let mut guard = vcpu.vm.wfi_mutex[i as usize].lock().unwrap();
-                            *guard = true;
-                            vcpu.vm.wfi_cv[i as usize].notify_one();
                         }
                     }
                 }
