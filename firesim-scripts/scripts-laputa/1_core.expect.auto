@@ -9,7 +9,7 @@ set env(SUDO_COMMAND) /bin/bash
 set HOST "172.16.0.4"
 set FPGA "192.168.0.80"
 set kvm_or_laputa [lindex $argv 0]
-set TIMES 5
+set TIMES 3
 
 if {$kvm_or_laputa == "laputa"} {
     set HOST_NET "host_net_ulh.sh"
@@ -39,10 +39,7 @@ expect {
 			send "cd / &&  mount ubuntu-vdisk.img root && chroot root bash\n"
 			expect  "root@buildroot:"
 			
-                        send "grep 'nr_hugepages' /etc/sysctl.conf || echo 'vm.nr_hugepages=512' >> /etc/sysctl.conf \n"
-			expect "#"
-			
-                        send "./mount_dev.sh && ./prepare_kill.sh && ./${HOST_NET} && ./${kvm_or_laputa}_linux.sh \n"
+			send "./mount_dev.sh && ./prepare_kill.sh && ./${HOST_NET} && ./${kvm_or_laputa}_linux.sh \n"
 			expect "Please press Enter to activate this console"
 			send "\n"	
 	
@@ -106,8 +103,8 @@ expect {
                         #send "HOST=$HOST TIMES=$TIMES ./iperf3.sh && echo k  j\n"
                         expect "k j"
 
-                        #send "HOST=$HOST TIMES=2 ./netperf.sh && echo k  4\n"
-                        send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo k  4\n"
+                        send "HOST=$HOST TIMES=2 ./netperf.sh && echo k  4\n"
+                        #send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo k  4\n"
                         expect "k 4"
                         
 			send "\x01"; send "d"
@@ -203,14 +200,14 @@ expect {
     	send "killall nginx && echo a  1\n" 
         expect "a 1"
 
-#        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
-#        expect "a i"
-#        
-#        send "TIMES=$TIMES ./hackbench.sh && echo a  g\n"
-#        expect "a g"
-#
-#        send "TIMES=$TIMES ./untar_large.sh && echo a  h\n"
-#        expect "a h"
+        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  i\n"
+        expect "a i"
+        
+        send "TIMES=$TIMES ./hackbench.sh && echo a  g\n"
+        expect "a g"
+
+        send "TIMES=$TIMES ./untar_large.sh && echo a  h\n"
+        expect "a h"
         
         send "clear \n"
         expect "#"
