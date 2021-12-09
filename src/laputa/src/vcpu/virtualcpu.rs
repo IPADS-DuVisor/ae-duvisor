@@ -209,10 +209,6 @@ impl VirtualCpu {
         self.is_running.store(2, Ordering::SeqCst);
         while true {
             if self.virq.has_pending_virq() {
-                //let huvsie: u64;
-                //unsafe { huvsie = csrr!(HUVSIE); }
-                //let pending = self.virq.irq_pending.load(Ordering::SeqCst);
-                //println!("!!! NO SLEEP: vsie {:x}, pending {:x}", huvsie, pending);
                 break;
             }
 
@@ -239,12 +235,8 @@ impl VirtualCpu {
                     time_cmp = csrr!(VTIMECMP);
                 }
             }
-            if time_cmp <= cur_time || time_cmp - cur_time < 50 {
-                //let huip;
-                //unsafe { huip = csrr!(HUIP); }
-                //println!("halt-poll: time_cmp {} cur_time {} diff {} huip {:x}", 
-                //    time_cmp, cur_time, time_cmp - cur_time, huip);
-                continue;
+            if time_cmp <= cur_time || time_cmp - cur_time < 500 {
+                break;
             }
             let res = self.vm.wfi_cv[vcpu_id].wait_timeout(guard,
                 time::Duration::from_micros(time_cmp - cur_time - 50)).unwrap();
