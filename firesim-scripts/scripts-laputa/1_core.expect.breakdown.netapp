@@ -290,6 +290,7 @@ expect "Server listening" {
         
         expect "#"
         send "\x01"; send "d"
+    }
 }	
 
 

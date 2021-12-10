@@ -1,5 +1,10 @@
 #!/bin/zsh
 
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+ENDCOLOR="\e[0m"
+
 SEQ_FILE=/tmp/seq
 CONT=${1:-""}
 
@@ -13,10 +18,11 @@ function rename_log() {
 
 function wait_for_tests() {
     local loop_acc=0
-    local limit=24
+    #local limit=24
+    local limit=8
 
     while true; do
-        echo -ne "\rTime spent: $(($loop_acc * 5)) min. "
+        echo -ne "\r ${YELLOW} Time spent: $(($loop_acc * 5)) min. ${ENDCOLOR}"
         
         sleep 300
         
@@ -24,12 +30,12 @@ function wait_for_tests() {
             xargs -I {} cat server-log/{} | grep "ALL TEST DONE";
 
         if [ $? -eq 0 ]; then
-            echo "\nALL TEST DONE!\n"
+            echo "\n ${GREEN} ALL TEST DONE! ${ENDCOLOR}\n"
             break
         fi
         
         if [ $loop_acc -ge $limit ]; then
-            echo "\nTIMEOUT!\n"
+            echo "\n ${RED} TIMEOUT! ${ENDCOLOR}\n"
             break
         fi
         
@@ -38,7 +44,7 @@ function wait_for_tests() {
 }
 
 function test_kvm() {
-    echo "./nightly-scripts/kvm-$1.sh"
+    echo "${YELLOW} ./nightly-scripts/kvm-$1.sh ${ENDCOLOR}"
     
     cp ./nightly-scripts/kvm-$1.sh ./mnt-firesim/kvm_linux.sh
 
@@ -46,7 +52,7 @@ function test_kvm() {
 }
 
 function test_ulh() {
-    echo "./nightly-scripts/laputa-$1.sh"
+    echo "${YELLOW} ./nightly-scripts/laputa-$1.sh ${ENDCOLOR}"
     
     cp ./nightly-scripts/laputa-$1.sh ./mnt-firesim/laputa_linux.sh
 
@@ -78,6 +84,7 @@ while true; do
     fi
     
     reset_firesim
+    date
     if [ "$ARCH" = "kvm" ]; then
         test_kvm $VCPU
     elif [ "$ARCH" = "ulh" ]; then
