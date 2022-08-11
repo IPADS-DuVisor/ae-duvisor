@@ -169,7 +169,7 @@ impl VirtualMachine {
 
     fn vm_welcome() {
         #[cfg(feature = "xilinx")]
-        println!("Welcome to LAPUTA (Xilinx)");
+        println!("Welcome to LAPUTA (Xilinx on Firesim)");
 
         #[cfg(feature = "qemu")]
         println!("Welcome to LAPUTA (Qemu)");
