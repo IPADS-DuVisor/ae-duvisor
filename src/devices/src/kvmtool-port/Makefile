@@ -11,7 +11,7 @@ else
 endif
 export E Q
 
-CROSS_COMPILE 	:= riscv64-unknown-linux-gnu-
+CROSS_COMPILE 	:= riscv64-linux-gnu-
 
 CC 	:= $(CROSS_COMPILE)gcc
 CFLAGS 	:= -fPIC
@@ -76,6 +76,7 @@ WARNINGS += -Wvolatile-register-var
 WARNINGS += -Wwrite-strings
 WARNINGS += -Wno-format-nonliteral
 WARNINGS += -Wno-unused
+WARNINGS += -Wno-unused-result
 
 CFLAGS	+= $(WARNINGS)
 

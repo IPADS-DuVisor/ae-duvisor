@@ -2,7 +2,7 @@
 cd linux-laputa
 cp .config-qemu .config
 export ARCH=riscv
-export CROSS_COMPILE=riscv64-unknown-linux-gnu-
+export CROSS_COMPILE=riscv64-linux-gnu-
 
 make -j16
 

@@ -284,6 +284,8 @@ static bool virtio_net__tap_init(struct net_dev *ndev)
     void *test_buf;
     size_t test_buf_size = 0x1000;
 
+    printf("***********Mapping!!!!!!!!***************\n");
+
     test_buf = mmap(mmio_addr, test_buf_size, 
             PROT_READ | PROT_WRITE, MAP_SHARED, fd_ioctl, 0);
     if (test_buf == MAP_FAILED) {
