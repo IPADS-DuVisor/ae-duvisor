@@ -11,4 +11,8 @@ pub mod ioctl_constants {
     pub const IOCTL_LAPUTA_RELEASE_PFN: u64 = 0x40086b07;
     pub const IOCTL_REMOTE_FENCE: u64 = 0x80106b08;
     pub const IOCTL_LAPUTA_GET_VMID: u64 = 0x80086b09;
+    pub const IOCTL_LAPUTA_GET_VINTERRUPT_ADDR: u64 = 0x80086b0a;
+    pub const IOCTL_LAPUTA_GET_CPUID: u64 = 0x80086b0b;
+    pub const IOCTL_LAPUTA_SET_VINTERRUPT: u64 = 0x80086b0c;
+    pub const IOCTL_LAPUTA_VPLIC_CLAIM: u64 = 0x80086b0d;
 }

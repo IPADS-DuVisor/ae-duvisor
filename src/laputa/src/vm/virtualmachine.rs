@@ -23,6 +23,8 @@ use crate::vcpu::utils::*;
 use crate::irq::vipi::VirtualIpi;
 use std::process::exit;
 use crate::plat::opensbi::emulation::SHUTDOWN_FLAG;
+use crate::devices::vplic::create_vplic;
+use crate::devices::vplic::Vplic;
 
 extern crate irq_util;
 use irq_util::IrqChip;
@@ -113,6 +115,7 @@ pub struct VirtualMachine {
     /* Record GPA <--> HVA mappings */
     pub guest_mem: GuestMemory,
     pub vipi: Arc<VirtualIpi>,
+    pub vplic: Vplic,
 }
 
 impl VirtualMachine {
@@ -261,6 +264,11 @@ impl VirtualMachine {
                     guest_mem.clone(), mmio_bus.clone(), vipi_ptr.clone()));
             vcpus.push(vcpu);
         }
+
+        /* Create vplic struct instance */
+        let vplic = Vplic::new(ioctl_fd);
+        //vplic.read_vnterrupt();
+        //vplic.write_vnterrupt(0x10);
         
         let irqchip = Arc::new(Plic::new(&vcpus));
         
@@ -298,6 +306,7 @@ impl VirtualMachine {
             mmio_bus,
             guest_mem,
             vipi: vipi_ptr,
+            vplic,
         }
     }
 
@@ -458,6 +467,9 @@ impl VirtualMachine {
             dtb_gpa = gpa;
         }
 
+        /* VPLIC passthrough */
+        create_vplic(&self, ioctl_fd);
+
         /* Set up init state as opensbi for kernel */
         for i in &mut self.vcpus {
             let vcpu_id = i.vcpu_id;
@@ -579,7 +591,8 @@ impl VirtualMachine {
 
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
-                set_aff(7 - vcpu.vcpu_id as usize);
+                //set_aff(7 - vcpu.vcpu_id as usize);
+                set_aff((vcpu.vcpu_id + 1) as usize);
                 vcpu.thread_vcpu_run(delta_time);
 
                 /* TODO: All the structure should be freed before ULH ends */
