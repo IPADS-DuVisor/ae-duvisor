@@ -34,6 +34,8 @@ extern crate devices;
 extern crate sys_util;
 use sys_util::GuestMemory;
 
+pub static mut BLOCK_CP_DRIVER_FD: i32 = 256;
+
 #[allow(unused)]
 extern "C"
 {
@@ -172,7 +174,7 @@ impl VirtualMachine {
 
     fn vm_welcome() {
         #[cfg(feature = "xilinx")]
-        println!("Welcome to LAPUTA (Xilinx on Firesim)");
+        println!("Welcome to LAPUTA (Xilinx on Firesim v1.0)");
 
         #[cfg(feature = "qemu")]
         println!("Welcome to LAPUTA (Qemu)");
@@ -228,6 +230,10 @@ impl VirtualMachine {
         unsafe {
             let vmid_ptr = (&vmid) as *const u64;
             libc::ioctl(ioctl_fd, IOCTL_LAPUTA_GET_VMID, vmid_ptr);
+        }
+
+        unsafe {
+            BLOCK_CP_DRIVER_FD = ioctl_fd;
         }
 
         /* Most of the test cases should avoid range of vipi */

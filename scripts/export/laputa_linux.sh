@@ -24,7 +24,7 @@ NR_VCPU=4
 
 ./laputa --smp 1 \
     --initrd ./test-files-laputa/rootfs-net.img \
-    --dtb ./test-files-laputa/vmlinux.dtb  \
+    --dtb ./test-files-laputa/vmlinux-vplic.dtb  \
     --kernel ./test-files-laputa/Image \
     --memory 512 \
     --machine laputa_virt

@@ -913,6 +913,7 @@ static struct kvm fake_kvm_for_net = {
 void lkvm_net_init(int ioctl_fd);
 void lkvm_net_init(int ioctl_fd) {
     fd_ioctl = ioctl_fd;
+	ioctl_fd_virq = ioctl_fd;
     virtio_net__init(&fake_kvm_for_net);
 }
 

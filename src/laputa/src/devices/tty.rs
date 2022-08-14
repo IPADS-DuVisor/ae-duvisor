@@ -5,6 +5,9 @@ use crate::mm::utils::*;
 
 extern crate irq_util;
 use irq_util::IrqChip;
+//use devices::virtio::block::BLOCK_CP_DRIVER_FD;
+use crate::vm::virtualmachine::BLOCK_CP_DRIVER_FD;
+//use devices::virtio::block::BLOCK_CP_DRIVER_FD;
 
 #[allow(unused)]
 pub mod tty_uart_constants {
@@ -245,15 +248,18 @@ impl Tty {
             self.iir = iir;
 
             if self.irq_state == 0 {
-                dbgprintln!("[2] tty set");
-                irqchip.trigger_level_irq(1, true);
+                println!("[2] tty set");
+                //irqchip.trigger_level_irq(1, true);
+                unsafe {
+                libc::ioctl(BLOCK_CP_DRIVER_FD, 0x80086b0f, 35);
+                }
             }
         } else {
             self.iir = UART_IIR_NO_INT;
 
             if self.irq_state != 0 {
-                dbgprintln!("[1] tty clear");
-                irqchip.trigger_level_irq(1, false);
+                println!("[1] tty clear");
+                //irqchip.trigger_level_irq(1, false);
             }
         }
 

@@ -76,6 +76,7 @@ static int virtio_mmio_init_ioeventfd(struct kvm *kvm,
 
 static u64 (*trigger_edge_irq)(u64 *, u32) = NULL;
 static u64 *irqchip = NULL;
+static u64 lkvm_ioctl_fd = 0;
 
 int virtio_mmio_signal_vq(struct kvm *kvm, struct virtio_device *vdev, u32 vq)
 {
@@ -85,7 +86,19 @@ int virtio_mmio_signal_vq(struct kvm *kvm, struct virtio_device *vdev, u32 vq)
 #if 0
 	kvm__irq_trigger(vmmio->kvm, vmmio->irq);
 #else
-    trigger_edge_irq(irqchip, vmmio->irq);
+    //trigger_edge_irq(irqchip, vmmio->irq);
+	if (vmmio->irq == 34) { // net
+		printf("set net");
+		ioctl(lkvm_ioctl_fd, 0x80086b0e, 34);
+	} else if (vmmio->irq == 33) { // block
+		printf("set block");
+		ioctl(lkvm_ioctl_fd, 0x80086b0c, 33);
+	} else if (vmmio->irq == 35) { // tty
+		printf("set tty");
+		ioctl(lkvm_ioctl_fd, 0x80086b0f, 35);
+	} else {
+		printf("Other irq %d", vmmio->irq);
+	}
 #endif
 
 	return 0;
@@ -110,7 +123,19 @@ int virtio_mmio_signal_config(struct kvm *kvm, struct virtio_device *vdev)
 #if 0
 	kvm__irq_trigger(vmmio->kvm, vmmio->irq);
 #else
-    trigger_edge_irq(irqchip, vmmio->irq);
+    //trigger_edge_irq(irqchip, vmmio->irq);
+	if (vmmio->irq == 34) { // net
+		printf("set net");
+		ioctl(lkvm_ioctl_fd, 0x80086b0e, 34);
+	} else if (vmmio->irq == 33) { // block
+		printf("set block");
+		ioctl(lkvm_ioctl_fd, 0x80086b0c, 33);
+	} else if (vmmio->irq == 35) { // tty
+		printf("set tty");
+		ioctl(lkvm_ioctl_fd, 0x80086b0f, 35);
+	} else {
+		printf("Other irq %d", vmmio->irq);
+	}
 #endif
 
 	return 0;
@@ -351,7 +376,8 @@ int virtio_mmio_init(struct kvm *kvm, void *dev, struct virtio_device *vdev,
 		return r;
 	}
 #else
-	vmmio->irq = subsys_id == VIRTIO_ID_BLOCK ? 2 : 3;
+	//vmmio->irq = subsys_id == VIRTIO_ID_BLOCK ? 2 : 3;
+	vmmio->irq = subsys_id == VIRTIO_ID_BLOCK ? 33 : 34;
 #endif
 
 #if 0

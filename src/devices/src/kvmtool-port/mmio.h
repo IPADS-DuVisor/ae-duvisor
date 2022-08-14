@@ -165,3 +165,5 @@ static inline u64 __raw_readq(const volatile void __iomem *addr)
 #endif
 
 #endif /* _ASM_RISCV_MMIO_H */
+
+extern int ioctl_fd_virq;
