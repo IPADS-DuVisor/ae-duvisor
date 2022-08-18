@@ -214,11 +214,11 @@ impl Tty {
         if avail_char > 0 {
             dbgprintln!("avail_char {}", avail_char);
             self.lsr |= UART_LSR_DR;
-            self.update_irq(&irqchip);
+            self.update_irq(&irqchip, 1);
         }
     }
 
-    pub fn update_irq(&mut self, irqchip: &Arc<dyn IrqChip>) {
+    pub fn update_irq(&mut self, irqchip: &Arc<dyn IrqChip>, flag: u8) {
         let mut iir: u8 = 0;
 
         /* Handle clear rx */
@@ -244,11 +244,11 @@ impl Tty {
         }
 
         /* Now update the irq line, if necessary */
-        if iir != 0 {
+        if iir != 0 || flag == 1 {
             self.iir = iir;
 
-            if self.irq_state == 0 {
-                println!("[2] tty set");
+            if self.irq_state == 0 || flag == 1 {
+                //println!("[2] tty set");
                 //irqchip.trigger_level_irq(1, true);
                 unsafe {
                 libc::ioctl(BLOCK_CP_DRIVER_FD, 0x80086b0f, 35);
@@ -258,7 +258,7 @@ impl Tty {
             self.iir = UART_IIR_NO_INT;
 
             if self.irq_state != 0 {
-                println!("[1] tty clear");
+                //println!("[1] tty clear");
                 //irqchip.trigger_level_irq(1, false);
             }
         }
@@ -330,7 +330,7 @@ impl Tty {
             }
         }
 
-        self.update_irq(&irqchip);
+        self.update_irq(&irqchip, 0);
 
         ret
     }
@@ -387,7 +387,7 @@ impl Tty {
             }
         }
 
-        self.update_irq(&irqchip);
+        self.update_irq(&irqchip, 0);
 
         ret
     }

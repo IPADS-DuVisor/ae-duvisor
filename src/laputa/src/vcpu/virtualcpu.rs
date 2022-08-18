@@ -91,7 +91,8 @@ mod inst_parsing_constants {
 }
 pub use inst_parsing_constants::*;
 
-pub const ECALL_VM_TEST_END: u64 = 0xFF;
+//pub const ECALL_VM_TEST_END: u64 = 0xFF;
+pub const ECALL_VM_TEST_END: u64 = 0xDEAD;
 
 #[atomic_enum]
 #[derive(PartialEq)]
@@ -115,6 +116,7 @@ extern "C" {
 #[link(name = "vtimer")]
 extern "C" {
     fn wrvtimectl(val: u64);
+    fn wrvtimecmp(val: u64);
 }
 
 #[allow(unused)]
@@ -214,9 +216,13 @@ impl VirtualCpu {
     }
 
     fn handle_u_vtimer_irq(&self) -> i32 {
+        static mut i: u64 = 0;
+        let mut next_utimer: u64 = 0;
         /* Set virtual timer */
+        println!("****Set utimer!!!!");
         self.virq.set_pending_irq(IRQ_VS_TIMER);
         unsafe {
+            i += 1;
             /* 
              * FIXME: There may be unexpected pending bit IRQ_U_TIMER when
              * traped to kernel disable timer.
@@ -226,12 +232,29 @@ impl VirtualCpu {
                  wrvtimectl(0);
                  csrc!(HUIP, 1 << IRQ_U_TIMER);
              }
+             println!("Clear timer of HUIP !!!!");
 
             #[cfg(feature = "qemu")]
             {
                 csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
                 csrc!(HUIP, 1 << IRQ_U_TIMER);
             }
+
+            next_utimer = csrr!(TIME) + 0x1000;
+            println!("Next timer: 0x{:x}", next_utimer);
+
+            #[cfg(feature = "qemu")]
+            {
+                csrw!(VTIMECTL, (IRQ_U_TIMER << 1) | (1 << VTIMECTL_ENABLE));
+                csrw!(VTIMECMP, next_utimer);
+            }
+
+            #[cfg(feature = "xilinx")]
+            {
+                    wrvtimectl(1);
+                    //wrvtimecmp(0x6098b5 + i * 0x10000);
+                    wrvtimecmp(next_utimer);
+            } 
         }
 
         return 0;
@@ -703,9 +726,10 @@ impl VirtualCpu {
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
                 IRQ_U_TIMER => {
-                    dbgprintln!("handler U TIMER: {}, current pc is {:x}.",
+                    println!("TIMER: {}, pc: {:x}.",
                         ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
-                    ret = self.handle_u_vtimer_irq();
+                    self.handle_u_vtimer_irq();
+                    ret = 0x100;
                 }
                 IRQ_U_SOFT => {
                     dbgprintln!("handler U VIPI, vcpu_id: {}", self.vcpu_id);
@@ -801,10 +825,22 @@ impl VirtualCpu {
         vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
         let mut ret: i32 = 0;
-        while ret == 0 {
-            if self.vcpu_id == 0 {
+        while ret == 0 || ret == 0x100 {
+            //if self.vcpu_id == 0 {
+            //    /* Insert or clear tty irq on each vtimer irq */
+            //    self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
+            //}
+            if (self.vcpu_id == 0) && (ret == 0) {
+                //println!("TTY update!");
                 /* Insert or clear tty irq on each vtimer irq */
                 self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
+            } else {
+                //println!("skip for u timer");
+                unsafe {
+                    libc::ioctl(fd, 0x6b10); // Output the VS* csrs.
+                    //libc::ioctl(fd, 0x6b1010); // Clear pending with NULL ioctl.
+                    //libc::ioctl(fd, 0x80086b0d, 0x100); // claim tty
+                }
             }
 
             /* Flush pending irqs into HUVIP */

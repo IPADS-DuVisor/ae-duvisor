@@ -43,17 +43,17 @@ sudo rm -r ./tests/integration/test_images/build
 
 # delete laputa main binary name, so that we get laputa tests binary names
 laputa_test_names=${laputa_names/$laputa_name}
-mkdir -p mnt-local
-sudo mount $PREPARE/ubuntu-vdisk.img ./mnt-local
-sudo rm -r ./mnt-local/laputa
-sudo mkdir -p ./mnt-local/laputa/tests_bin
-sudo cp scripts/local/run_tests.sh $laputa_name ./mnt-local/laputa
-sudo cp $laputa_test_names ./mnt-local/laputa/tests_bin/
-sudo mv ./mnt-local/laputa/$laputa_name_basename ./mnt-local/laputa/laputa
-sudo cp -r src ./mnt-local/laputa/
-sudo cp -r tests ./mnt-local/laputa/
-sudo cp -r test-files-laputa ./mnt-local/laputa/
+mkdir -p mnt
+sudo mount $PREPARE/ubuntu-vdisk.img ./mnt
+sudo rm -r ./mnt/laputa
+sudo mkdir -p ./mnt/laputa/tests_bin
+sudo cp scripts/local/run_tests.sh $laputa_name ./mnt/laputa
+sudo cp $laputa_test_names ./mnt/laputa/tests_bin/
+sudo mv ./mnt/laputa/$laputa_name_basename ./mnt/laputa/laputa
+sudo cp -r src ./mnt/laputa/
+sudo cp -r tests ./mnt/laputa/
+sudo cp -r test-files-laputa ./mnt/laputa/
 
-sudo cp -r test-files-laputa/multi-vm-test ./mnt-local/
+sudo cp -r test-files-laputa/multi-vm-test ./mnt/
 
-sudo umount ./mnt-local
+sudo umount ./mnt

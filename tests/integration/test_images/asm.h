@@ -13,6 +13,18 @@
 #pragma once
 
 #define ECALL_VM_TEST_END (0xFF)
+#define ECALL_CALL_FOR_VIRQ (0xF0)
+#define ECALL_WRONG_IRQ (0xF8)
+#define ECALL_ENTER_HANDLER (0xF9)
+#define ECALL_HANDLER_FINISH (0xFA)
+#define ECALL_CLAIM_FINISH (0xFB)
+
+#define ECALL_CALL_FOR_UTIMER (0xE0)
+#define ECALL_HANDLER_START (0xE1)
+#define ECALL_RIGHT_CAUSE (0xE2)
+#define ECALL_WRONG_CAUSE (0xE3)
+#define ECALL_STEP_LOG (0xE4)
+#define ECALL_STOP_UTIMER (0xE5)
 
 // Opensbi EXT ID
 #define SBI_EXT_0_1_SET_TIMER (0x0)

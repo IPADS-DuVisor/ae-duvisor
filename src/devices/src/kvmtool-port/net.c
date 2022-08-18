@@ -234,6 +234,7 @@ struct mempool* send_mempool;
 struct virtio_device_userspace *userspace_dev;
 volatile int init_flag = 0;
 static int fd_ioctl = 0;
+int ioctl_fd_virq = 0;
 
 static bool virtio_net__tap_init(struct net_dev *ndev)
 {
@@ -909,7 +910,6 @@ static struct kvm fake_kvm_for_net = {
         .host_mac = "52:54:00:12:34:99",
     },
 };
-
 void lkvm_net_init(int ioctl_fd);
 void lkvm_net_init(int ioctl_fd) {
     fd_ioctl = ioctl_fd;

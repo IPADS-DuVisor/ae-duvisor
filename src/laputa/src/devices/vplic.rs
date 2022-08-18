@@ -80,6 +80,8 @@ pub fn create_vplic(vm: &virtualmachine::VirtualMachine, ioctl_fd: i32) {
     let mut guest_plic_addr: u64;
     let mut hartid: u64;
 
+    println!("Create vplic");
+
     /* Map 0xc000000 to 0xc200000 */ //0xfffffff080401004  0x80200000 0x80400000
     for i in 0..0x200 {
         vm.vm_state.gsmmu.lock().unwrap().map_page(0xc000000 + i * 0x1000, 0xc000000 + i * 0x1000, flag);

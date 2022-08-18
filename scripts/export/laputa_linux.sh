@@ -20,6 +20,8 @@ mount -t proc proc /proc
 
 cd laputa
 
+echo "New rootfs"
+
 NR_VCPU=4
 
 ./laputa --smp 1 \

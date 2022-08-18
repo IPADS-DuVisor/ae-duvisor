@@ -36,6 +36,20 @@ pub mod sbi_number {
     pub const SBI_EXT_0_1_SHUTDOWN: u64 = 0x8;
     pub const SBI_EXT_0_1_DEBUG_START: u64 = 0x11;
     pub const SBI_EXT_0_1_DEBUG_END: u64 = 0x12;
+    pub const SBI_EXT_0_1_DEBUG: u64 = 0x9;
+    pub const ECALL_CALL_FOR_VIRQ: u64 = 0xF0;
+    pub const ECALL_VM_TEST_END: u64 = 0xFF;
+    pub const ECALL_WRONG_IRQ: u64 = 0xF8;
+    pub const ECALL_ENTER_HANDLER: u64 = 0xF9;
+    pub const ECALL_HANDLER_FINISH: u64 = 0xFA;
+    pub const ECALL_CLAIM_FINISH: u64 = 0xFB;
+
+    pub const ECALL_CALL_FOR_UTIMER: u64 = 0xE0;
+    pub const ECALL_HANDLER_START: u64 = 0xE1;
+    pub const ECALL_RIGHT_CAUSE: u64 = 0xE2;
+    pub const ECALL_WRONG_CAUSE: u64 = 0xE3;
+    pub const ECALL_STEP_LOG: u64 = 0xE4;
+    pub const ECALL_STOP_UTIMER: u64 = 0xE5;
 }
 
 /*
@@ -122,6 +136,8 @@ impl Ecall {
                  * rv32
                  */
                 let next_cycle = self.arg[0];
+
+                //println!("Set timer");
                 
                 /*
                  * Linux thinks that the IRQ_S_TIMER will be cleared when ecall
@@ -203,6 +219,133 @@ impl Ecall {
                 unsafe {
                     SHUTDOWN_FLAG = 1;
                 }
+            },
+            SBI_EXT_0_1_DEBUG => {
+                println!("SBI DEBUG 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+            //    unsafe {
+            //        libc::ioctl(ioctl_fd, 0x6b10); // Output the VS* csrs.
+            //    }
+                ret = 0;
+            },
+            ECALL_CALL_FOR_VIRQ => {
+                static mut virq_cnt: u64 = 0;
+                unsafe {
+                virq_cnt += 1;
+                
+                    if (virq_cnt < 50000) {
+                        println!("ECALL_CALL_FOR_VIRQ {} CNT, 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", virq_cnt, self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                        libc::ioctl(ioctl_fd, 0x80086b0f, 0);
+                    }
+
+                    if (virq_cnt < 3) {
+                        #[cfg(feature = "qemu")]
+                        {
+                            csrw!(VTIMECTL, (IRQ_U_TIMER << 1) | (1 << VTIMECTL_ENABLE));
+                            csrw!(VTIMECMP, self.arg[5] + virq_cnt * 0x10000);
+                        }
+
+                        #[cfg(feature = "xilinx")]
+                        {
+                            wrvtimectl(1);
+                            wrvtimecmp(self.arg[5] + virq_cnt * 0x10000);
+                        } 
+                    }
+                }
+                ret = 0;
+            },
+            ECALL_VM_TEST_END => {
+                static mut test_cnt: u64 = 0;
+                unsafe {
+                test_cnt += 1;
+                println!("**********ECALL_VM_TEST_END {} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", test_cnt, self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                }
+                ret = 0;
+            },
+            ECALL_WRONG_IRQ => {
+                println!("**********ECALL_WRONG_IRQ 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                ret = 0;
+            },
+            ECALL_ENTER_HANDLER => {
+                println!("**********ECALL_ENTER_HANDLER***");
+                ret = 0;
+            },
+            ECALL_CALL_FOR_UTIMER => {
+                static mut timer_cnt: u64 = 0;
+                unsafe {
+                    timer_cnt += 1;
+
+                    println!("**********ECALL_CALL_FOR_UTIMER {} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", 
+                        timer_cnt, self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                    
+                    #[cfg(feature = "xilinx")]
+                    {
+                        wrvtimectl(1);
+                        wrvtimecmp(self.arg[5] + timer_cnt * 0x1000);
+                    }
+
+                    #[cfg(feature = "qemu")]
+                    {
+                        csrw!(VTIMECTL, (IRQ_U_TIMER << 1) | (1 << VTIMECTL_ENABLE));
+                        csrw!(VTIMECMP, self.arg[5] + timer_cnt * 0x1000);
+                    }
+                }
+                ret = 0;
+            },
+            ECALL_HANDLER_START => {
+                println!("**********ECALL_HANDLER_START 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", 
+                    self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                ret = 0;
+            },
+            ECALL_RIGHT_CAUSE => {
+                println!("**********ECALL_RIGHT_CAUSE 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", 
+                    self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                ret = 0;
+            },
+            ECALL_WRONG_CAUSE => {
+                println!("**********ECALL_WRONG_CAUSE 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", 
+                    self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                ret = 0;
+            },
+            ECALL_STEP_LOG => {
+                static mut log_cnt: u64 = 0;
+
+                unsafe {
+                log_cnt += 1;
+                println!("**********ECALL_STEP_LOG {} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", log_cnt,
+                    self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                }
+                ret = 0;
+            },
+            ECALL_STOP_UTIMER => {
+                println!("**********ECALL_STOP_UTIMER 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", 
+                    self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                println!("****Unset utimer!!!!");
+                
+                vcpu.virq.unset_pending_irq(IRQ_VS_TIMER);
+                unsafe {
+                    #[cfg(feature = "xilinx")]
+                    {
+                        wrvtimectl(0);
+                        csrc!(HUIP, 1 << IRQ_U_TIMER);
+                    }
+
+                    #[cfg(feature = "qemu")]
+                    {
+                        csrc!(VTIMECTL, 1 << VTIMECTL_ENABLE);
+                        csrc!(HUIP, 1 << IRQ_U_TIMER);
+                    }
+                }
+                ret = 0;
+            },
+            ECALL_HANDLER_FINISH => {
+                println!("**********ECALL_HANDLER_FINISH 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", 
+                    self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                ret = 0;
+            },
+            ECALL_CLAIM_FINISH => {
+                println!("**********ECALL_CLAIM_FINISH 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}", 
+                    self.arg[0], self.arg[1], self.arg[2], self.arg[3], self.arg[4], self.arg[5]);
+                ret = 0;
             },
             SBI_EXT_0_1_REMOTE_FENCE_I | SBI_EXT_0_1_REMOTE_SFENCE_VMA
                     | SBI_EXT_0_1_REMOTE_SFENCE_VMA_ASID=> {

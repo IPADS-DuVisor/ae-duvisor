@@ -174,7 +174,7 @@ impl VirtualMachine {
 
     fn vm_welcome() {
         #[cfg(feature = "xilinx")]
-        println!("Welcome to LAPUTA (Xilinx on Firesim v1.0)");
+        println!("Welcome to LAPUTA (Xilinx on Firesim v1.2)");
 
         #[cfg(feature = "qemu")]
         println!("Welcome to LAPUTA (Qemu)");
@@ -473,6 +473,7 @@ impl VirtualMachine {
             dtb_gpa = gpa;
         }
 
+        println!("VPLIC passthrough");
         /* VPLIC passthrough */
         create_vplic(&self, ioctl_fd);
 
@@ -553,10 +554,10 @@ impl VirtualMachine {
                     let input = getchar_emulation();
                     let input_char: u8 = (input & 0xff) as u8;
 
-                    let res = console.lock().unwrap().recv_char(input_char as char);
-                    if res == 1 {
-                        println!("Receive buffer of tty is full!");
-                    }
+                    //let res = console.lock().unwrap().recv_char(input_char as char);
+                    //if res == 1 {
+                    //    dbgprintln!("Receive buffer of tty is full!");
+                    //}
                 }
             }
         });
