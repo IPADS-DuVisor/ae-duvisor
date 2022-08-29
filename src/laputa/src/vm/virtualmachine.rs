@@ -599,7 +599,22 @@ impl VirtualMachine {
             /* Start vcpu threads! */
             handle = thread::spawn(move || {
                 //set_aff(7 - vcpu.vcpu_id as usize);
-                set_aff((vcpu.vcpu_id + 1) as usize);
+                println!("vcpu start: {}", vcpu.vcpu_id);
+                if vcpu.vcpu_id == 0 {
+                    set_aff(1);
+                    println!("Bind vCPU-0 to cpuid-1 hartid-0");
+                } else if vcpu.vcpu_id == 1 {
+                    set_aff(2);
+                    println!("Bind vCPU-1 to cpuid-2 hartid-1");
+                } else if vcpu.vcpu_id == 2 {
+                    set_aff(3);
+                    println!("Bind vCPU-2 to cpuid-3 hartid-2");
+                } else if vcpu.vcpu_id == 3 {
+                    set_aff(0);
+                    println!("Bind vCPU-3 to cpuid-0 hartid-3");
+                }
+                //set_aff((vcpu.vcpu_id + 1) as usize); // vcpu 0 --> pcpu 1
+                //set_aff((vcpu.vcpu_id) as usize); // blk will dead on guest startup
                 vcpu.thread_vcpu_run(delta_time);
 
                 /* TODO: All the structure should be freed before ULH ends */

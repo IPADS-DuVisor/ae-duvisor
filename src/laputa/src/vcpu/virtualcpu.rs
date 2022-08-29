@@ -219,7 +219,7 @@ impl VirtualCpu {
         static mut i: u64 = 0;
         let mut next_utimer: u64 = 0;
         /* Set virtual timer */
-        println!("****Set utimer!!!!");
+//        println!("****Set utimer!!!!");
         self.virq.set_pending_irq(IRQ_VS_TIMER);
         unsafe {
             i += 1;
@@ -232,7 +232,7 @@ impl VirtualCpu {
                  wrvtimectl(0);
                  csrc!(HUIP, 1 << IRQ_U_TIMER);
              }
-             println!("Clear timer of HUIP !!!!");
+//             println!("Clear timer of HUIP !!!!");
 
             #[cfg(feature = "qemu")]
             {
@@ -241,7 +241,7 @@ impl VirtualCpu {
             }
 
             next_utimer = csrr!(TIME) + 0x1000;
-            println!("Next timer: 0x{:x}", next_utimer);
+//            println!("Next timer: 0x{:x}", next_utimer);
 
             #[cfg(feature = "qemu")]
             {
@@ -531,7 +531,7 @@ impl VirtualCpu {
             let mmio_check = gsmmu.check_mmio(fault_addr);
 
             if !mmio_check {
-                panic!("Invalid gpa! {:x}", fault_addr);
+                panic!("Invalid gpa! flt addr: 0x{:x}, uepc: 0x{:x}", fault_addr, vcpu_ctx.host_ctx.hyp_regs.uepc);
             }
 
             ret = self.handle_mmio(fault_addr, vcpu_ctx);
@@ -720,14 +720,43 @@ impl VirtualCpu {
     fn handle_vcpu_exit(&self, vcpu_ctx: &mut VcpuCtx) -> i32 {
         let mut ret: i32 = -1;
         let ucause = vcpu_ctx.host_ctx.hyp_regs.ucause;
+
+        static mut vcpu0_cnt: u64 = 0;
+        static mut vcpu1_cnt: u64 = 0;
+        static mut vcpu2_cnt: u64 = 0;
+        static mut vcpu3_cnt: u64 = 0;
+
+        unsafe {
+            if self.vcpu_id == 0 {
+                vcpu0_cnt += 1;
+                if vcpu0_cnt % 20000 == 0 {
+                    //println!("vcpu-0 live {}", vcpu0_cnt);
+                }
+            } else if self.vcpu_id == 1 {
+                vcpu1_cnt += 1;
+                if vcpu1_cnt % 20000 == 0 {
+                    //println!("vcpu-1 live {}", vcpu1_cnt);
+                }
+            } else if self.vcpu_id == 2 {
+                vcpu2_cnt += 1;
+                if vcpu2_cnt % 20000 == 0 {
+                    //println!("vcpu-2 live {}", vcpu2_cnt);
+                }
+            } else if self.vcpu_id == 3 {
+                vcpu3_cnt += 1;
+                if vcpu3_cnt % 20000 == 0 {
+                    //println!("vcpu-3 live {}", vcpu3_cnt);
+                }
+            }
+        }
         
         if (ucause & EXC_IRQ_MASK) != 0 {
             self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
             match ucause {
                 IRQ_U_TIMER => {
-                    println!("TIMER: {}, pc: {:x}.",
-                        ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
+                    //println!("TIMER: {}, pc: {:x}.",
+                    //    ucause, vcpu_ctx.host_ctx.hyp_regs.uepc);
                     self.handle_u_vtimer_irq();
                     ret = 0x100;
                 }
@@ -837,8 +866,8 @@ impl VirtualCpu {
             } else {
                 //println!("skip for u timer");
                 unsafe {
-                    libc::ioctl(fd, 0x6b10); // Output the VS* csrs.
-                    //libc::ioctl(fd, 0x6b1010); // Clear pending with NULL ioctl.
+                    //libc::ioctl(fd, 0x6b10); // Output the VS* csrs.
+                    libc::ioctl(fd, 0x6b1010); // Clear pending with NULL ioctl.
                     //libc::ioctl(fd, 0x80086b0d, 0x100); // claim tty
                 }
             }

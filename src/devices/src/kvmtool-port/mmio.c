@@ -78,27 +78,44 @@ static u64 (*trigger_edge_irq)(u64 *, u32) = NULL;
 static u64 *irqchip = NULL;
 //static u64 lkvm_ioctl_fd = 0;
 extern int ioctl_fd_virq;
+static unsigned long virq_addr = 0;
+
+#define __raw_writel __raw_writel
+static inline void __raw_writel(u32 val, volatile void __iomem *addr)
+{
+	asm volatile("sw %0, 0(%1)" : : "r" (val), "r" (addr));
+}
 
 int virtio_mmio_signal_vq(struct kvm *kvm, struct virtio_device *vdev, u32 vq)
 {
 	struct virtio_mmio *vmmio = vdev->virtio;
+	static int flag = 0;
 
 	vmmio->hdr.interrupt_state |= VIRTIO_MMIO_INT_VRING;
 #if 0
 	kvm__irq_trigger(vmmio->kvm, vmmio->irq);
 #else
+	if (flag == 0) {
+		flag++;
+		printf("****** Find virq\n");
+		ioctl(ioctl_fd_virq, 0x80086b0a, &virq_addr);
+		printf("****** virq addr: 0x%lx\n", virq_addr);
+	}
     //trigger_edge_irq(irqchip, vmmio->irq);
 	if (vmmio->irq == 34) { // net
-		printf("***set net\n");
+		//printf("***set net\n");
 		ioctl(ioctl_fd_virq, 0x80086b0e, 34);
+		//__raw_writel((1 << 29), (void*)virq_addr);
 	} else if (vmmio->irq == 33) { // block
-		printf("***set block\n");
+		//printf("***set block\n");
 		ioctl(ioctl_fd_virq, 0x80086b0c, 33);
+		//__raw_writel((1 << 28), (void*)virq_addr);
 	} else if (vmmio->irq == 35) { // tty
-		printf("***set tty\n");
+		//printf("***set tty\n");
 		ioctl(ioctl_fd_virq, 0x80086b0f, 35);
+		//__raw_writel((1 << 30), (void*)virq_addr);
 	} else {
-		printf("***Other irq %d\n", vmmio->irq);
+		//printf("***Other irq %d\n", vmmio->irq);
 	}
 #endif
 

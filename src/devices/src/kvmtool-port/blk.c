@@ -190,7 +190,7 @@ static void *virtio_blk_thread(void *dev)
     {
         cpu_set_t my_set;
         CPU_ZERO(&my_set);
-        CPU_SET((size_t)1, &my_set);
+        CPU_SET((size_t)5, &my_set);
         printf("%s: >>> pin blk to pCPU 1\n", __func__);
         sched_setaffinity(0, sizeof(cpu_set_t), &my_set);
     }

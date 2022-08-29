@@ -24,9 +24,9 @@ echo "New rootfs"
 
 NR_VCPU=4
 
-./laputa --smp 4 \
+./laputa --smp 2 \
     --initrd ./test-files-laputa/rootfs-net.img \
-    --dtb ./test-files-laputa/smp4-vplic.dtb  \
+    --dtb ./test-files-laputa/smp2-vplic.dtb  \
     --kernel ./test-files-laputa/Image \
     --memory 512 \
     --machine laputa_virt
