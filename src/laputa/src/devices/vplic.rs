@@ -28,10 +28,11 @@ impl Vplic {
 
         unsafe {
             let addr = 0 as *mut libc::c_void;
-            println!("Try to get vnterrupt");
-            let mmap_ptr = libc::mmap(addr, 0x10000 as usize, 
-                libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, ioctl_fd, 0);
-            println!("Try to get vnterrupt end");
+//            println!("Try to get vnterrupt");
+//            let mmap_ptr = libc::mmap(addr, 0x10000 as usize, 
+//                libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, ioctl_fd, 0);
+//            println!("Try to get vnterrupt end");
+            let mmap_ptr = 0;
 
             vinterrupt_ptr = mmap_ptr as *mut u32;
             //let vinterrupt: u64 = *vinterrupt_ptr;
@@ -81,6 +82,7 @@ pub fn create_vplic(vm: &virtualmachine::VirtualMachine, ioctl_fd: i32) {
     let mut hartid: u64;
 
     println!("Create vplic");
+    println!("Create vplic1111");
 
     /* Map 0xc000000 to 0xc200000 */ //0xfffffff080401004  0x80200000 0x80400000
     for i in 0..0x200 {
@@ -90,8 +92,11 @@ pub fn create_vplic(vm: &virtualmachine::VirtualMachine, ioctl_fd: i32) {
         //vm.vm_state.gsmmu.lock().unwrap().map_page(0xfffffff080200000 + i * 0x1000, 0xc000000 + i * 0x1000, flag);
     }
     //vm.vm_state.gsmmu.lock().unwrap().map_page(0xc002000, 0xc002000, flag);
+    println!("Create vplic2222");
 
     for i in 0..vm.vcpu_num {
+        println!("Create vplic3333");
+
         hartid = i as u64 + 1;
         unsafe {
             libc::ioctl(ioctl_fd, IOCTL_LAPUTA_GET_CPUID, hartid);
@@ -103,7 +108,13 @@ pub fn create_vplic(vm: &virtualmachine::VirtualMachine, ioctl_fd: i32) {
         //guest_plic_addr = 0x80400000 + 0x1000 + i as u64 * 0x2000;
         //guest_plic_addr = 0xfffffff080400000 + 0x1000 + i as u64 * 0x2000;
         //guest_plic_addr = 0xc200000 + 0x1000 + i as u64 * 0x2000;
+
+        // Origin can work
         guest_plic_addr = 0xc200000 + 0x2000 + i as u64 * 0x3000;
+        // M-mode in guest
+        //guest_plic_addr = 0xc200000 + 0x1000 + i as u64 * 0x2000;
+        //ldj no M-mode in guest
+        //guest_plic_addr = 0xc200000 + i as u64 * 0x1000;
 
         #[cfg(feature = "qemu")]
         vm.vm_state.gsmmu.lock().unwrap().map_page(guest_plic_addr, vplic_addr, flag);

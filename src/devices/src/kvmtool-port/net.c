@@ -253,6 +253,7 @@ struct virtio_device_userspace *userspace_dev;
 volatile int init_flag = 0;
 static int fd_ioctl = 0;
 int ioctl_fd_virq = 0;
+unsigned long vplic_user_va = 0;
 
 static bool virtio_net__tap_init(struct net_dev *ndev)
 {
@@ -432,6 +433,8 @@ void print_affinity(void) {
     printf("\n");
 }
 
+#define delay_time 0
+
 static void *virtio_net_rx_thread(void *p)
 {
 	struct iovec iov[VIRTIO_NET_QUEUE_SIZE];
@@ -442,6 +445,7 @@ static void *virtio_net_rx_thread(void *p)
 	u16 out, in;
 	u16 head;
 	int len, copied;
+	static unsigned long delay_start = 0;
 
 	unsigned long start_time;
 	static unsigned long rx_cnt = 0;
@@ -453,7 +457,7 @@ static void *virtio_net_rx_thread(void *p)
         cpu_set_t my_set;
         CPU_ZERO(&my_set);
         CPU_SET((size_t)4, &my_set);
-        printf("%s: >>> pin rx to pCPU 1\n", __func__);
+        printf("%s: >>> pin rx to pCPU 1, Laputa v1.1\n", __func__);
         sched_setaffinity(0, sizeof(cpu_set_t), &my_set);
     }
 
@@ -534,9 +538,14 @@ static void *virtio_net_rx_thread(void *p)
 
 				}
 
+
+
 		//		if (total_pkts > 22000) {
 		//			total_time = csr_read(0xc00);
 		//		}
+				delay_start = csr_read(0xc00);
+				while (csr_read(0xc00) < (delay_start + delay_time)) {};
+
 				ndev->vdev.ops->signal_vq(kvm, &ndev->vdev, queue->id);
             }
 		} else {
@@ -563,6 +572,7 @@ static void *virtio_net_tx_thread(void *p)
 	u16 head;
 	int len;
 	static unsigned long tx_cnt = 0;
+	static unsigned long delay_start = 0;
 
 	unsigned long start_time;
 
@@ -617,6 +627,10 @@ static void *virtio_net_tx_thread(void *p)
 		//	if (total_pkts > 22000) {
 		//		start_flag = 0;
 		//	}
+
+		delay_start = csr_read(0xc00);
+		while (csr_read(0xc00) < (delay_start + delay_time)) {};
+
 			ndev->vdev.ops->signal_vq(kvm, &ndev->vdev, queue->id);
 		}
 		tx_time += (csr_read(0xc00) - start_time);
@@ -979,10 +993,11 @@ static struct kvm fake_kvm_for_net = {
         .host_mac = "52:54:00:12:34:99",
     },
 };
-void lkvm_net_init(int ioctl_fd);
-void lkvm_net_init(int ioctl_fd) {
+void lkvm_net_init(int ioctl_fd, u64 vplic_ptr);
+void lkvm_net_init(int ioctl_fd, u64 vplic_ptr) {
     fd_ioctl = ioctl_fd;
 	ioctl_fd_virq = ioctl_fd;
+	vplic_user_va = vplic_ptr;
     virtio_net__init(&fake_kvm_for_net);
 }
 

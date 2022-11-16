@@ -35,6 +35,7 @@ extern crate sys_util;
 use sys_util::GuestMemory;
 
 pub static mut BLOCK_CP_DRIVER_FD: i32 = 256;
+pub static mut VPLIC_USER_VA: u64 = 256;
 
 #[allow(unused)]
 extern "C"
@@ -61,6 +62,7 @@ extern "C"
 extern "C"
 {
     fn getchar_emulation() -> i32;
+    fn writel(val: u32, addr: u64);
     
     fn lkvm_register_irqchip(cb: unsafe extern "C" fn(*const u64, u32), irqchip: *const u64);
 }
@@ -134,6 +136,29 @@ impl VirtualMachine {
 
         ioctl_fd
     }
+
+    pub fn open_vplic() -> i32 {
+        let file_path = CString::new("/dev/vplic_dev").unwrap();
+        let ioctl_fd;
+        let vplic_ptr;
+
+        unsafe {
+            let addr = 0 as *mut libc::c_void;
+            ioctl_fd = (libc::open(file_path.as_ptr(), libc::O_RDWR)) as i32;
+            if ioctl_fd == -1 {
+                panic!("Open /dev/vplic_dev failed");
+            }
+
+            vplic_ptr = libc::mmap(addr, 0x1000, 
+                libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, ioctl_fd, 0);
+            println!("Open /dev/vplic_dev and mmap: 0x{:x}", vplic_ptr as u64);
+            writel(0x10000000, vplic_ptr as u64);
+            println!("OMG! write vinterrupt success!");
+            VPLIC_USER_VA = vplic_ptr as u64;
+        }
+
+        ioctl_fd
+    }
     
     fn create_block_dev(mmio_bus: &Arc<RwLock<devices::Bus>>,
         guest_mem: &GuestMemory, irqchip: &Arc<Plic>, block_path: String) {
@@ -166,10 +191,12 @@ impl VirtualMachine {
         //let mmio_net = devices::virtio::MmioDevice::new(
         //    guest_mem.clone(), net_box, irqchip.clone()).unwrap();
         
-        let mmio_net = devices::lkvm::LkvmNet::init(ioctl_fd).unwrap();
-
-        mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_net)), 
-            0x10000200, 0x200).unwrap();
+        unsafe{
+            let mmio_net = devices::lkvm::LkvmNet::init(ioctl_fd, VPLIC_USER_VA).unwrap();
+        
+            mmio_bus.write().unwrap().insert(Arc::new(Mutex::new(mmio_net)), 
+                0x10000200, 0x200).unwrap();
+        }
     }
 
     fn vm_welcome() {
@@ -222,6 +249,8 @@ impl VirtualMachine {
 
         /* Get ioctl fd of "/dev/laputa_dev" */
         let ioctl_fd = VirtualMachine::open_ioctl();
+
+        let vplic_fd = VirtualMachine::open_vplic();
 
         #[cfg(not(test))]
         let vmid: u64 = 0;
@@ -387,11 +416,13 @@ impl VirtualMachine {
         let initrd_gpa: u64 = self.dtb_file.meta_data.initrd_region.start;
         let initrd_end: u64 = self.dtb_file.meta_data.initrd_region.end;
         let initrd_size: u64 = initrd_end - initrd_gpa;
+        println!("init_gpa_block_initrd 1");
         
         if initrd_gpa == 0 || initrd_end == 0 {
             println!("No initrd config in DTB");
             return None;
         }
+        println!("init_gpa_block_initrd 2");
 
         let page_offset: u64 = initrd_gpa & PAGE_SIZE_MASK;
         let initrd_path: &str = &self.initrd_path[..];
@@ -401,6 +432,7 @@ impl VirtualMachine {
         if initrd_data_res.is_err() {
             return None;
         }
+        println!("init_gpa_block_initrd 3");
 
         let initrd_data = initrd_data_res.unwrap();
         let initrd_res = self.vm_state.gsmmu.lock().unwrap().gpa_block_add(
@@ -409,11 +441,14 @@ impl VirtualMachine {
         if !initrd_res.is_ok() {
             return None;
         }
+        println!("init_gpa_block_initrd 4");
 
         let (hva, _hpa) = initrd_res.unwrap();
         let initrd_data_ptr = initrd_data.as_ptr() as u64;
         VirtualMachine::load_file_to_mem(hva + page_offset, initrd_data_ptr,
                 initrd_data.len() as u64);
+
+        println!("init_gpa_block_initrd 5");
 
         dbgprintln!("Initrd load finish");
 
@@ -496,11 +531,17 @@ impl VirtualMachine {
             i.vcpu_ctx.lock().unwrap().host_ctx.hyp_regs.uepc = kernel_gpa;
         }
 
+        println!("Start init_gpa_block_initrd");
+
+
         /* Load initrd image and it must come after DTB-loading */
         let initrd_res = self.init_gpa_block_initrd();
         if initrd_res.is_none() {
             println!("Load initrd image failed");
         }
+
+        println!("Start init_gpa_block_elf");
+
 
         if self.vm_image.file_type == image::IMAGE_TYPE_ELF {
             /* Init gpa block from the elf file, return for test */

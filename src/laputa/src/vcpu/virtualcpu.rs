@@ -217,7 +217,7 @@ impl VirtualCpu {
 
     fn handle_u_vtimer_irq(&self) -> i32 {
         static mut i: u64 = 0;
-        let mut next_utimer: u64 = 0;
+        //let mut next_utimer: u64 = 0;
         /* Set virtual timer */
 //        println!("****Set utimer!!!!");
         self.virq.set_pending_irq(IRQ_VS_TIMER);
@@ -240,20 +240,20 @@ impl VirtualCpu {
                 csrc!(HUIP, 1 << IRQ_U_TIMER);
             }
 
-            next_utimer = csrr!(TIME) + 0x1000;
+            //next_utimer = csrr!(TIME) + 0x1000;
 //            println!("Next timer: 0x{:x}", next_utimer);
 
             #[cfg(feature = "qemu")]
             {
-                csrw!(VTIMECTL, (IRQ_U_TIMER << 1) | (1 << VTIMECTL_ENABLE));
-                csrw!(VTIMECMP, next_utimer);
+                //csrw!(VTIMECTL, (IRQ_U_TIMER << 1) | (1 << VTIMECTL_ENABLE));
+                //csrw!(VTIMECMP, next_utimer);
             }
 
             #[cfg(feature = "xilinx")]
             {
-                    wrvtimectl(1);
+                    //wrvtimectl(1);
                     //wrvtimecmp(0x6098b5 + i * 0x10000);
-                    wrvtimecmp(next_utimer);
+                    //wrvtimecmp(next_utimer);
             } 
         }
 

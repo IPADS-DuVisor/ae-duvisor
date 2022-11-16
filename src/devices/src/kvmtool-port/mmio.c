@@ -78,12 +78,22 @@ static u64 (*trigger_edge_irq)(u64 *, u32) = NULL;
 static u64 *irqchip = NULL;
 //static u64 lkvm_ioctl_fd = 0;
 extern int ioctl_fd_virq;
+extern unsigned long vplic_user_va;
 static unsigned long virq_addr = 0;
 
 #define __raw_writel __raw_writel
 static inline void __raw_writel(u32 val, volatile void __iomem *addr)
 {
 	asm volatile("sw %0, 0(%1)" : : "r" (val), "r" (addr));
+}
+
+#define __raw_readl __raw_readl
+static inline u32 __raw_readl(volatile void __iomem *addr)
+{
+	u32 val;
+
+	asm volatile("lw %0, 0(%1)" : "=r" (val) : "r" (addr));
+	return val;
 }
 
 int virtio_mmio_signal_vq(struct kvm *kvm, struct virtio_device *vdev, u32 vq)
@@ -104,16 +114,16 @@ int virtio_mmio_signal_vq(struct kvm *kvm, struct virtio_device *vdev, u32 vq)
     //trigger_edge_irq(irqchip, vmmio->irq);
 	if (vmmio->irq == 34) { // net
 		//printf("***set net\n");
-		ioctl(ioctl_fd_virq, 0x80086b0e, 34);
-		//__raw_writel((1 << 29), (void*)virq_addr);
+		//ioctl(ioctl_fd_virq, 0x80086b0e, 34);
+		__raw_writel((1 << 29) | __raw_readl((void*)vplic_user_va), (void*)vplic_user_va);
 	} else if (vmmio->irq == 33) { // block
 		//printf("***set block\n");
-		ioctl(ioctl_fd_virq, 0x80086b0c, 33);
-		//__raw_writel((1 << 28), (void*)virq_addr);
+		//ioctl(ioctl_fd_virq, 0x80086b0c, 33);
+		__raw_writel((1 << 28) | __raw_readl((void*)vplic_user_va), (void*)vplic_user_va);
 	} else if (vmmio->irq == 35) { // tty
 		//printf("***set tty\n");
-		ioctl(ioctl_fd_virq, 0x80086b0f, 35);
-		//__raw_writel((1 << 30), (void*)virq_addr);
+		//ioctl(ioctl_fd_virq, 0x80086b0f, 35);
+		__raw_writel((1 << 30) | __raw_readl((void*)vplic_user_va), (void*)vplic_user_va);
 	} else {
 		//printf("***Other irq %d\n", vmmio->irq);
 	}
@@ -144,13 +154,16 @@ int virtio_mmio_signal_config(struct kvm *kvm, struct virtio_device *vdev)
     //trigger_edge_irq(irqchip, vmmio->irq);
 	if (vmmio->irq == 34) { // net
 		printf("set net");
-		ioctl(ioctl_fd_virq, 0x80086b0e, 34);
+		//ioctl(ioctl_fd_virq, 0x80086b0e, 34);
+		__raw_writel((1 << 29) | __raw_readl((void*)vplic_user_va), (void*)vplic_user_va);
 	} else if (vmmio->irq == 33) { // block
 		printf("set block");
-		ioctl(ioctl_fd_virq, 0x80086b0c, 33);
+		//ioctl(ioctl_fd_virq, 0x80086b0c, 33);
+		__raw_writel((1 << 28) | __raw_readl((void*)vplic_user_va), (void*)vplic_user_va);
 	} else if (vmmio->irq == 35) { // tty
 		printf("set tty");
-		ioctl(ioctl_fd_virq, 0x80086b0f, 35);
+		//ioctl(ioctl_fd_virq, 0x80086b0f, 35);
+		__raw_writel((1 << 30) | __raw_readl((void*)vplic_user_va), (void*)vplic_user_va);
 	} else {
 		printf("Other irq %d", vmmio->irq);
 	}

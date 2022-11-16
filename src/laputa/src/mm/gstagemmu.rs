@@ -611,6 +611,8 @@ impl GStageMmu {
 
         let gpa_start = 0x80000000;
         let region_wrap;
+        println!("gpa_block_add : length 0x{:x}", length);
+
         if gpa == 0xf0000000 {
             region_wrap = self.allocator.hpm_alloc(length);
         } else {

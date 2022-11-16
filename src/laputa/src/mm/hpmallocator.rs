@@ -199,10 +199,22 @@ impl HpmAllocator {
         let result_va: u64;
         let result_pa: u64;
         let result_length: u64;
+        static mut pmp_cnt: u32 = 0;
+
+        println!("hpm_alloc_vm_mem self.vm_mem_region.length 0x{:x}, length 0x{:x}", 
+            self.vm_mem_region.length, length);
 
         // TODO: check if (offset + gpa_start, length) is in (gpa_start, 1 GB)
         if self.vm_mem_region.length == 0 {
-            self.vm_mem_region = self.pmp_alloc_vm_mem(512 << 20).unwrap();
+            unsafe {
+                pmp_cnt = pmp_cnt + 1;
+                println!("********I want more PMP {}", pmp_cnt);
+                if pmp_cnt == 1 {
+                    self.vm_mem_region = self.pmp_alloc_vm_mem(512 << 20).unwrap();
+                } else {
+                    self.vm_mem_region = self.pmp_alloc_vm_mem(32 << 20).unwrap();
+                }
+            }
         }
 
         target_hpm_region = &self.vm_mem_region;

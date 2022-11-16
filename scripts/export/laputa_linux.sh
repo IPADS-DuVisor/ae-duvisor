@@ -21,12 +21,14 @@ mount -t proc proc /proc
 cd laputa
 
 echo "New rootfs"
+ls /dev
+echo "***vplic dev?"
 
 NR_VCPU=4
-
-./laputa --smp 4 \
+# 1: vmlinux-vplic.dtb 2: smp2-vplic.dtb 4: smp4-vplic.dtb
+./laputa --smp 1 \
     --initrd ./test-files-laputa/rootfs-net.img \
-    --dtb ./test-files-laputa/smp4-vplic.dtb  \
+    --dtb ./test-files-laputa/vmlinux-vplic.dtb  \
     --kernel ./test-files-laputa/Image \
     --memory 512 \
     --machine laputa_virt

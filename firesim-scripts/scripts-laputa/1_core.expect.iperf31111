@@ -39,12 +39,10 @@ expect {
 			send "cd / &&  mount ubuntu-vdisk.img root && chroot root bash\n"
 			expect  "root@buildroot:"
 			
-			send "./mount_dev.sh && ./prepare_kill.sh && ./${HOST_NET} && cat ./laputa_linux.sh && ./${kvm_or_laputa}_linux.sh \n"
-			expect "memcached server start"
-            #expect "Server listening"
-            #send "ls && ./memcached_server.sh && echo a  c\n"
-            #expect "a c"
-            send "\x01"; send "d"
+			send "./mount_dev.sh && ./prepare_kill.sh && ./${HOST_NET} && ./${kvm_or_laputa}_linux.sh \n"
+			#expect "memcached server start"
+            expect "Server listening"
+                    send "\x01"; send "d"
    		}
    	}
     }
@@ -74,16 +72,14 @@ expect {
    		 	send "mount blk-dev.img root && chroot root \n"
    		 	expect "root@buildroot:"
 
-                        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
-                        #send "./iperf3 -c $HOST -u -b 100G \n"
+                        #send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+                        send "./iperf3 -c $HOST -u -b 100G \n"
                         #send "./iperf3 -c $HOST \n"
                         #send "./memtier_benchmark --hide-histogram -s $HOST -p 11211 -P memcache_binary --test-time=5 --threads=4"
                         expect "BYE MEMCACHED"
                         #expect "Server listening"
                         #send "\n"
 
-                        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
-                        expect "BYE MEMCACHED"
                         #expect "#"
    		 	#send "clear \n"
                         
