@@ -433,7 +433,7 @@ void print_affinity(void) {
     printf("\n");
 }
 
-#define delay_time 0
+#define delay_time 1500
 
 static void *virtio_net_rx_thread(void *p)
 {

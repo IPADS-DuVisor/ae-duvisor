@@ -70,6 +70,13 @@ pub mod sbi_test {
     /* Loop in HU-mode */
     pub const SBI_TEST_HU_LOOP : u64 = 0xC100000;
 
+    /* Timing */
+    pub const SBI_TEST_TIMING_START: u64 = 0xC200000;
+    pub const SBI_TEST_TIMING_END: u64 = 0xC200001;
+
+    /* Call local sbi for evaluation */
+    pub const SBI_TEST_LOCAL_SBI: u64 = 0xC200002;
+
 }
 
 #[allow(unused)]
