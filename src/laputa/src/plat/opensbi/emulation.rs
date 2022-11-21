@@ -76,6 +76,7 @@ pub mod sbi_test {
 
     /* Call local sbi for evaluation */
     pub const SBI_TEST_LOCAL_SBI: u64 = 0xC200002;
+    pub const SBI_DEBUG_NEW_VIPI: u64 = 0xC200003;
 
 }
 
@@ -136,6 +137,10 @@ impl Ecall {
         let ret: i32;
 
         match ext_id {
+            SBI_DEBUG_NEW_VIPI => {
+                //println!("I am vcpu {}, args {} {} {}", vcpu.vcpu_id, self.arg[0], self.arg[1], self.arg[3]);
+                ret = 0;
+            },
             SBI_EXT_0_1_SET_TIMER => {
                 /* 
                  * TODO: add rust feature to tell between rv64 and rv32
@@ -214,8 +219,9 @@ impl Ecall {
                         }
                     }
                 }
-                dbgprintln!("hart mask 0x{:x}", hart_mask);
-                dbgprintln!("{} send ipi ...", vcpu.vcpu_id);
+                //println!("hart mask 0x{:x}", hart_mask);
+                //println!("{} send ipi ... vipi-id-0 is {}", vcpu.vcpu_id, vcpu.vipi.vcpu_id_map[0 as usize].load(Ordering::SeqCst));
+                //println!("{} send ipi ... vipi-id-1 is {}", vcpu.vcpu_id, vcpu.vipi.vcpu_id_map[1 as usize].load(Ordering::SeqCst));
 
                 ret = 0;
             },

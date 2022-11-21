@@ -28,7 +28,7 @@ ROMFILE=./qemu-laputa/pc-bios/efi-virtio.rom
     -nographic \
     -cpu rv64,x-h=true,x-z=true \
     -smp 8 \
-    -m 16G \
+    -m 1G \
     -machine virt \
     -bios ./opensbi-laputa/build/platform/generic/firmware/fw_jump.elf \
     -kernel ./linux-laputa/arch/riscv/boot/Image \

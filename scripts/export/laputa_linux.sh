@@ -26,9 +26,9 @@ echo "***vplic dev?"
 
 NR_VCPU=4
 # 1: vmlinux-vplic.dtb 2: smp2-vplic.dtb 4: smp4-vplic.dtb
-./laputa --smp 1 \
+./laputa --smp 2 \
     --initrd ./test-files-laputa/rootfs-net.img \
-    --dtb ./test-files-laputa/vmlinux-vplic.dtb  \
+    --dtb ./test-files-laputa/smp2-vplic1000m.dtb  \
     --kernel ./test-files-laputa/Image \
-    --memory 512 \
+    --memory 1024 \
     --machine laputa_virt
