@@ -433,7 +433,7 @@ void print_affinity(void) {
     printf("\n");
 }
 
-#define delay_time 1500
+#define delay_time 0
 
 static void *virtio_net_rx_thread(void *p)
 {
@@ -445,7 +445,7 @@ static void *virtio_net_rx_thread(void *p)
 	u16 out, in;
 	u16 head;
 	int len, copied;
-	static unsigned long delay_start = 0;
+	//static unsigned long delay_start = 0;
 
 	unsigned long start_time;
 	static unsigned long rx_cnt = 0;
@@ -543,8 +543,8 @@ static void *virtio_net_rx_thread(void *p)
 		//		if (total_pkts > 22000) {
 		//			total_time = csr_read(0xc00);
 		//		}
-				delay_start = csr_read(0xc00);
-				while (csr_read(0xc00) < (delay_start + delay_time)) {};
+				//delay_start = csr_read(0xc00);
+				//while (csr_read(0xc00) < (delay_start + delay_time)) {};
 
 				ndev->vdev.ops->signal_vq(kvm, &ndev->vdev, queue->id);
             }
@@ -572,7 +572,7 @@ static void *virtio_net_tx_thread(void *p)
 	u16 head;
 	int len;
 	static unsigned long tx_cnt = 0;
-	static unsigned long delay_start = 0;
+	//static unsigned long delay_start = 0;
 
 	unsigned long start_time;
 
@@ -628,8 +628,8 @@ static void *virtio_net_tx_thread(void *p)
 		//		start_flag = 0;
 		//	}
 
-		delay_start = csr_read(0xc00);
-		while (csr_read(0xc00) < (delay_start + delay_time)) {};
+		//delay_start = csr_read(0xc00);
+		//while (csr_read(0xc00) < (delay_start + delay_time)) {};
 
 			ndev->vdev.ops->signal_vq(kvm, &ndev->vdev, queue->id);
 		}
