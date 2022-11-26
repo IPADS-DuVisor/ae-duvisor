@@ -11,7 +11,7 @@ else
 endif
 export E Q
 
-CROSS_COMPILE 	:= riscv64-linux-gnu-
+CROSS_COMPILE 	:= riscv64-unknown-linux-gnu-
 
 CC 	:= $(CROSS_COMPILE)gcc
 CFLAGS 	:= -fPIC

@@ -433,8 +433,6 @@ void print_affinity(void) {
     printf("\n");
 }
 
-#define delay_time 0
-
 static void *virtio_net_rx_thread(void *p)
 {
 	struct iovec iov[VIRTIO_NET_QUEUE_SIZE];
@@ -445,10 +443,6 @@ static void *virtio_net_rx_thread(void *p)
 	u16 out, in;
 	u16 head;
 	int len, copied;
-	//static unsigned long delay_start = 0;
-
-	unsigned long start_time;
-	static unsigned long rx_cnt = 0;
 
 	kvm__set_thread_name("virtio-net-rx");
     printf("--- %s:%d desc %p, avail %p, used %p\n", __func__, __LINE__,
@@ -470,13 +464,6 @@ static void *virtio_net_rx_thread(void *p)
 //		if (!virt_queue__available(vq))
 //			pthread_cond_wait(&queue->cond, &queue->lock.mutex);
 //		mutex_unlock(&queue->lock);
-
-		start_time = csr_read(0xc00);
-
-		rx_cnt++;
-		if ((rx_cnt % 2000 == 0) && (rx_cnt != 0)) {
-			//printf("rx thread live %ld\n", rx_cnt);
-		}
 
 		if (virt_queue__available(vq)) {
 			unsigned char buffer[MAX_PACKET_SIZE + sizeof(struct virtio_net_hdr_mrg_rxbuf)];
@@ -522,37 +509,11 @@ static void *virtio_net_rx_thread(void *p)
 
 			/* We should interrupt guest right now, otherwise latency is huge. */
 			if (virtio_queue__should_signal(vq)) {
-				total_pkts++;
-				if ((total_pkts == 2000) || (total_pkts == 2001)) {
-					start_flag = 1;
-					total_time_start = csr_read(0xc00);
-				}
-
-				if (total_pkts > 22000) {
-					if (start_flag == 1) {
-						total_time = csr_read(0xc00) - total_time_start;
-						printf("***IO thread -- total_time: %ld, rx_time: %ld, tx_time: %ld\n", 
-							total_time, rx_time, tx_time);
-					}
-					start_flag = 0;
-
-				}
-
-
-
-		//		if (total_pkts > 22000) {
-		//			total_time = csr_read(0xc00);
-		//		}
-				//delay_start = csr_read(0xc00);
-				//while (csr_read(0xc00) < (delay_start + delay_time)) {};
-
 				ndev->vdev.ops->signal_vq(kvm, &ndev->vdev, queue->id);
             }
 		} else {
             icenet_rx_batch(recv_mempool);
         }
-
-		rx_time += (csr_read(0xc00) - start_time);
 	}
 
 out_err:
@@ -571,10 +532,6 @@ static void *virtio_net_tx_thread(void *p)
 	u16 out, in;
 	u16 head;
 	int len;
-	static unsigned long tx_cnt = 0;
-	//static unsigned long delay_start = 0;
-
-	unsigned long start_time;
 
 	kvm__set_thread_name("virtio-net-tx");
     printf("--- %s:%d desc %p, avail %p, used %p\n", __func__, __LINE__,
@@ -595,12 +552,6 @@ static void *virtio_net_tx_thread(void *p)
 //		if (!virt_queue__available(vq))
 //			pthread_cond_wait(&queue->cond, &queue->lock.mutex);
 //		mutex_unlock(&queue->lock);
-		start_time = csr_read(0xc00);
-
-		tx_cnt++;
-		if ((tx_cnt % 2000 == 0) && (tx_cnt != 0)) {
-			//printf("tx thread live %ld\n", tx_cnt);
-		}
 
 		while (virt_queue__available(vq)) {
 			struct virtio_net_hdr *hdr;
@@ -617,23 +568,8 @@ static void *virtio_net_tx_thread(void *p)
 			virt_queue__set_used_elem(vq, head, len);
 		}
 
-		if (virtio_queue__should_signal(vq)) {
-			total_pkts++;
-		//	if ((total_pkts == 2000) || (total_pkts == 2001)) {
-		//		start_flag = 1;
-		//		total_time = csr_read(0xc00);
-		//	}
-//
-		//	if (total_pkts > 22000) {
-		//		start_flag = 0;
-		//	}
-
-		//delay_start = csr_read(0xc00);
-		//while (csr_read(0xc00) < (delay_start + delay_time)) {};
-
+		if (virtio_queue__should_signal(vq))
 			ndev->vdev.ops->signal_vq(kvm, &ndev->vdev, queue->id);
-		}
-		tx_time += (csr_read(0xc00) - start_time);
 	}
 
 out_err:

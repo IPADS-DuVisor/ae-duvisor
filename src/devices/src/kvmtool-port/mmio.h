@@ -11,7 +11,7 @@
 #ifndef _ASM_RISCV_MMIO_H
 #define _ASM_RISCV_MMIO_H
 
-//#include <linux/types.h>
+#include <linux/byteorder.h>
 //#include <asm/mmiowb.h>
 
 #define CONFIG_64BIT
@@ -22,8 +22,8 @@ typedef uint32_t u32;
 
 #define __iomem
 #define __force
-#define le32_to_cpu
-#define cpu_to_le32
+//#define le32_to_cpu
+//#define cpu_to_le32
 
 static inline void _mm_mfence(void) {
     asm volatile("fence" : : : "memory");

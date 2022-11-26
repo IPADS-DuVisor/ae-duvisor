@@ -7,6 +7,7 @@
 #include "kvm/kvm-cpu.h"
 #include "kvm/irq.h"
 #include "kvm/fdt.h"
+#include "mmio.h"
 
 #include <linux/virtio_mmio.h>
 #include <linux/virtio_ids.h>
@@ -81,21 +82,6 @@ extern int ioctl_fd_virq;
 extern unsigned long vplic_user_va;
 static unsigned long virq_addr = 0;
 
-#define __raw_writel __raw_writel
-static inline void __raw_writel(u32 val, volatile void __iomem *addr)
-{
-	asm volatile("sw %0, 0(%1)" : : "r" (val), "r" (addr));
-}
-
-#define __raw_readl __raw_readl
-static inline u32 __raw_readl(volatile void __iomem *addr)
-{
-	u32 val;
-
-	asm volatile("lw %0, 0(%1)" : "=r" (val) : "r" (addr));
-	return val;
-}
-
 int virtio_mmio_signal_vq(struct kvm *kvm, struct virtio_device *vdev, u32 vq)
 {
 	struct virtio_mmio *vmmio = vdev->virtio;
@@ -115,15 +101,15 @@ int virtio_mmio_signal_vq(struct kvm *kvm, struct virtio_device *vdev, u32 vq)
 	if (vmmio->irq == 34) { // net
 		//printf("***set net\n");
 		//ioctl(ioctl_fd_virq, 0x80086b0e, 34);
-		__raw_writel((1 << 29) | __raw_readl((void*)vplic_user_va), (void*)vplic_user_va);
+		writel((1 << 29) | readl((void*)vplic_user_va), (void*)vplic_user_va);
 	} else if (vmmio->irq == 33) { // block
 		//printf("***set block\n");
 		//ioctl(ioctl_fd_virq, 0x80086b0c, 33);
-		__raw_writel((1 << 28) | __raw_readl((void*)vplic_user_va), (void*)vplic_user_va);
+		writel((1 << 28) | readl((void*)vplic_user_va), (void*)vplic_user_va);
 	} else if (vmmio->irq == 35) { // tty
 		//printf("***set tty\n");
 		//ioctl(ioctl_fd_virq, 0x80086b0f, 35);
-		__raw_writel((1 << 30) | __raw_readl((void*)vplic_user_va), (void*)vplic_user_va);
+		//writel((1 << 30) | readl((void*)vplic_user_va), (void*)vplic_user_va);
 	} else {
 		//printf("***Other irq %d\n", vmmio->irq);
 	}
