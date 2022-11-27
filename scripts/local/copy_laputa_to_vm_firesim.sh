@@ -34,8 +34,8 @@ build_path=release
 
 echo $build_level
 
-cargo clean
-cargo build --target=riscv64gc-unknown-linux-gnu $build_level --features "xilinx"
+#cargo clean
+cargo build --offline --target=riscv64gc-unknown-linux-gnu $build_level --features "xilinx"
 laputa_name=`find target/riscv64gc-unknown-linux-gnu/${build_path}/deps/ -type f ! -name '*.*' `
 laputa_name_basename=`basename $laputa_name`
 

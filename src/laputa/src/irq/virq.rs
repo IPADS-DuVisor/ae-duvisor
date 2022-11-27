@@ -67,7 +67,8 @@ impl VirtualInterrupt {
             let pending = self.irq_pending.load(Ordering::SeqCst);
             let unset = !prev_mask;
             let val = pending & prev_mask;
-            for i in (2..11).step_by(4) {
+            //for i in (2..11).step_by(4) {
+            for i in (6..9).step_by(4) {
                 if (unset & (1 << i)) == 0 {
                     unsafe { csrc!(HUVIP, 1 << i); }
                 }

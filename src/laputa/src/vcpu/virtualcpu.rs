@@ -534,6 +534,25 @@ impl VirtualCpu {
                 panic!("Invalid gpa! flt addr: 0x{:x}, uepc: 0x{:x}", fault_addr, vcpu_ctx.host_ctx.hyp_regs.uepc);
             }
 
+            //unsafe {
+            //    if 0x10000244 <= fault_addr &&
+            //        fault_addr < 0x10000250 {
+            //            prev_cause = if vcpu_ctx.host_ctx.hyp_regs.ucause ==
+            //                EXC_LOAD_GUEST_PAGE_FAULT { 0 } else { 1 };
+            //    } else if 0x10000250 <= fault_addr &&
+            //        fault_addr < 0x10000260 {
+            //            prev_cause = if vcpu_ctx.host_ctx.hyp_regs.ucause ==
+            //                EXC_LOAD_GUEST_PAGE_FAULT { 2 } else { 3 };
+            //    } else if 0x10000260 <= fault_addr &&
+            //        fault_addr < 0x10000264 {
+            //            prev_cause = if vcpu_ctx.host_ctx.hyp_regs.ucause ==
+            //                EXC_LOAD_GUEST_PAGE_FAULT { 4 } else { 5 };
+            //    } else if 0x10000264 <= fault_addr &&
+            //        fault_addr < 0x10000400 {
+            //            prev_cause = if vcpu_ctx.host_ctx.hyp_regs.ucause ==
+            //                EXC_LOAD_GUEST_PAGE_FAULT { 6 } else { 7 };
+            //    }
+            //}
             ret = self.handle_mmio(fault_addr, vcpu_ctx);
 
             return ret;
@@ -881,6 +900,7 @@ impl VirtualCpu {
                 if 0 <= prev_cause && prev_cause < 8 {
                     SharedStat::add_total_cnt(cur_time - exit_time);
                     SharedStat::add_cnt(prev_cause as usize, cur_time - exit_time);
+                    //prev_cause = 8;
                 }
                 //let huvip = csrr!(HUVIP);
                 //if SharedStat::get_debug_flag() &&

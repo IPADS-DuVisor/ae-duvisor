@@ -123,31 +123,31 @@ impl SharedStat {
                 \t\t {} {} {} {}\n \
                 \t\t cnt {} {} {} {}\n \
                 \t\t {} {} {} {}",
-                total_time, total_cnt, total_time / total_cnt, NO_AVAIL_CNT,
+                total_time, total_cnt, total_time / (total_cnt + 1), NO_AVAIL_CNT,
                 ucause_time[0], ucause_time[1], ucause_time[2], ucause_time[3],
                 ucause_time[4], ucause_time[5], ucause_time[6], ucause_time[7],
                 ucause_cnt[0], ucause_cnt[1], ucause_cnt[2], ucause_cnt[3],
                 ucause_cnt[4], ucause_cnt[5], ucause_cnt[6], ucause_cnt[7]);
-            println!("\t VIPI sender {} {} {} {} \n \
-                \t\t {} {} {} {}",
-                SharedStat::get_shared_mem(110020),
-                SharedStat::get_shared_mem(110021),
-                SharedStat::get_shared_mem(110022),
-                SharedStat::get_shared_mem(110023),
-                SharedStat::get_shared_mem(110024),
-                SharedStat::get_shared_mem(110025),
-                SharedStat::get_shared_mem(110026),
-                SharedStat::get_shared_mem(110027));
-            println!("\t receiver {} {} {} {} \n \
-                \t\t {} {} {} {}",
-                SharedStat::get_shared_mem(32 + 0),
-                SharedStat::get_shared_mem(32 + 1),
-                SharedStat::get_shared_mem(32 + 2),
-                SharedStat::get_shared_mem(32 + 3),
-                SharedStat::get_shared_mem(32 + 4),
-                SharedStat::get_shared_mem(32 + 5),
-                SharedStat::get_shared_mem(32 + 6),
-                SharedStat::get_shared_mem(32 + 7));
+            //println!("\t VIPI sender {} {} {} {} \n \
+            //    \t\t {} {} {} {}",
+            //    SharedStat::get_shared_mem(110020),
+            //    SharedStat::get_shared_mem(110021),
+            //    SharedStat::get_shared_mem(110022),
+            //    SharedStat::get_shared_mem(110023),
+            //    SharedStat::get_shared_mem(110024),
+            //    SharedStat::get_shared_mem(110025),
+            //    SharedStat::get_shared_mem(110026),
+            //    SharedStat::get_shared_mem(110027));
+            //println!("\t receiver {} {} {} {} \n \
+            //    \t\t {} {} {} {}",
+            //    SharedStat::get_shared_mem(32 + 0),
+            //    SharedStat::get_shared_mem(32 + 1),
+            //    SharedStat::get_shared_mem(32 + 2),
+            //    SharedStat::get_shared_mem(32 + 3),
+            //    SharedStat::get_shared_mem(32 + 4),
+            //    SharedStat::get_shared_mem(32 + 5),
+            //    SharedStat::get_shared_mem(32 + 6),
+            //    SharedStat::get_shared_mem(32 + 7));
             //println!("\t block READ cnt {} time {} len {} avg {}",
             //    SharedStat::get_shared_mem(110005), SharedStat::get_shared_mem(110006),
             //    SharedStat::get_shared_mem(110007),
@@ -204,18 +204,18 @@ impl SharedStat {
         unsafe {
             total_time = 0;
             total_cnt = 0;
-            irq_resp_cnt = 0;
-            irq_resp_time = 0;
+            //irq_resp_cnt = 0;
+            //irq_resp_time = 0;
             NO_AVAIL_CNT = 0;
             for i in 0..12 {
                 ucause_time[i] = 0;
                 ucause_cnt[i] = 0;
             }
-            PRODUCER_IDX = 0;
-            CONSUMER_IDX = 1;
-            for i in 0..131072 {
-                SharedStat::set_shared_mem(i, 0);
-            }
+            //PRODUCER_IDX = 0;
+            //CONSUMER_IDX = 1;
+            //for i in 0..131072 {
+            //    SharedStat::set_shared_mem(i, 0);
+            //}
             asm!("fence iorw, iorw");
         }
     }
