@@ -415,10 +415,9 @@ impl VirtualCpu {
             self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data,
                 false);
         } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
-            SharedStat::mid_stat(); // 2
-            //data = self.console.lock().unwrap().
-            //    load_emulation(fault_addr, 
-            //        &self.irqchip.get().unwrap()) as u32;
+            data = self.console.lock().unwrap().
+                load_emulation(fault_addr, 
+                    &self.irqchip.get().unwrap()) as u32;
         } else {
             let slice = &mut data.to_le_bytes();
             if self.mmio_bus.read().unwrap().read(fault_addr, slice) {
@@ -458,7 +457,6 @@ impl VirtualCpu {
         let mut inst_len: u64 = 0;
         let ret: i32;
 
-        SharedStat::mid_stat(); // 1
         if hutinst == 0x0 {
             /* The implementation has not support the function of hutinst */
             inst = self.get_vm_inst_by_uepc(true, vcpu_ctx);
@@ -609,6 +607,7 @@ impl VirtualCpu {
                             fault_addr);
                     }
                 } else {
+                    SharedStat::mid_stat(); // 1
                     /* Fault gpa is already in a gpa_block and it is valid */
                     let (_fault_hva, fault_hpa) = fault_addr_query.unwrap();
                     let flag: u64 = PTE_VRWEU;
@@ -616,6 +615,7 @@ impl VirtualCpu {
                     dbgprintln!("map gpa: {:x} to hpa: {:x}",
                         fault_addr, fault_hpa);
 
+                    SharedStat::mid_stat(); // 2
                     #[cfg(feature = "qemu")]
                     gsmmu.map_page(fault_addr, fault_hpa, flag);
 
@@ -623,6 +623,7 @@ impl VirtualCpu {
                     gsmmu.map_page(fault_addr, fault_hpa, flag | PTE_ACCESS
                         | PTE_DIRTY);
 
+                    SharedStat::mid_stat(); // 3
                     ret = 0;
                 }
             }
@@ -853,6 +854,7 @@ impl VirtualCpu {
             unsafe {
                 if cause == EXC_LOAD_GUEST_PAGE_FAULT {
                     SharedStat::end_stat(); // 4
+                    cause = 0;
                 }
 
                 enter_guest(vcpu_ctx_ptr_u64);
