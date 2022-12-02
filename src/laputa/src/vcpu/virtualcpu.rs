@@ -415,9 +415,10 @@ impl VirtualCpu {
             self.irqchip.get().unwrap().mmio_callback(fault_addr, &mut data,
                 false);
         } else if fault_addr >= 0x3f8 && fault_addr < 0x400 { /* TtyS0-3F8 */
-            data = self.console.lock().unwrap().
-                load_emulation(fault_addr, 
-                    &self.irqchip.get().unwrap()) as u32;
+            SharedStat::mid_stat(); // 2
+            //data = self.console.lock().unwrap().
+            //    load_emulation(fault_addr, 
+            //        &self.irqchip.get().unwrap()) as u32;
         } else {
             let slice = &mut data.to_le_bytes();
             if self.mmio_bus.read().unwrap().read(fault_addr, slice) {
@@ -457,6 +458,7 @@ impl VirtualCpu {
         let mut inst_len: u64 = 0;
         let ret: i32;
 
+        SharedStat::mid_stat(); // 1
         if hutinst == 0x0 {
             /* The implementation has not support the function of hutinst */
             inst = self.get_vm_inst_by_uepc(true, vcpu_ctx);
@@ -494,6 +496,7 @@ impl VirtualCpu {
         let utval = vcpu_ctx.host_ctx.hyp_regs.utval;
         let mut fault_addr = (hutval << 2) | (utval & 0x3);
         let mut ret;
+        SharedStat::mid_stat(); // 0
         let mut gsmmu = self.vm.gsmmu.lock().unwrap();
 
         dbgprintln!(
@@ -533,26 +536,6 @@ impl VirtualCpu {
             if !mmio_check {
                 panic!("Invalid gpa! flt addr: 0x{:x}, uepc: 0x{:x}", fault_addr, vcpu_ctx.host_ctx.hyp_regs.uepc);
             }
-
-            //unsafe {
-            //    if 0x10000244 <= fault_addr &&
-            //        fault_addr < 0x10000250 {
-            //            prev_cause = if vcpu_ctx.host_ctx.hyp_regs.ucause ==
-            //                EXC_LOAD_GUEST_PAGE_FAULT { 0 } else { 1 };
-            //    } else if 0x10000250 <= fault_addr &&
-            //        fault_addr < 0x10000260 {
-            //            prev_cause = if vcpu_ctx.host_ctx.hyp_regs.ucause ==
-            //                EXC_LOAD_GUEST_PAGE_FAULT { 2 } else { 3 };
-            //    } else if 0x10000260 <= fault_addr &&
-            //        fault_addr < 0x10000264 {
-            //            prev_cause = if vcpu_ctx.host_ctx.hyp_regs.ucause ==
-            //                EXC_LOAD_GUEST_PAGE_FAULT { 4 } else { 5 };
-            //    } else if 0x10000264 <= fault_addr &&
-            //        fault_addr < 0x10000400 {
-            //            prev_cause = if vcpu_ctx.host_ctx.hyp_regs.ucause ==
-            //                EXC_LOAD_GUEST_PAGE_FAULT { 6 } else { 7 };
-            //    }
-            //}
             ret = self.handle_mmio(fault_addr, vcpu_ctx);
 
             return ret;
@@ -740,35 +723,6 @@ impl VirtualCpu {
         let mut ret: i32 = -1;
         let ucause = vcpu_ctx.host_ctx.hyp_regs.ucause;
 
-        static mut vcpu0_cnt: u64 = 0;
-        static mut vcpu1_cnt: u64 = 0;
-        static mut vcpu2_cnt: u64 = 0;
-        static mut vcpu3_cnt: u64 = 0;
-
-        unsafe {
-            if self.vcpu_id == 0 {
-                vcpu0_cnt += 1;
-                if vcpu0_cnt % 20000 == 0 {
-                    //println!("vcpu-0 live {}", vcpu0_cnt);
-                }
-            } else if self.vcpu_id == 1 {
-                vcpu1_cnt += 1;
-                if vcpu1_cnt % 20000 == 0 {
-                    //println!("vcpu-1 live {}", vcpu1_cnt);
-                }
-            } else if self.vcpu_id == 2 {
-                vcpu2_cnt += 1;
-                if vcpu2_cnt % 20000 == 0 {
-                    //println!("vcpu-2 live {}", vcpu2_cnt);
-                }
-            } else if self.vcpu_id == 3 {
-                vcpu3_cnt += 1;
-                if vcpu3_cnt % 20000 == 0 {
-                    //println!("vcpu-3 live {}", vcpu3_cnt);
-                }
-            }
-        }
-        
         if (ucause & EXC_IRQ_MASK) != 0 {
             self.exit_reason.store(ExitReason::ExitIntr, Ordering::SeqCst);
             let ucause = ucause & (!EXC_IRQ_MASK);
@@ -872,72 +826,40 @@ impl VirtualCpu {
         vcpu_ctx_ptr = &*vcpu_ctx as *const VcpuCtx;
         vcpu_ctx_ptr_u64 = vcpu_ctx_ptr as u64;
         
+        let mut cause: u64 = 0;
         let mut ret: i32 = 0;
         while ret == 0 || ret == 0x100 {
             //if self.vcpu_id == 0 {
             //    /* Insert or clear tty irq on each vtimer irq */
             //    self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
             //}
-            if (self.vcpu_id == 0) && (ret == 0) {
-                //println!("TTY update!");
-                /* Insert or clear tty irq on each vtimer irq */
-                self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
-            } else {
-                //println!("skip for u timer");
-                unsafe {
-                    //libc::ioctl(fd, 0x6b10); // Output the VS* csrs.
-                    libc::ioctl(fd, 0x6b1010); // Clear pending with NULL ioctl.
-                    //libc::ioctl(fd, 0x80086b0d, 0x100); // claim tty
-                }
-            }
+            //if (self.vcpu_id == 0) && (ret == 0) {
+            //    //println!("TTY update!");
+            //    /* Insert or clear tty irq on each vtimer irq */
+            //    self.console.lock().unwrap().update_recv(&self.irqchip.get().unwrap());
+            //} else {
+            //    //println!("skip for u timer");
+            //    unsafe {
+            //        //libc::ioctl(fd, 0x6b10); // Output the VS* csrs.
+            //        libc::ioctl(fd, 0x6b1010); // Clear pending with NULL ioctl.
+            //        //libc::ioctl(fd, 0x80086b0d, 0x100); // claim tty
+            //    }
+            //}
 
             /* Flush pending irqs into HUVIP */
             self.virq.flush_pending_irq();
 
             self.is_running.store(1, Ordering::SeqCst);
             unsafe {
-                let cur_time = csrr!(TIME) as usize;
-                if 0 <= prev_cause && prev_cause < 8 {
-                    SharedStat::add_total_cnt(cur_time - exit_time);
-                    SharedStat::add_cnt(prev_cause as usize, cur_time - exit_time);
-                    //prev_cause = 8;
+                if cause == EXC_LOAD_GUEST_PAGE_FAULT {
+                    SharedStat::end_stat(); // 4
                 }
-                //let huvip = csrr!(HUVIP);
-                //if SharedStat::get_debug_flag() &&
-                //    (huvip >> IRQ_VS_EXT) & 0x1 == 0x1 {
-                //    SharedStat::get_rx_pkt();
-                //}
-                
+
                 enter_guest(vcpu_ctx_ptr_u64);
                 
-                let cause = vcpu_ctx.host_ctx.hyp_regs.ucause;
-                exit_time = csrr!(TIME) as usize;
-                match cause {
-                    EXC_VIRTUAL_INST_FAULT => {
-                        prev_cause = 1;
-                    }
-                    EXC_INST_GUEST_PAGE_FAULT => {
-                        prev_cause = 2;
-                    }
-                    EXC_LOAD_GUEST_PAGE_FAULT => {
-                        prev_cause = 3;
-                    }
-                    EXC_STORE_GUEST_PAGE_FAULT => {
-                        prev_cause = 4;
-                    }
-                    EXC_VIRTUAL_SUPERVISOR_SYSCALL => {
-                        prev_cause = 5;
-                    }
-                    _ => {
-                        let hwirq = cause & (!EXC_IRQ_MASK);
-                        if hwirq == IRQ_U_SOFT {
-                            prev_cause = 6;
-                        } else if hwirq == IRQ_U_TIMER {
-                            prev_cause = 7;
-                        } else {
-                            prev_cause = 0;
-                        } 
-                    }
+                cause = vcpu_ctx.host_ctx.hyp_regs.ucause;
+                if cause == EXC_LOAD_GUEST_PAGE_FAULT {
+                    SharedStat::init_stat();
                 }
             }
             self.is_running.store(0, Ordering::SeqCst);

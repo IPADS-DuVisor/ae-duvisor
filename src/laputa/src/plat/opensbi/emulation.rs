@@ -15,6 +15,8 @@ use std::{thread, time};
 use crate::irq::vipi::VirtualIpi;
 use std::io::{self, Write};
 
+use irq_util::SharedStat;
+
 #[cfg(test)]
 use crate::irq::vipi::tests::TEST_SUCCESS_CNT;
 
@@ -137,6 +139,18 @@ impl Ecall {
         let ret: i32;
 
         match ext_id {
+            SBI_TEST_TIMING_START => {
+                SharedStat::start_breakdown();
+                ret = 0;
+            },
+            SBI_TEST_TIMING_END => {
+                SharedStat::end_breakdown();
+                ret = 0;
+            },
+            SBI_TEST_LOCAL_SBI => {
+                println!("ALL TEST DONE\n");
+                ret = 0;
+            },
             SBI_DEBUG_NEW_VIPI => {
                 //println!("I am vcpu {}, args {} {} {}", vcpu.vcpu_id, self.arg[0], self.arg[1], self.arg[3]);
                 ret = 0;

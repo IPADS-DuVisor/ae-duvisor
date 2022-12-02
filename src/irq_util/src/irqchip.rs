@@ -21,9 +21,63 @@ static mut DEBUG_FLAG: bool = false;
 static mut PRODUCER_IDX: usize = 0;
 static mut CONSUMER_IDX: usize = 1;
 
+static mut prev_cycle: [usize; 12] = [0; 12];
+static mut step_cycle: [usize; 12] = [0; 12];
+static mut cur_step: usize = 0;
+static mut nr_exit: usize = 0;
+
 pub struct SharedStat {}
 
 impl SharedStat {
+    pub fn init_stat() {
+        unsafe {
+            cur_step = 0;
+            let cur_cycle: usize;
+            asm!("csrr {}, 0xC00", out(reg) cur_cycle);
+            prev_cycle[cur_step] = cur_cycle;
+        }
+    }
+
+    pub fn mid_stat() {
+        unsafe {
+            let mut cur_cycle: usize;
+            asm!("csrr {}, 0xC00", out(reg) cur_cycle);
+            step_cycle[cur_step] += cur_cycle - prev_cycle[cur_step];
+            cur_step += 1;
+            asm!("csrr {}, 0xC00", out(reg) cur_cycle);
+            prev_cycle[cur_step] = cur_cycle;
+        }
+    }
+
+    pub fn end_stat() {
+        unsafe {
+            let mut cur_cycle: usize;
+            asm!("csrr {}, 0xC00", out(reg) cur_cycle);
+            step_cycle[cur_step] += cur_cycle - prev_cycle[cur_step];
+            nr_exit += 1;
+        }
+    }
+
+    pub fn start_breakdown() {
+        unsafe {
+            println!("+++ start_breakdown");
+            nr_exit = 0;
+            for i in 0..12 {
+                step_cycle[i] = 0;
+                prev_cycle[i] = 0;
+            }
+        }
+    }
+
+    pub fn end_breakdown() {
+        unsafe {
+            println!("--- end_breakdown nr_exit {}", nr_exit);
+            for i in 0..12 {
+                println!("{}\t{}", i, step_cycle[i]);
+            }
+        }
+    }
+
     pub fn set_debug_flag(val: bool) {
         unsafe {
             DEBUG_FLAG = val;
