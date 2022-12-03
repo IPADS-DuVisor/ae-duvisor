@@ -494,7 +494,6 @@ impl VirtualCpu {
         let utval = vcpu_ctx.host_ctx.hyp_regs.utval;
         let mut fault_addr = (hutval << 2) | (utval & 0x3);
         let mut ret;
-        SharedStat::mid_stat(); // 0
         let mut gsmmu = self.vm.gsmmu.lock().unwrap();
 
         dbgprintln!(
@@ -607,7 +606,6 @@ impl VirtualCpu {
                             fault_addr);
                     }
                 } else {
-                    SharedStat::mid_stat(); // 1
                     /* Fault gpa is already in a gpa_block and it is valid */
                     let (_fault_hva, fault_hpa) = fault_addr_query.unwrap();
                     let flag: u64 = PTE_VRWEU;
@@ -615,7 +613,6 @@ impl VirtualCpu {
                     dbgprintln!("map gpa: {:x} to hpa: {:x}",
                         fault_addr, fault_hpa);
 
-                    SharedStat::mid_stat(); // 2
                     #[cfg(feature = "qemu")]
                     gsmmu.map_page(fault_addr, fault_hpa, flag);
 
@@ -623,7 +620,6 @@ impl VirtualCpu {
                     gsmmu.map_page(fault_addr, fault_hpa, flag | PTE_ACCESS
                         | PTE_DIRTY);
 
-                    SharedStat::mid_stat(); // 3
                     ret = 0;
                 }
             }
@@ -669,7 +665,7 @@ impl VirtualCpu {
         
             return ret as i32;
         }
-        
+
         let mut target_ecall = opensbi::emulation::Ecall::new();
         target_ecall.ext_id = a7;
         target_ecall.func_id = a6;
@@ -684,6 +680,10 @@ impl VirtualCpu {
 
         /* Part of SBIs should emulated via IOCTL */
         let fd = self.vm.ioctl_fd as i32;
+        
+        if a7 == 0xC200002 {
+            SharedStat::mid_stat(); // 0
+        }
         ret = target_ecall.ecall_handler(fd, &self);
 
         /* Save the result */
@@ -693,6 +693,10 @@ impl VirtualCpu {
         /* Add uepc to start vm on next instruction */
         vcpu_ctx.host_ctx.hyp_regs.uepc += 4;
 
+        if a7 == 0xC200002 {
+            SharedStat::mid_stat(); // 1
+        }
+        
         ret
     }
 
@@ -852,15 +856,17 @@ impl VirtualCpu {
 
             self.is_running.store(1, Ordering::SeqCst);
             unsafe {
-                if cause == EXC_LOAD_GUEST_PAGE_FAULT {
-                    SharedStat::end_stat(); // 4
+                if cause == EXC_VIRTUAL_SUPERVISOR_SYSCALL &&
+                    vcpu_ctx.guest_ctx.gp_regs.x_reg[17] == 0xC200002 {
+                    SharedStat::end_stat(); // 2
                     cause = 0;
                 }
 
                 enter_guest(vcpu_ctx_ptr_u64);
                 
                 cause = vcpu_ctx.host_ctx.hyp_regs.ucause;
-                if cause == EXC_LOAD_GUEST_PAGE_FAULT {
+                if cause == EXC_VIRTUAL_SUPERVISOR_SYSCALL &&
+                    vcpu_ctx.guest_ctx.gp_regs.x_reg[17] == 0xC200002 {
                     SharedStat::init_stat();
                 }
             }

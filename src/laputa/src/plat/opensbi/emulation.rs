@@ -148,7 +148,6 @@ impl Ecall {
                 ret = 0;
             },
             SBI_TEST_LOCAL_SBI => {
-                println!("ALL TEST DONE\n");
                 ret = 0;
             },
             SBI_DEBUG_NEW_VIPI => {
