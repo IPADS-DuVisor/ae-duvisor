@@ -1,0 +1,15 @@
+#!/usr/bin/expect -f
+set timeout -1
+
+set env(TERM) xterm-256color
+set env(SHELL) /bin/bash
+set env(SHLVL) 2
+set env(SUDO_COMMAND) /bin/bash
+
+spawn bash -c "screen -e^bb -r workload"
+
+send "cd ~/firesim && source sourceme-f1-manager.sh && cd - && firesim runworkload\n"
+
+expect "simulations are still running"
+
+puts "Workload started"

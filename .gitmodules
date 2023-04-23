@@ -1,0 +1,15 @@
+[submodule "qemu-laputa"]
+	path = qemu-laputa
+	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/qemu-laputa.git
+[submodule "linux-laputa"]
+	path = linux-laputa
+	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/linux-laputa.git
+[submodule "opensbi-laputa"]
+	path = opensbi-laputa
+	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/opensbi-laputa.git
+[submodule "test-files-laputa"]
+	path = test-files-laputa
+	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/test-files-laputa.git
+[submodule "linux-kvm"]
+	path = linux-kvm
+	url = https://ipads.se.sjtu.edu.cn:1312/virtualization/linux-kvm

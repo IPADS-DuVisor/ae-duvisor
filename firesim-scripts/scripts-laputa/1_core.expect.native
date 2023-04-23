@@ -1,0 +1,247 @@
+#!/usr/bin/expect
+
+set timeout -1
+
+set env(TERM) xterm-256color
+set env(SHELL) /bin/bash
+set env(SHLVL) 2
+set env(SUDO_COMMAND) /bin/bash
+set HOST "172.16.0.2"
+set FPGA "192.168.0.80"
+set kvm_or_laputa [lindex $argv 0]
+set TIMES 5
+set CPU_MASK 0x8
+
+if {$kvm_or_laputa == "laputa"} {
+    set HOST_NET "host_net_ulh.sh"
+} else {
+    set HOST_NET "host_net.sh"
+}
+
+spawn bash -c "ssh $FPGA"
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+
+expect {
+    "buildroot login" {
+	puts "start login"
+    	send "root\n"
+	exp_continue
+    }
+
+    "Password:" {
+	send "firesim\n"
+	expect {
+		"#" {
+			send "cd / &&  mount ubuntu-vdisk.img root && chroot root bash\n"
+			expect  "root@buildroot:"
+			send "./mount_dev.sh && ./prepare_kill.sh && ./${HOST_NET}\n"
+	
+			expect "#"
+			send "mount blk-dev.img root && chroot root bash\n"
+
+			expect "#"
+			send "\n"
+			
+			expect "#"
+			send "./mount_dev.sh \n"
+                        
+			expect "#"
+			send "taskset -a $CPU_MASK ./netserver \n"
+
+			expect "#"
+                        send "taskset -a $CPU_MASK ./iperf3 -s & \n"
+
+			expect "Server listening"
+			send "\x01"; send "d"
+   		}
+   	}
+    }
+}
+
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+
+expect {
+    "buildroot login" {
+    	send "root\n"
+	exp_continue
+    }
+
+    "Password:" {
+	send "firesim\n"
+	expect {
+		"#" {
+   		 	send "cd / &&  mount ubuntu-vdisk.img root && chroot root \n"
+   		 	expect "root@buildroot:"
+
+   		 	send "mount blk-dev.img root && chroot root \n"
+   		 	expect "root@buildroot:"
+
+                        send "./iperf3 -c $HOST  && echo k  1\n"
+                        expect "k 1"
+                        
+                        send "./iperf3 -c $HOST  && echo k  2\n"
+                        expect "k 2"
+                        
+                        send "./iperf3 -c $HOST  && echo k  3\n"
+                        expect "k 3"
+                        
+                        send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo k  4\n"
+                        expect "k 4"
+
+			send "\x01"; send "d"
+		}
+	}
+    }
+}
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+
+expect "Server listening" {
+    send "\n"
+        send "killall iperf3 \n"
+        send "\n"
+        send "killall netserver \n"
+        send "\n"
+        send "clear \n"
+        send "\n"
+}
+	
+expect {
+        "#" {
+		send "taskset -a $CPU_MASK ./memcached_server.sh && echo a  c\n"
+		expect "a c" 
+		send "echo 'Hello Memcached' | tr a-z A-Z\n"
+		expect {
+			"HELLO MEMCACHED" {
+				send "\x01"; send "d"
+			}
+		}
+    }	
+
+}
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+expect {
+    "root@buildroot:" {
+        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+        expect "BYE MEMCACHED"
+	send "\x01"; send "d"
+    }	
+}
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+
+expect {
+    "#" {
+    	send "./memcached_kill.sh && echo a  d\n" 
+        expect "a d"
+        
+        send "TIMES=$TIMES taskset -a $CPU_MASK ./sysbench_io_run.sh && echo a  i\n"
+        expect "a i"
+        
+        send "TIMES=$TIMES taskset -a $CPU_MASK ./hackbench.sh && echo a  g\n"
+        expect "a g"
+
+        send "TIMES=$TIMES taskset -a $CPU_MASK ./untar_large.sh && echo a  h\n"
+        expect {
+            "a h" {
+
+            }
+            "display a backtrace" {
+
+            }
+        }
+		send "\x01"; send "d"
+    }
+
+}
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+expect {
+    "root@buildroot:" {
+    	send "exit\n"
+    	expect "root@buildroot:"
+    
+    	send "exit\n"
+    	expect "#"
+    
+    	send "poweroff -f\n"
+    }	
+}
+#expect {
+#	"centos@ip" {
+#		send "screen -r fsim0\n"
+#	}
+#}
+#
+#expect {
+#    "#" {
+#	send "./memcached_kill.sh && echo a  d\n" 
+#	expect "a d"
+#	send "mkdir -p /var/run/mysqld && echo a  e\n"
+#	expect "a e" 
+#	send "chown mysql:mysql /var/run/mysqld && echo a  f\n"
+#	expect "a f"
+#	send "./mysql_server.sh && echo a  g \n"
+#	expect "a g"
+#	send "echo 'hello mysql' | tr a-z A-Z \n"
+#	expect {
+#		"HELLO MYSQL" {
+#			send "\x01"; send "d"
+#		}
+#	}
+#    }	
+#}
+#
+#expect {
+#	"centos@ip" {
+#		send "screen -r fsim1\n"
+#	}
+#}
+#
+#
+#expect {
+#    "root@buildroot:" {
+#	send "HOST=$HOST ./sysbench_client.sh && echo 'bye mysql | tr a-z A-Z'\n"
+#	expect "BYE MYSQL" 
+#	
+#	send "exit\n"
+#	expect "root@buildroot:"
+#
+#	send "exit\n"
+#	expect "#"
+#
+#	send "poweroff -f\n"
+#    }	
+#}
+#interact
+puts "Test OK"

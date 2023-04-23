@@ -1,0 +1,29 @@
+#!/usr/bin/expect -f
+source [file join [file dirname $argv0] ./laputa_test_main.tcl]
+
+set timeout 180
+
+# set args_for_laputa_test [lindex $argv 0];
+
+spawn bash -c "./scripts/local/boot.sh -s -S"
+
+
+expect {
+    "Please press Enter to activate this console" {
+        send "\n ./chroot.sh \n
+        mount -t proc proc /proc \n
+        mount -t sysfs sysfs /sys \n
+        mount -t devtmpfs devtmpfs /dev \n"
+  #      echo 5 > /proc/sys/kernel/printk \n"
+        exp_continue
+    }
+
+    "root@(none)" {
+        send "cd laputa && ./run_tests.sh $argv\n"
+    }
+    timeout {
+        exit -1
+    }
+}
+
+interact

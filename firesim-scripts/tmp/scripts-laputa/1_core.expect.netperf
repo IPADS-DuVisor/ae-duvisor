@@ -1,0 +1,299 @@
+#!/usr/bin/expect
+
+set timeout -1
+
+set env(TERM) xterm-256color
+set env(SHELL) /bin/bash
+set env(SHLVL) 2
+set env(SUDO_COMMAND) /bin/bash
+set HOST "172.16.0.4"
+set FPGA "192.168.0.80"
+set kvm_or_laputa [lindex $argv 0]
+set TIMES 5
+
+if {$kvm_or_laputa == "laputa"} {
+    set HOST_NET "host_net_ulh.sh"
+} else {
+    set HOST_NET "host_net.sh"
+}
+
+spawn bash -c "ssh $FPGA"
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+
+expect {
+    "buildroot login" {
+	puts "start login"
+    	send "root\n"
+	exp_continue
+    }
+
+    "Password:" {
+	send "firesim\n"
+	expect {
+		"#" {
+			send "cd / &&  mount ubuntu-vdisk.img root && chroot root bash\n"
+			expect  "root@buildroot:"
+			
+			send "./mount_dev.sh && ./prepare_kill.sh && ./${HOST_NET} && ./${kvm_or_laputa}_linux.sh \n"
+			expect "Please press Enter to activate this console"
+			send "\n"	
+	
+			expect "#"
+			send "mount /dev/vda root && chroot root bash\n"
+                        
+                        expect "#"
+                        send "env TERM=vt1000 bash \n"
+
+                        expect "#"
+                        send "\n"
+                        
+#                        expect "#"
+#                        send "insmod toy.ko && rmmod toy \n"
+#                        
+#                        expect "iter 800000"
+#                        send "\n"
+#                        send "\n"
+                        
+                        expect "#"
+                        send "\n"
+                        send "\n"
+
+			expect "#"
+			send "./mount_dev.sh \n"
+			
+                        expect "#"
+                        send "\n"
+                        
+                        expect "#"
+			send "./guest_net.sh \n"
+
+                        expect "#"
+                        send "\n"
+                        send "\n"
+                        
+                        expect "#"
+                        send "./netserver.sh && echo 'netperf' | tr a-z A-Z\n"
+                        
+                        expect "NETPERF"
+                        send "\x01"; send "d"
+   		}
+   	}
+    }
+}
+
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+
+expect {
+    "buildroot login" {
+    	send "root\n"
+	exp_continue
+    }
+
+    "Password:" {
+	send "firesim\n"
+	expect {
+		"#" {
+   		 	send "cd / &&  mount ubuntu-vdisk.img root && chroot root \n"
+   		 	expect "root@buildroot:"
+
+   		 	send "mount blk-dev.img root && chroot root \n"
+   		 	expect "root@buildroot:"
+                        
+                        send "HOST=$HOST TIMES=$TIMES ./netperf.sh && echo 'bye apache' | tr a-z A-Z\n"
+                        expect "BYE APACHE"
+                        send "\x01"; send "d"
+                }
+        }
+    }
+}
+
+#expect {
+#    "centos@ip" {
+#        send "screen -r fsim0\n"
+#    }
+#}
+#
+#expect "#"
+#            send "\n"
+#            send "\n"
+#            send "\n"
+#        
+#        expect "#" {
+#                send "rm -f /var/run/apache2/apache2.pid && echo a  2\n"
+#		expect "a 2" 
+#                
+#                send "./memcached_server.sh && echo a  c\n"
+#                expect "a c" 
+#                
+#                send "echo 'Hello Memcached' | tr a-z A-Z\n"
+#                expect {
+#                    "HELLO MEMCACHED" {
+#                        send "\x01"; send "d"
+#                    }
+#                }
+#        }	
+#
+#
+#expect {
+#	"centos@ip" {
+#		send "screen -r fsim1\n"
+#	}
+#}
+#expect {
+#    "#" {
+#            send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+#            expect "BYE MEMCACHED"
+#
+#            send "\x01"; send "d"
+#    }	
+#}
+
+expect {
+	"centos@ip" {
+		send "\n"
+		send "\n"
+                expect "centos@ip"
+		
+                send "screen -r fsim0\n"
+	}
+}
+expect {
+        "#" {
+#		send "./apache_kill.sh && echo a  b\n"
+#		expect "a b"
+		send "./memcached_server.sh && echo a  c\n"
+		expect "a c" 
+		send "echo 'Hello Memcached' | tr a-z A-Z\n"
+		expect {
+			"HELLO MEMCACHED" {
+				send "\x01"; send "d"
+			}
+		}
+    }	
+
+}
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+expect {
+    "root@buildroot:" {
+        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+        expect "BYE MEMCACHED"
+	send "\x01"; send "d"
+    }	
+}
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+
+expect {
+    "#" {
+    	send "./memcached_kill.sh && echo a  d\n" 
+	expect "a d"
+        
+        send "TIMES=$TIMES ./hackbench.sh && echo a  g\n"
+        expect "a g"
+        
+        send "TIMES=$TIMES ./sysbench_io_run.sh && echo a  j\n"
+        expect "a j"
+        
+        send "TIMES=$TIMES ./untar_large.sh && echo a  h\n"
+        expect "a h"
+        
+        send "TIMES=$TIMES ./lmbench.sh && echo a  i\n"
+        expect {
+            "a i" {
+
+            }
+            "display a backtrace" {
+
+            }
+        }
+		send "\x01"; send "d"
+    }
+
+}
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+expect {
+    "root@buildroot:" {
+    	send "exit\n"
+    	expect "root@buildroot:"
+    
+    	send "exit\n"
+    	expect "#"
+    
+    	send "poweroff -f\n"
+    }	
+}
+#expect {
+#	"centos@ip" {
+#		send "screen -r fsim0\n"
+#	}
+#}
+#
+#expect {
+#    "#" {
+#	send "./memcached_kill.sh && echo a  d\n" 
+#	expect "a d"
+#	send "mkdir -p /var/run/mysqld && echo a  e\n"
+#	expect "a e" 
+#	send "chown mysql:mysql /var/run/mysqld && echo a  f\n"
+#	expect "a f"
+#	send "./mysql_server.sh && echo a  g \n"
+#	expect "a g"
+#	send "echo 'hello mysql' | tr a-z A-Z \n"
+#	expect {
+#		"HELLO MYSQL" {
+#			send "\x01"; send "d"
+#		}
+#	}
+#    }	
+#}
+#
+#expect {
+#	"centos@ip" {
+#		send "screen -r fsim1\n"
+#	}
+#}
+#
+#
+#expect {
+#    "root@buildroot:" {
+#	send "HOST=$HOST ./sysbench_client.sh && echo 'bye mysql | tr a-z A-Z'\n"
+#	expect "BYE MYSQL" 
+#	
+#	send "exit\n"
+#	expect "root@buildroot:"
+#
+#	send "exit\n"
+#	expect "#"
+#
+#	send "poweroff -f\n"
+#    }	
+#}
+#interact
+puts "Test OK"

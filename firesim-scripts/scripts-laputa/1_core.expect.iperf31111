@@ -1,0 +1,201 @@
+#!/usr/bin/expect
+
+set timeout -1
+
+set env(TERM) xterm-256color
+set env(SHELL) /bin/bash
+set env(SHLVL) 2
+set env(SUDO_COMMAND) /bin/bash
+set HOST "172.16.0.4"
+set FPGA "192.168.0.80"
+set kvm_or_laputa [lindex $argv 0]
+set TIMES 1
+
+if {$kvm_or_laputa == "laputa"} {
+    set HOST_NET "host_net_ulh.sh"
+} else {
+    set HOST_NET "host_net.sh"
+}
+
+spawn bash -c "ssh $FPGA"
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+
+expect {
+    "buildroot login" {
+	puts "start login"
+    	send "root\n"
+	exp_continue
+    }
+
+    "Password:" {
+	send "firesim\n"
+	expect {
+		"#" {
+			send "cd / &&  mount ubuntu-vdisk.img root && chroot root bash\n"
+			expect  "root@buildroot:"
+			
+			send "./mount_dev.sh && ./prepare_kill.sh && ./${HOST_NET} && ./${kvm_or_laputa}_linux.sh \n"
+			#expect "memcached server start"
+            expect "Server listening"
+                    send "\x01"; send "d"
+   		}
+   	}
+    }
+}
+
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+
+expect {
+    "buildroot login" {
+    	send "root\n"
+	exp_continue
+    }
+
+    "Password:" {
+	send "firesim\n"
+	expect {
+		"#" {
+   		 	send "cd / &&  mount ubuntu-vdisk.img root && chroot root \n"
+   		 	expect "root@buildroot:"
+
+   		 	send "mount blk-dev.img root && chroot root \n"
+   		 	expect "root@buildroot:"
+
+                        #send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+                        send "./iperf3 -c $HOST -u -b 100G \n"
+                        #send "./iperf3 -c $HOST \n"
+                        #send "./memtier_benchmark --hide-histogram -s $HOST -p 11211 -P memcache_binary --test-time=5 --threads=4"
+                        expect "BYE MEMCACHED"
+                        #expect "Server listening"
+                        #send "\n"
+
+                        #expect "#"
+   		 	#send "clear \n"
+                        
+                        #expect "#"
+                        send "\x01"; send "d"
+		}
+	}
+    }
+}
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+expect {
+    "#" {
+        send "rmmod debug\n"
+        
+        expect "DEBUG END"
+        send "\n"
+
+        expect "#"
+        send "clear \n"
+        
+        expect "#"
+        send "insmod debug.ko\n"
+
+        expect "DEBUG START"
+        send "\x01"; send "d"
+    }
+}	
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+expect {
+    "#" {
+        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+        expect "BYE MEMCACHED"
+        send "\n"
+
+        expect "#"
+        send "clear \n"
+
+        expect "#"
+	send "\x01"; send "d"
+    }	
+}
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+expect {
+    "#" {
+        send "rmmod debug\n"
+        
+        expect "DEBUG END"
+        send "\n"
+
+        expect "#"
+        send "clear \n"
+        
+        expect "#"
+        send "insmod debug.ko\n"
+
+        expect "DEBUG START"
+        send "\x01"; send "d"
+    }
+}	
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim1\n"
+	}
+}
+expect {
+    "#" {
+        send "HOST=$HOST TIMES=$TIMES ./memcached_client.sh && echo 'bye memcached' | tr a-z A-Z\n"
+        expect "BYE MEMCACHED"
+        send "\n"
+
+        expect "#"
+        send "clear \n"
+
+        expect "#"
+	send "\x01"; send "d"
+    }	
+}
+
+
+expect {
+	"centos@ip" {
+		send "screen -r fsim0\n"
+	}
+}
+expect {
+    "#" {
+        send "rmmod debug\n"
+        
+        expect "DEBUG END"
+        send "\n"
+
+        expect "#"
+        send "clear \n"
+        
+        expect "#"
+        send "\x01"; send "d"
+    }
+}	
+
+
+puts "Test OK"
